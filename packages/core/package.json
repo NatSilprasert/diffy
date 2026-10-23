@@ -12,9 +12,15 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "review-pr": "tsx scripts/review-pr.ts"
   },
   "dependencies": {
-    "@diffy/shared": "workspace:*"
+    "@diffy/shared": "workspace:*",
+    "octokit": "^5.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15"
   }
 }

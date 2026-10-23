@@ -7,3 +7,5 @@ allowBuilds:
   prisma: true
   '@prisma/engines': true
   workerd: false
+  # Usage-analytics postinstall pulled in by Swagger UI; not needed.
+  '@scarf/scarf': false

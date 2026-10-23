@@ -1,22 +1,25 @@
 import { LlmProvider } from '@diffy/shared';
 import {
-  SYSTEM_PROMPT,
-  buildCommentableIndex,
   buildPromptDiff,
-  buildUserPrompt,
   createGithubClient,
-  generateReview,
   getPullRequest,
   listChangedFiles,
-  placeFindings,
-  postReview,
   renderInlineComment,
   renderSummary,
+  reviewPullRequest,
 } from '../src/index.js';
+
+const USAGE = `Usage: review-pr.ts owner/repo#123 [--print-diff] [--dry-run | --print-review | --post]
+         [--provider=openai|anthropic|google|openrouter --model=<id>]   (key in LLM_API_KEY)
+
+  --print-diff     show the annotated diff that would be sent to the LLM
+  --dry-run        call the LLM and print findings as JSON (posts nothing)
+  --print-review   call the LLM and print the markdown that would be posted (posts nothing)
+  --post           call the LLM and post the review to GitHub`;
 
 function parseTarget(arg: string | undefined) {
   const match = arg?.match(/^([\w.-]+)\/([\w.-]+)#(\d+)$/);
-  if (!match) throw new Error('Usage: review-pr.ts owner/repo#123');
+  if (!match) throw new Error(USAGE);
   return { owner: match[1]!, repo: match[2]!, number: Number(match[3]) };
 }
 
@@ -25,14 +28,14 @@ function flag(name: string): string | undefined {
   return arg?.slice(name.length + 3);
 }
 
+const has = (name: string) => process.argv.includes(`--${name}`);
+
 function readLlmConfig() {
   const provider = LlmProvider.safeParse(flag('provider') ?? process.env.LLM_PROVIDER);
   const model = flag('model') ?? process.env.LLM_MODEL;
   const apiKey = process.env.LLM_API_KEY;
   if (!provider.success || !model || !apiKey) {
-    throw new Error(
-      '--dry-run/--print-review/--post need --provider=openai|anthropic|google|openrouter, --model=<id> and LLM_API_KEY in env',
-    );
+    throw new Error('Calling the LLM needs --provider=..., --model=... and LLM_API_KEY in env.\n\n' + USAGE);
   }
   return { provider: provider.data, model, apiKey };
 }
@@ -41,61 +44,69 @@ async function main() {
   const token = process.env.GITHUB_TOKEN;
   if (!token) throw new Error('Set GITHUB_TOKEN');
   const { owner, repo, number } = parseTarget(process.argv[2]);
-  const printDiff = process.argv.includes('--print-diff');
-  const dryRun = process.argv.includes('--dry-run');
-  const printReview = process.argv.includes('--print-review');
-  const post = process.argv.includes('--post');
-  const llmConfig = dryRun || printReview || post ? readLlmConfig() : undefined;
+
+  const post = has('post');
+  const callLlm = post || has('dry-run') || has('print-review');
+  const llm = callLlm ? readLlmConfig() : undefined;
 
   const octokit = createGithubClient(token);
   const pr = await getPullRequest(octokit, owner, repo, number);
-  const files = await listChangedFiles(octokit, owner, repo, number);
 
   console.log(`#${pr.number} ${pr.title}`);
-  console.log(`${pr.url}`);
+  console.log(pr.url);
   console.log(`head ${pr.headSha.slice(0, 7)} | draft=${pr.isDraft} | author=${pr.authorLogin} bot=${pr.authorIsBot}`);
-  console.log(`\n${files.length} changed file(s):`);
-  for (const f of files) {
-    const patch = f.patch === undefined ? 'no patch' : `${f.patch.length} chars`;
-    console.log(`  ${f.status.padEnd(9)} +${f.additions} -${f.deletions}  ${f.path}  (${patch})`);
+
+  if (!llm || has('print-diff')) {
+    const files = await listChangedFiles(octokit, owner, repo, number);
+    console.log(`\n${files.length} changed file(s):`);
+    for (const f of files) {
+      const patch = f.patch === undefined ? 'no patch' : `${f.patch.length} chars`;
+      console.log(`  ${f.status.padEnd(9)} +${f.additions} -${f.deletions}  ${f.path}  (${patch})`);
+    }
+    if (has('print-diff')) {
+      const diff = buildPromptDiff(files);
+      console.log(`\n--- annotated diff (${diff.text.length} chars, ${diff.included.length} file(s)) ---\n`);
+      console.log(diff.text);
+      for (const s of diff.skipped) console.log(`\nskipped: ${s.path} (${s.reason})`);
+    }
   }
 
-  if (printDiff) {
-    const diff = buildPromptDiff(files);
-    console.log(`\n--- annotated diff (${diff.text.length} chars, ${diff.included.length} file(s)) ---\n`);
-    console.log(diff.text);
-    for (const s of diff.skipped) console.log(`\nskipped: ${s.path} (${s.reason})`);
-  }
-  if (llmConfig) {
-    const diff = buildPromptDiff(files);
-    console.log(`\ncalling ${llmConfig.provider}/${llmConfig.model} ...`);
-    const { review, usage } = await generateReview(llmConfig, SYSTEM_PROMPT, buildUserPrompt(pr, diff));
-    const placed = placeFindings(review.findings, buildCommentableIndex(files));
-    const inline = placed.filter((f) => f.placement === 'inline');
-    if (printReview) {
-      console.log('\n===== REVIEW BODY =====\n');
-      console.log(renderSummary({ summary: review.summary, findings: placed, skipped: diff.skipped, model: llmConfig.model, headSha: pr.headSha }));
-      for (const f of inline) {
-        console.log(`\n===== INLINE COMMENT ${f.path}:${f.startLine === null ? '' : `${f.startLine}-`}${f.line} =====\n`);
-        console.log(renderInlineComment(f));
-      }
-    } else {
-      console.log(JSON.stringify({ ...review, findings: placed }, null, 2));
-    }
-    console.log(`\nplacement: ${inline.length} inline, ${placed.length - inline.length} in summary`);
-    console.log(`\ntokens: in=${usage.inputTokens ?? '?'} out=${usage.outputTokens ?? '?'}`);
+  if (!llm) return;
 
-    // Posting is opt-in: the review shows up on GitHub as the token's owner and can't be unsent.
-    if (post) {
-      const posted = await postReview(octokit, {
-        pr,
-        summary: review.summary,
-        findings: placed,
-        skipped: diff.skipped,
-        model: `${llmConfig.provider}/${llmConfig.model}`,
-      });
-      console.log(`\nposted: ${posted.url}${posted.fellBackToSummary ? ' (fell back: all findings in summary)' : ''}`);
+  console.log(`\ncalling ${llm.provider}/${llm.model} ...`);
+  const result = await reviewPullRequest({ octokit, pr, llm, post });
+
+  if (result.outcome === 'nothing-to-review') {
+    console.log('Nothing to review: every changed file was skipped.');
+    for (const s of result.skipped) console.log(`  skipped: ${s.path} (${s.reason})`);
+    return;
+  }
+
+  if (has('print-review')) {
+    console.log('\n===== REVIEW BODY =====\n');
+    console.log(
+      renderSummary({
+        summary: result.summary,
+        findings: result.findings,
+        skipped: result.skipped,
+        model: `${llm.provider}/${llm.model}`,
+        headSha: pr.headSha,
+      }),
+    );
+    for (const f of result.findings.filter((x) => x.placement === 'inline')) {
+      const range = f.startLine === null ? `${f.line}` : `${f.startLine}-${f.line}`;
+      console.log(`\n===== INLINE COMMENT ${f.path}:${range} =====\n`);
+      console.log(renderInlineComment(f));
     }
+  } else {
+    console.log(JSON.stringify({ summary: result.summary, findings: result.findings }, null, 2));
+  }
+
+  const inline = result.findings.filter((f) => f.placement === 'inline').length;
+  console.log(`\nplacement: ${inline} inline, ${result.findings.length - inline} in summary`);
+  console.log(`tokens: in=${result.usage?.inputTokens ?? '?'} out=${result.usage?.outputTokens ?? '?'}`);
+  if (result.githubReviewUrl) {
+    console.log(`\nposted: ${result.githubReviewUrl}${result.fellBackToSummary ? ' (fell back: all findings in summary)' : ''}`);
   }
 }
 

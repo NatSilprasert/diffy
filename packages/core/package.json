@@ -13,7 +13,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "review-pr": "tsx scripts/review-pr.ts"
+    "review-pr": "tsx scripts/review-pr.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@diffy/shared": "workspace:*",
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "vitest": "^3.2.7"
   }
 }

@@ -10,7 +10,7 @@ import {
 } from '../src/index.js';
 
 const USAGE = `Usage: review-pr.ts owner/repo#123 [--print-diff] [--dry-run | --print-review | --post]
-         [--provider=openai|anthropic|google|openrouter --model=<id>]   (key in LLM_API_KEY)
+         [--provider=openai|anthropic|google|openrouter --model=<id>] [--timeout=<seconds>]   (key in LLM_API_KEY)
 
   --print-diff     show the annotated diff that would be sent to the LLM
   --dry-run        call the LLM and print findings as JSON (posts nothing)
@@ -37,7 +37,8 @@ function readLlmConfig() {
   if (!provider.success || !model || !apiKey) {
     throw new Error('Calling the LLM needs --provider=..., --model=... and LLM_API_KEY in env.\n\n' + USAGE);
   }
-  return { provider: provider.data, model, apiKey };
+  const timeoutSeconds = flag('timeout');
+  return { provider: provider.data, model, apiKey, ...(timeoutSeconds ? { timeoutMs: Number(timeoutSeconds) * 1000 } : {}) };
 }
 
 async function main() {
@@ -74,7 +75,9 @@ async function main() {
   if (!llm) return;
 
   console.log(`\ncalling ${llm.provider}/${llm.model} ...`);
+  const startedAt = Date.now();
   const result = await reviewPullRequest({ octokit, pr, llm, post });
+  console.log(`done in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
 
   if (result.outcome === 'nothing-to-review') {
     console.log('Nothing to review: every changed file was skipped.');

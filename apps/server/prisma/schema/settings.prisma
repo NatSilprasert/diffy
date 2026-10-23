@@ -1,0 +1,10 @@
+// Singleton row (id is always 1). Secrets are stored encrypted, never in plain text.
+model Settings {
+  id             Int          @id @default(1)
+  githubTokenEnc String?
+  githubLogin    String?
+  llmProvider    LlmProvider?
+  llmModel       String?
+  llmApiKeyEnc   String?
+  updatedAt      DateTime     @updatedAt
+}

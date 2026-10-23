@@ -1,0 +1,11 @@
+generator client {
+  provider     = "prisma-client"
+  // Relative to this folder, not to prisma/.
+  output       = "../../src/generated/prisma"
+  // The server compiles to CommonJS (NestJS), so the generated client must too.
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}

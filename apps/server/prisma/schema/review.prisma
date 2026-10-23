@@ -1,0 +1,24 @@
+model Review {
+  id              String       @id @default(cuid())
+  repositoryId    String
+  repository      Repository   @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  prNumber        Int
+  prTitle         String
+  prUrl           String
+  headSha         String
+  status          ReviewStatus @default(QUEUED)
+  summary         String?
+  githubReviewUrl String?
+  provider        LlmProvider?
+  model           String?
+  inputTokens     Int?
+  outputTokens    Int?
+  error           String?
+  createdAt       DateTime     @default(now())
+  finishedAt      DateTime?
+  findings        Finding[]
+
+  // "Already reviewed" guard: one review per PR head commit.
+  @@unique([repositoryId, prNumber, headSha])
+  @@index([createdAt])
+}

@@ -1,0 +1,26 @@
+enum LlmProvider {
+  OPENAI
+  ANTHROPIC
+  GOOGLE
+  OPENROUTER
+}
+
+enum ReviewStatus {
+  QUEUED
+  RUNNING
+  POSTED
+  FAILED
+  SKIPPED
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum Placement {
+  INLINE
+  SUMMARY
+}

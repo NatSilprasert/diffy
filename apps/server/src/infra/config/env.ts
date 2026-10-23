@@ -10,6 +10,10 @@ const EncryptionKey = z
   );
 
 export const EnvSchema = z.object({
+  // Runtime connection. DIRECT_URL is only read by the Prisma CLI (prisma.config.ts) for migrations.
+  DATABASE_URL: z
+    .string()
+    .regex(/^postgres(ql)?:\/\//, 'must be a postgresql:// connection string (see .env.example)'),
   ENCRYPTION_KEY: EncryptionKey,
   PORT: z.coerce.number().int().positive().default(3000),
   // No auth in v1, so listen on localhost only unless the user opts out.

@@ -12,10 +12,15 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('api');
-  await app.listen(env.PORT, env.HOST);
-  console.log(`Diffy server listening on http://${env.HOST}:${env.PORT}`);
+  try {
+    const app = await NestFactory.create(AppModule, { abortOnError: false });
+    app.setGlobalPrefix('api');
+    await app.listen(env.PORT, env.HOST);
+    console.log(`Diffy server listening on http://${env.HOST}:${env.PORT}`);
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : err);
+    process.exit(1);
+  }
 }
 
 void bootstrap();

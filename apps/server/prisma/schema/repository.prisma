@@ -1,0 +1,12 @@
+model Repository {
+  id           String    @id @default(cuid())
+  owner        String
+  name         String
+  enabled      Boolean   @default(true)
+  lastPolledAt DateTime?
+  lastError    String?
+  createdAt    DateTime  @default(now())
+  reviews      Review[]
+
+  @@unique([owner, name])
+}

@@ -3,3 +3,5 @@ dist/
 .env
 .next/
 out/
+apps/server/src/generated/
+*.tsbuildinfo

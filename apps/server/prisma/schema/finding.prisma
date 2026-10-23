@@ -1,0 +1,16 @@
+model Finding {
+  id          String    @id @default(cuid())
+  reviewId    String
+  review      Review    @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  severity    Severity
+  placement   Placement
+  path        String
+  startLine   Int?
+  line        Int
+  title       String
+  explanation String
+  fixPrompt   String
+  suggestion  String?
+
+  @@index([reviewId])
+}

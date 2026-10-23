@@ -4,3 +4,6 @@ packages:
 
 allowBuilds:
   esbuild: true
+  prisma: true
+  '@prisma/engines': true
+  workerd: false

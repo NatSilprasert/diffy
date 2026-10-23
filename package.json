@@ -7,7 +7,10 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "dev": "pnpm --filter @diffy/server dev",
+    "db:up": "docker start diffy-db || docker run -d --name diffy-db -e POSTGRES_PASSWORD=postgres -p 127.0.0.1:54322:5432 -v diffy-db-data:/var/lib/postgresql/data postgres:17",
+    "db:down": "docker stop diffy-db"
   },
   "devDependencies": {
     "typescript": "^5.9.0"

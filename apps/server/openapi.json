@@ -1,5 +1,5 @@
 {
-  "openapi": "3.0.0",
+  "openapi": "3.1.0",
   "paths": {
     "/api/health": {
       "get": {
@@ -21,6 +21,27 @@
           "Health"
         ]
       }
+    },
+    "/api/settings": {
+      "get": {
+        "operationId": "getSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSettingsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Settings"
+        ]
+      }
     }
   },
   "info": {
@@ -38,20 +59,78 @@
         "properties": {
           "ok": {
             "type": "boolean",
-            "enum": [
-              true
-            ]
+            "const": true
           },
           "database": {
             "type": "string",
-            "enum": [
-              "up"
-            ]
+            "const": "up"
           }
         },
         "required": [
           "ok",
           "database"
+        ]
+      },
+      "GetSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "github": {
+            "type": "object",
+            "properties": {
+              "configured": {
+                "type": "boolean"
+              },
+              "login": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "configured",
+              "login"
+            ]
+          },
+          "llm": {
+            "type": "object",
+            "properties": {
+              "configured": {
+                "type": "boolean"
+              },
+              "provider": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "openai",
+                      "anthropic",
+                      "google",
+                      "openrouter"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "model": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "configured",
+              "provider",
+              "model"
+            ]
+          }
+        },
+        "required": [
+          "github",
+          "llm"
         ]
       }
     }

@@ -11,4 +11,12 @@ export class SettingsRepository {
   findSingleton() {
     return this.prisma.settings.findUnique({ where: { id: SETTINGS_ID } });
   }
+
+  upsertGithub(data: { githubTokenEnc: string; githubLogin: string }) {
+    return this.prisma.settings.upsert({
+      where: { id: SETTINGS_ID },
+      create: { id: SETTINGS_ID, ...data },
+      update: data,
+    });
+  }
 }

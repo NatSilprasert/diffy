@@ -2,10 +2,11 @@ import { Module } from '@nestjs/common';
 import { SettingsController } from './settings.controller';
 import { SettingsRepository } from './settings.repository';
 import { GetSettingsUsecase } from './usecase/get-settings.usecase';
+import { UpdateGithubSettingsUsecase } from './usecase/update-github-settings.usecase';
 
 @Module({
   controllers: [SettingsController],
-  providers: [SettingsRepository, GetSettingsUsecase],
+  providers: [SettingsRepository, GetSettingsUsecase, UpdateGithubSettingsUsecase],
   // The review worker (Phase E) loads and decrypts the saved credentials through the repository.
   exports: [SettingsRepository],
 })

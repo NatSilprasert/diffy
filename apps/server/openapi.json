@@ -42,6 +42,40 @@
           "Settings"
         ]
       }
+    },
+    "/api/settings/github": {
+      "put": {
+        "operationId": "updateGithubSettings",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGithubSettingsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateGithubSettingsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing token, or GitHub rejected it"
+          }
+        },
+        "tags": [
+          "Settings"
+        ]
+      }
     }
   },
   "info": {
@@ -131,6 +165,29 @@
         "required": [
           "github",
           "llm"
+        ]
+      },
+      "UpdateGithubSettingsRequestDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "UpdateGithubSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "login"
         ]
       }
     }

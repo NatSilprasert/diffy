@@ -76,6 +76,40 @@
           "Settings"
         ]
       }
+    },
+    "/api/settings/llm": {
+      "put": {
+        "operationId": "updateLlmSettings",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLlmSettingsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateLlmSettingsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid provider or model, or an API key is required"
+          }
+        },
+        "tags": [
+          "Settings"
+        ]
+      }
     }
   },
   "info": {
@@ -188,6 +222,52 @@
         },
         "required": [
           "login"
+        ]
+      },
+      "UpdateLlmSettingsRequestDto": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "openai",
+              "anthropic",
+              "google",
+              "openrouter"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "apiKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "model"
+        ]
+      },
+      "UpdateLlmSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "openai",
+              "anthropic",
+              "google",
+              "openrouter"
+            ]
+          },
+          "model": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "model"
         ]
       }
     }

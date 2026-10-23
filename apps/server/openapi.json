@@ -110,6 +110,30 @@
           "Settings"
         ]
       }
+    },
+    "/api/settings/llm/test": {
+      "post": {
+        "operationId": "testLlmSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestLlmSettingsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No LLM settings saved yet"
+          }
+        },
+        "tags": [
+          "Settings"
+        ]
+      }
     }
   },
   "info": {
@@ -268,6 +292,37 @@
         "required": [
           "provider",
           "model"
+        ]
+      },
+      "TestLlmSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "latencyMs": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "ok",
+          "error",
+          "latencyMs"
         ]
       }
     }

@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Put } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Put } from '@nestjs/common';
 import { ApiBadRequestResponse, ApiOkResponse } from '@nestjs/swagger';
 import { ZodSerializerDto } from 'nestjs-zod';
 import { GetSettingsResponseDto } from './dto/get-settings.dto';
+import { TestLlmSettingsResponseDto } from './dto/test-llm-settings.dto';
 import {
   UpdateGithubSettingsRequestDto,
   UpdateGithubSettingsResponseDto,
@@ -11,6 +12,7 @@ import {
   UpdateLlmSettingsResponseDto,
 } from './dto/update-llm-settings.dto';
 import { GetSettingsUsecase } from './usecase/get-settings.usecase';
+import { TestLlmSettingsUsecase } from './usecase/test-llm-settings.usecase';
 import { UpdateGithubSettingsUsecase } from './usecase/update-github-settings.usecase';
 import { UpdateLlmSettingsUsecase } from './usecase/update-llm-settings.usecase';
 
@@ -20,6 +22,7 @@ export class SettingsController {
     private readonly getSettingsUsecase: GetSettingsUsecase,
     private readonly updateGithubSettingsUsecase: UpdateGithubSettingsUsecase,
     private readonly updateLlmSettingsUsecase: UpdateLlmSettingsUsecase,
+    private readonly testLlmSettingsUsecase: TestLlmSettingsUsecase,
   ) {}
 
   @Get()
@@ -43,5 +46,14 @@ export class SettingsController {
   @ApiBadRequestResponse({ description: 'Invalid provider or model, or an API key is required' })
   updateLlmSettings(@Body() body: UpdateLlmSettingsRequestDto) {
     return this.updateLlmSettingsUsecase.execute(body);
+  }
+
+  @Post('llm/test')
+  @HttpCode(200)
+  @ZodSerializerDto(TestLlmSettingsResponseDto)
+  @ApiOkResponse({ type: TestLlmSettingsResponseDto })
+  @ApiBadRequestResponse({ description: 'No LLM settings saved yet' })
+  testLlmSettings() {
+    return this.testLlmSettingsUsecase.execute();
   }
 }

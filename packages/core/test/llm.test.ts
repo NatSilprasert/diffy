@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('ai', async (importOriginal) => ({ ...(await importOriginal<typeof import('ai')>()), generateText: vi.fn() }));
 
 import { generateText } from 'ai';
-import { DEFAULT_LLM_TIMEOUT_MS, generateReview } from '../src/llm.js';
+import { DEFAULT_LLM_TIMEOUT_MS, generateReview, pingLlm } from '../src/llm.js';
 
 const config = { provider: 'openai', model: 'm', apiKey: 'k' } as const;
 
@@ -46,5 +46,31 @@ describe('generateReview', () => {
       review: { summary: 'ok', findings: [] },
       usage: { inputTokens: 5, outputTokens: 2 },
     });
+  });
+});
+
+describe('pingLlm', () => {
+  it('resolves when the model fills the tiny schema', async () => {
+    vi.mocked(generateText).mockResolvedValue({
+      output: { ok: true },
+      usage: { inputTokens: 3, outputTokens: 1 },
+    } as any);
+    await expect(pingLlm(config)).resolves.toBeUndefined();
+    expect(vi.mocked(generateText).mock.calls[0]![0]).not.toHaveProperty('system');
+  });
+
+  it('wraps provider errors with the provider and model', async () => {
+    vi.mocked(generateText).mockRejectedValue(new Error('Incorrect API key provided'));
+    await expect(pingLlm(config)).rejects.toThrow('LLM call failed (openai/m): Incorrect API key provided');
+  });
+
+  it('honours the timeout', async () => {
+    vi.mocked(generateText).mockImplementation(
+      (opts: any) =>
+        new Promise((_, reject) => {
+          opts.abortSignal.addEventListener('abort', () => reject(opts.abortSignal.reason));
+        }),
+    );
+    await expect(pingLlm({ ...config, timeoutMs: 20 })).rejects.toThrow(/timed out/);
   });
 });

@@ -1,12 +1,14 @@
 import { LlmProvider } from '@diffy/shared';
 import {
   SYSTEM_PROMPT,
+  buildCommentableIndex,
   buildPromptDiff,
   buildUserPrompt,
   createGithubClient,
   generateReview,
   getPullRequest,
   listChangedFiles,
+  placeFindings,
 } from '../src/index.js';
 
 function parseTarget(arg: string | undefined) {
@@ -63,7 +65,10 @@ async function main() {
     const diff = buildPromptDiff(files);
     console.log(`\ncalling ${llmConfig.provider}/${llmConfig.model} ...`);
     const { review, usage } = await generateReview(llmConfig, SYSTEM_PROMPT, buildUserPrompt(pr, diff));
-    console.log(JSON.stringify(review, null, 2));
+    const placed = placeFindings(review.findings, buildCommentableIndex(files));
+    console.log(JSON.stringify({ ...review, findings: placed }, null, 2));
+    const inline = placed.filter((f) => f.placement === 'inline').length;
+    console.log(`\nplacement: ${inline} inline, ${placed.length - inline} in summary`);
     console.log(`\ntokens: in=${usage.inputTokens ?? '?'} out=${usage.outputTokens ?? '?'}`);
   }
 }

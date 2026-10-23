@@ -9,6 +9,7 @@ import {
   getPullRequest,
   listChangedFiles,
   placeFindings,
+  postReview,
   renderInlineComment,
   renderSummary,
 } from '../src/index.js';
@@ -30,7 +31,7 @@ function readLlmConfig() {
   const apiKey = process.env.LLM_API_KEY;
   if (!provider.success || !model || !apiKey) {
     throw new Error(
-      '--dry-run/--print-review need --provider=openai|anthropic|google|openrouter, --model=<id> and LLM_API_KEY in env',
+      '--dry-run/--print-review/--post need --provider=openai|anthropic|google|openrouter, --model=<id> and LLM_API_KEY in env',
     );
   }
   return { provider: provider.data, model, apiKey };
@@ -43,7 +44,8 @@ async function main() {
   const printDiff = process.argv.includes('--print-diff');
   const dryRun = process.argv.includes('--dry-run');
   const printReview = process.argv.includes('--print-review');
-  const llmConfig = dryRun || printReview ? readLlmConfig() : undefined;
+  const post = process.argv.includes('--post');
+  const llmConfig = dryRun || printReview || post ? readLlmConfig() : undefined;
 
   const octokit = createGithubClient(token);
   const pr = await getPullRequest(octokit, owner, repo, number);
@@ -82,6 +84,18 @@ async function main() {
     }
     console.log(`\nplacement: ${inline.length} inline, ${placed.length - inline.length} in summary`);
     console.log(`\ntokens: in=${usage.inputTokens ?? '?'} out=${usage.outputTokens ?? '?'}`);
+
+    // Posting is opt-in: the review shows up on GitHub as the token's owner and can't be unsent.
+    if (post) {
+      const posted = await postReview(octokit, {
+        pr,
+        summary: review.summary,
+        findings: placed,
+        skipped: diff.skipped,
+        model: `${llmConfig.provider}/${llmConfig.model}`,
+      });
+      console.log(`\nposted: ${posted.url}${posted.fellBackToSummary ? ' (fell back: all findings in summary)' : ''}`);
+    }
   }
 }
 

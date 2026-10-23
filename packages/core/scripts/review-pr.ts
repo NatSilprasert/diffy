@@ -9,6 +9,8 @@ import {
   getPullRequest,
   listChangedFiles,
   placeFindings,
+  renderInlineComment,
+  renderSummary,
 } from '../src/index.js';
 
 function parseTarget(arg: string | undefined) {
@@ -28,7 +30,7 @@ function readLlmConfig() {
   const apiKey = process.env.LLM_API_KEY;
   if (!provider.success || !model || !apiKey) {
     throw new Error(
-      '--dry-run needs --provider=openai|anthropic|google|openrouter, --model=<id> and LLM_API_KEY in env',
+      '--dry-run/--print-review need --provider=openai|anthropic|google|openrouter, --model=<id> and LLM_API_KEY in env',
     );
   }
   return { provider: provider.data, model, apiKey };
@@ -40,7 +42,8 @@ async function main() {
   const { owner, repo, number } = parseTarget(process.argv[2]);
   const printDiff = process.argv.includes('--print-diff');
   const dryRun = process.argv.includes('--dry-run');
-  const llmConfig = dryRun ? readLlmConfig() : undefined;
+  const printReview = process.argv.includes('--print-review');
+  const llmConfig = dryRun || printReview ? readLlmConfig() : undefined;
 
   const octokit = createGithubClient(token);
   const pr = await getPullRequest(octokit, owner, repo, number);
@@ -66,9 +69,18 @@ async function main() {
     console.log(`\ncalling ${llmConfig.provider}/${llmConfig.model} ...`);
     const { review, usage } = await generateReview(llmConfig, SYSTEM_PROMPT, buildUserPrompt(pr, diff));
     const placed = placeFindings(review.findings, buildCommentableIndex(files));
-    console.log(JSON.stringify({ ...review, findings: placed }, null, 2));
-    const inline = placed.filter((f) => f.placement === 'inline').length;
-    console.log(`\nplacement: ${inline} inline, ${placed.length - inline} in summary`);
+    const inline = placed.filter((f) => f.placement === 'inline');
+    if (printReview) {
+      console.log('\n===== REVIEW BODY =====\n');
+      console.log(renderSummary({ summary: review.summary, findings: placed, skipped: diff.skipped, model: llmConfig.model, headSha: pr.headSha }));
+      for (const f of inline) {
+        console.log(`\n===== INLINE COMMENT ${f.path}:${f.startLine === null ? '' : `${f.startLine}-`}${f.line} =====\n`);
+        console.log(renderInlineComment(f));
+      }
+    } else {
+      console.log(JSON.stringify({ ...review, findings: placed }, null, 2));
+    }
+    console.log(`\nplacement: ${inline.length} inline, ${placed.length - inline.length} in summary`);
     console.log(`\ntokens: in=${usage.inputTokens ?? '?'} out=${usage.outputTokens ?? '?'}`);
   }
 }

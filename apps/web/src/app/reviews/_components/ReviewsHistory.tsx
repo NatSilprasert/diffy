@@ -5,12 +5,11 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { getListReviewsQueryKey, listReviews, useListRepos } from '@/api/generated/diffy';
 import type { ListReviewsParams, ListReviewsStatus } from '@/api/generated/model';
+import { ReviewsTable } from '@/components/ReviewsTable';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ReviewRow } from './ReviewRow';
 
 const PAGE_SIZE = 20;
 // "All" cannot be an empty string in a Select, so it gets a value that no repository id or status uses.
@@ -121,26 +120,7 @@ export function ReviewsHistory() {
           )}
 
           {rows.length > 0 && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>When</TableHead>
-                  <TableHead>Repository</TableHead>
-                  <TableHead>Pull request</TableHead>
-                  <TableHead>Commit</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Findings</TableHead>
-                  <TableHead className="text-right">
-                    <span className="sr-only">Open</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((review) => (
-                  <ReviewRow key={review.id} review={review} />
-                ))}
-              </TableBody>
-            </Table>
+            <ReviewsTable reviews={rows} />
           )}
 
           {reviews.hasNextPage && (

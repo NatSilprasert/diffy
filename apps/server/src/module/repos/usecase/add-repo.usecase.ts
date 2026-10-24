@@ -1,5 +1,5 @@
 import { createGithubClient, getRepository, type RepositoryInfo } from '@diffy/core';
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { toGithubHttpException } from '../../../infra/github/github-errors';
 import { SettingsService } from '../../settings/settings.service';
 import type { AddRepoRequestDto, AddRepoResponseDto } from '../dto/add-repo.dto';
@@ -34,10 +34,8 @@ export class AddRepoUsecase {
     try {
       return await getRepository(createGithubClient(token), owner, name);
     } catch (err) {
-      if ((err as { status?: number }).status === 404) {
-        throw new NotFoundException(`${owner}/${name} was not found, or the saved token cannot access it.`);
-      }
       throw toGithubHttpException(err, {
+        notFound: `${owner}/${name} was not found, or the saved token cannot access it.`,
         rejected: 'GitHub rejected the saved token. Enter a new one in Settings.',
         unreachable: 'Could not reach GitHub to check the repository. Try again in a moment.',
       });

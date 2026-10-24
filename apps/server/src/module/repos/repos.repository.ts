@@ -1,17 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '../../generated/prisma/client';
+import { isRecordNotFound, isUniqueViolation } from '../../infra/prisma/prisma-errors';
 import { PrismaService } from '../../infra/prisma/prisma.service';
-
-const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
-const RECORD_NOT_FOUND = 'P2025';
-
-const isPrismaError = (err: unknown, code: string) =>
-  err instanceof Prisma.PrismaClientKnownRequestError && err.code === code;
 
 // Every read and write below ignores repositories the user has removed (removedAt is set).
 @Injectable()
 export class ReposRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  // Null for an unknown id or a removed repository.
+  findActiveById(id: string) {
+    return this.prisma.repository.findFirst({ where: { id, removedAt: null } });
+  }
 
   findAll() {
     return this.prisma.repository.findMany({
@@ -31,7 +30,7 @@ export class ReposRepository {
       if (restored.count > 0) return await this.prisma.repository.findUnique({ where: { owner_name: data } });
       return await this.prisma.repository.create({ data });
     } catch (err) {
-      if (isPrismaError(err, UNIQUE_CONSTRAINT_VIOLATION)) return null;
+      if (isUniqueViolation(err)) return null;
       throw err;
     }
   }
@@ -41,7 +40,7 @@ export class ReposRepository {
     try {
       return await this.prisma.repository.update({ where: { id, removedAt: null }, data: { enabled } });
     } catch (err) {
-      if (isPrismaError(err, RECORD_NOT_FOUND)) return null;
+      if (isRecordNotFound(err)) return null;
       throw err;
     }
   }

@@ -12,6 +12,11 @@ export class ReposRepository {
     return this.prisma.repository.findFirst({ where: { id, removedAt: null } });
   }
 
+  // Names for a set of ids, including repositories that were removed (their reviews are still in the history).
+  findNamesByIds(ids: string[]) {
+    return this.prisma.repository.findMany({ where: { id: { in: ids } }, select: { id: true, owner: true, name: true } });
+  }
+
   findAll() {
     return this.prisma.repository.findMany({
       where: { removedAt: null },

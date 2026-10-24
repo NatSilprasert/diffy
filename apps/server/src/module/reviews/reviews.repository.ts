@@ -73,6 +73,15 @@ function buildWhere({ repositoryId, status, since, search }: ReviewFilter): Pris
   return where;
 }
 
+export type UsageTotals = { reviews: number; inputTokens: number; outputTokens: number };
+
+type Sums = { _sum: { inputTokens: number | null; outputTokens: number | null }; _count: { _all: number } };
+const toTotals = (group: Sums): UsageTotals => ({
+  reviews: group._count._all,
+  inputTokens: group._sum.inputTokens ?? 0,
+  outputTokens: group._sum.outputTokens ?? 0,
+});
+
 @Injectable()
 export class ReviewsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -135,6 +144,44 @@ export class ReviewsRepository {
   // How many reviews exist, optionally only those created at or after `since`.
   countSince(since?: Date) {
     return this.prisma.review.count({ where: since ? { createdAt: { gte: since } } : {} });
+  }
+
+  // How many reviews and tokens, over everything or only what was created at or after `since`.
+  async usageTotals(since?: Date): Promise<UsageTotals> {
+    const group = await this.prisma.review.aggregate({
+      where: since ? { createdAt: { gte: since } } : {},
+      _count: { _all: true },
+      _sum: { inputTokens: true, outputTokens: true },
+    });
+    return toTotals(group);
+  }
+
+  // The same, per model. Reviews that never reached a model (queued, failed early) have no model and are left out.
+  async usageByModel(since?: Date) {
+    const groups = await this.prisma.review.groupBy({
+      by: ['provider', 'model'],
+      where: { model: { not: null }, ...(since ? { createdAt: { gte: since } } : {}) },
+      _count: { _all: true },
+      _sum: { inputTokens: true, outputTokens: true },
+    });
+    return groups.map((group) => ({ provider: group.provider, model: group.model as string, ...toTotals(group) }));
+  }
+
+  // The same, per repository.
+  async usageByRepo(since?: Date) {
+    const groups = await this.prisma.review.groupBy({
+      by: ['repositoryId'],
+      where: since ? { createdAt: { gte: since } } : {},
+      _count: { _all: true },
+      _sum: { inputTokens: true, outputTokens: true },
+    });
+    return groups.map((group) => ({ repositoryId: group.repositoryId, ...toTotals(group) }));
+  }
+
+  // When each review since `since` was created, for counting them per day.
+  async findCreatedAtSince(since: Date): Promise<Date[]> {
+    const rows = await this.prisma.review.findMany({ where: { createdAt: { gte: since } }, select: { createdAt: true } });
+    return rows.map((row) => row.createdAt);
   }
 
   // How many findings of each severity, for a set of reviews, in one query.

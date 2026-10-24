@@ -423,6 +423,27 @@
         ]
       }
     },
+    "/api/reviews/usage": {
+      "get": {
+        "operationId": "getUsage",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUsageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Reviews"
+        ]
+      }
+    },
     "/api/reviews/stats": {
       "get": {
         "operationId": "getReviewStats",
@@ -1285,6 +1306,229 @@
         "required": [
           "reviews",
           "nextCursor"
+        ]
+      },
+      "GetUsageResponseDto": {
+        "type": "object",
+        "properties": {
+          "allTime": {
+            "type": "object",
+            "properties": {
+              "reviews": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "inputTokens": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "outputTokens": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "reviews",
+              "inputTokens",
+              "outputTokens"
+            ]
+          },
+          "month": {
+            "type": "object",
+            "properties": {
+              "reviews": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "inputTokens": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "outputTokens": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "reviews",
+              "inputTokens",
+              "outputTokens"
+            ]
+          },
+          "byModel": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "allTime": {
+                  "type": "object",
+                  "properties": {
+                    "reviews": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "inputTokens": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "outputTokens": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "reviews",
+                    "inputTokens",
+                    "outputTokens"
+                  ]
+                },
+                "month": {
+                  "type": "object",
+                  "properties": {
+                    "reviews": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "inputTokens": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "outputTokens": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "reviews",
+                    "inputTokens",
+                    "outputTokens"
+                  ]
+                }
+              },
+              "required": [
+                "provider",
+                "model",
+                "allTime",
+                "month"
+              ]
+            }
+          },
+          "byRepo": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "repositoryId": {
+                  "type": "string"
+                },
+                "repoFullName": {
+                  "type": "string"
+                },
+                "allTime": {
+                  "type": "object",
+                  "properties": {
+                    "reviews": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "inputTokens": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "outputTokens": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "reviews",
+                    "inputTokens",
+                    "outputTokens"
+                  ]
+                },
+                "month": {
+                  "type": "object",
+                  "properties": {
+                    "reviews": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "inputTokens": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "outputTokens": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "reviews",
+                    "inputTokens",
+                    "outputTokens"
+                  ]
+                }
+              },
+              "required": [
+                "repositoryId",
+                "repoFullName",
+                "allTime",
+                "month"
+              ]
+            }
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "description": "YYYY-MM-DD in the server local time"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "date",
+                "count"
+              ]
+            }
+          }
+        },
+        "required": [
+          "allTime",
+          "month",
+          "byModel",
+          "byRepo",
+          "days"
         ]
       },
       "GetReviewStatsResponseDto": {

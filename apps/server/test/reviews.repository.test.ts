@@ -157,3 +157,33 @@ describe('ReviewsRepository.recoverUnfinished', () => {
     });
   });
 });
+
+describe('ReviewsRepository usage queries', () => {
+  const sums = (n: number, i: number | null, o: number | null) => ({ _count: { _all: n }, _sum: { inputTokens: i, outputTokens: o } });
+
+  it('totals turn missing sums into zero', async () => {
+    const aggregate = vi.fn().mockResolvedValue(sums(3, null, null));
+    expect(await repoWith({ aggregate }).usageTotals()).toEqual({ reviews: 3, inputTokens: 0, outputTokens: 0 });
+    expect(aggregate.mock.calls[0]![0].where).toEqual({});
+  });
+
+  it('limits to a start time when given one', async () => {
+    const aggregate = vi.fn().mockResolvedValue(sums(0, null, null));
+    await repoWith({ aggregate }).usageTotals(new Date('2026-10-01'));
+    expect(aggregate.mock.calls[0]![0].where).toEqual({ createdAt: { gte: new Date('2026-10-01') } });
+  });
+
+  it('per model skips reviews without a model', async () => {
+    const groupBy = vi.fn().mockResolvedValue([{ provider: 'google', model: 'gemini', ...sums(2, 10, 5) }]);
+    const rows = await repoWith({ groupBy }).usageByModel();
+    expect(groupBy.mock.calls[0]![0].where).toEqual({ model: { not: null } });
+    expect(rows).toEqual([{ provider: 'google', model: 'gemini', reviews: 2, inputTokens: 10, outputTokens: 5 }]);
+  });
+
+  it('per repository groups by repository id', async () => {
+    const groupBy = vi.fn().mockResolvedValue([{ repositoryId: 'r1', ...sums(1, 1, 1) }]);
+    const rows = await repoWith({ groupBy }).usageByRepo();
+    expect(groupBy.mock.calls[0]![0].by).toEqual(['repositoryId']);
+    expect(rows).toEqual([{ repositoryId: 'r1', reviews: 1, inputTokens: 1, outputTokens: 1 }]);
+  });
+});

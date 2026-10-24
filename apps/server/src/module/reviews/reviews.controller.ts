@@ -10,12 +10,14 @@ import { ZodSerializerDto } from 'nestjs-zod';
 import { CreateReviewRequestDto, CreateReviewResponseDto } from './dto/create-review.dto';
 import { GetReviewParamsDto, GetReviewResponseDto } from './dto/get-review.dto';
 import { GetReviewStatsResponseDto } from './dto/get-review-stats.dto';
+import { GetUsageResponseDto } from './dto/get-usage.dto';
 import { GetStatusResponseDto } from './dto/get-status.dto';
 import { ListReviewsQueryDto, ListReviewsResponseDto } from './dto/list-reviews.dto';
 import { PollRepoRequestDto, PollRepoResponseDto } from './dto/poll-repo.dto';
 import { RetryReviewParamsDto, RetryReviewResponseDto } from './dto/retry-review.dto';
 import { CreateReviewUsecase } from './usecase/create-review.usecase';
 import { GetReviewStatsUsecase } from './usecase/get-review-stats.usecase';
+import { GetUsageUsecase } from './usecase/get-usage.usecase';
 import { GetReviewUsecase } from './usecase/get-review.usecase';
 import { GetStatusUsecase } from './usecase/get-status.usecase';
 import { ListReviewsUsecase } from './usecase/list-reviews.usecase';
@@ -32,6 +34,7 @@ export class ReviewsController {
     private readonly pollRepoUsecase: PollRepoUsecase,
     private readonly getStatusUsecase: GetStatusUsecase,
     private readonly getReviewStatsUsecase: GetReviewStatsUsecase,
+    private readonly getUsageUsecase: GetUsageUsecase,
   ) {}
 
   @Post()
@@ -52,6 +55,14 @@ export class ReviewsController {
   }
 
   // Declared before ':id' on purpose, otherwise "stats" and "status" would be read as review ids.
+  // Tokens and review counts by model and by repository, and reviews per day, for the dashboard.
+  @Get('usage')
+  @ZodSerializerDto(GetUsageResponseDto)
+  @ApiOkResponse({ type: GetUsageResponseDto })
+  getUsage() {
+    return this.getUsageUsecase.execute();
+  }
+
   @Get('stats')
   @ZodSerializerDto(GetReviewStatsResponseDto)
   @ApiOkResponse({ type: GetReviewStatsResponseDto })

@@ -35,6 +35,13 @@ export class ReposService {
     return repos.map(toWatchedRepo);
   }
 
+  // "owner/name" for each id, removed repositories included. Unknown ids are simply missing from the map.
+  async getFullNames(ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map();
+    const repos = await this.reposRepository.findNamesByIds(ids);
+    return new Map(repos.map((repo) => [repo.id, `${repo.owner}/${repo.name}`]));
+  }
+
   // Remember when a repository was last polled, and why it failed (null = it went fine).
   recordPoll(id: string, error: string | null): Promise<void> {
     return this.reposRepository.markPolled(id, error);

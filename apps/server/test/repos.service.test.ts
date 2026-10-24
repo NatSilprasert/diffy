@@ -32,3 +32,13 @@ describe('ReposService polling helpers', () => {
     expect(markPolled.mock.calls).toEqual([['r1', null], ['r1', 'boom']]);
   });
 });
+
+describe('ReposService.getFullNames', () => {
+  it('maps ids to owner/name and does not query for an empty list', async () => {
+    const findNamesByIds = vi.fn().mockResolvedValue([{ id: 'r1', owner: 'acme', name: 'api' }]);
+    const service = new ReposService({ findNamesByIds } as unknown as ReposRepository);
+    expect(await service.getFullNames([])).toEqual(new Map());
+    expect(findNamesByIds).not.toHaveBeenCalled();
+    expect(await service.getFullNames(['r1', 'x'])).toEqual(new Map([['r1', 'acme/api']]));
+  });
+});

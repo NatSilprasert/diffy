@@ -62,7 +62,7 @@ export function Sidebar() {
       <div className="flex items-center justify-between px-3 md:px-0">
         <Link
           href="/"
-          className="font-brand text-2xl font-normal lowercase leading-none tracking-normal [-webkit-text-stroke:0.5px] transition-opacity duration-200 motion-reduce:transition-none md:pl-3 collapsed:md:pointer-events-none collapsed:md:w-0 collapsed:md:overflow-hidden collapsed:md:opacity-0 collapsed:md:pl-0"
+          className="font-brand text-xl font-normal lowercase leading-none tracking-normal [-webkit-text-stroke:0.5px] transition-opacity duration-200 motion-reduce:transition-none md:pl-3 collapsed:md:pointer-events-none collapsed:md:w-0 collapsed:md:overflow-hidden collapsed:md:opacity-0 collapsed:md:pl-0"
         >
           diffy
         </Link>

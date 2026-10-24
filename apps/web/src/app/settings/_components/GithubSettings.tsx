@@ -1,15 +1,16 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
 import { getGetSettingsQueryKey, useGetSettings, useUpdateGithubSettings } from '@/api/generated/diffy';
+import { SettingsSection } from '@/components/SettingsSection';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-export function GithubSettingsCard() {
+export function GithubSettings() {
   const queryClient = useQueryClient();
   const settings = useGetSettings();
   const [token, setToken] = useState('');
@@ -30,21 +31,23 @@ export function GithubSettingsCard() {
   const showForm = settings.isSuccess && (!github?.configured || replacing);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>GitHub</CardTitle>
-        <CardDescription>A personal access token lets diffy read pull requests and post reviews.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <SettingsSection
+      title="GitHub"
+      description="A personal access token lets diffy read pull requests and post reviews under your account."
+      badge={github?.configured ? <Badge className="bg-success/15 text-success">Connected</Badge> : undefined}
+    >
+      <div className="space-y-4">
         {settings.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
         {settings.isError && <p className="text-sm text-destructive">{settings.error.message}</p>}
 
         {github?.configured && !replacing && (
-          <div className="flex items-center gap-3">
-            <Badge className="bg-success/15 text-success">Connected</Badge>
-            <span className="text-sm">
-              as <strong>@{github.login}</strong>
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-sm">
+              <CheckCircle2 className="size-5 text-success" aria-hidden />
+              <span>
+                Signed in as <strong>@{github.login}</strong>
+              </span>
+            </div>
             <Button variant="outline" size="sm" onClick={() => setReplacing(true)}>
               Replace token
             </Button>
@@ -118,7 +121,7 @@ export function GithubSettingsCard() {
             </details>
           </form>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </SettingsSection>
   );
 }

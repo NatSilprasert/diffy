@@ -4,7 +4,7 @@ import { cleanupOpenApiDoc } from 'nestjs-zod';
 
 export function buildOpenApiDocument(app: INestApplication) {
   const config = new DocumentBuilder()
-    .setTitle('Diffy API')
+    .setTitle('diffy API')
     .setVersion('0.0.0')
     // nestjs-zod emits 3.1-style schemas (type: ['string', 'null']); the header must match.
     .setOpenAPIVersion('3.1.0')

@@ -1,11 +1,11 @@
-# Diffy: แผนและความคืบหน้า
+# diffy: แผนและความคืบหน้า
 
 อัปเดตล่าสุด: 2026-10-24 (หลังทำ F7)
-เอกสารนี้สรุปว่า Diffy คืออะไร ออกแบบอย่างไร ตอนนี้ทำถึงไหน อะไรยืนยันแล้ว อะไรยังไม่ได้ยืนยัน และเหลืออะไรต้องทำ
+เอกสารนี้สรุปว่า diffy คืออะไร ออกแบบอย่างไร ตอนนี้ทำถึงไหน อะไรยืนยันแล้ว อะไรยังไม่ได้ยืนยัน และเหลืออะไรต้องทำ
 
 ---
 
-## 1. Diffy คืออะไร
+## 1. diffy คืออะไร
 
 AI รีวิว pull request แบบ open source ที่ผู้ใช้รันเองบนเครื่องตัวเอง
 
@@ -229,7 +229,7 @@ Migration ที่มี: `init`, `add_repository_removed_at`, `lowercase_enums
 - ~~F1 โครงเว็บ~~ **เสร็จแล้ว**: Next.js 16 `output: 'export'` + `trailingSlash` (ได้ `settings/index.html` ซึ่ง static server ธรรมดาเสิร์ฟได้), Tailwind 4, shadcn/ui (สไตล์ `radix-nova`, มี `button` `card` `badge`), เมนูหลัก (ไฮไลต์หน้าปัจจุบัน), ธีมมืด/สว่างตามระบบ และหน้าเปล่า 5 หน้าบอกว่าจะแสดงอะไร (`/`, `/settings`, `/repos`, `/reviews`, `/reviews/view?id=`) ตรวจแล้ว: build ได้ 7 หน้า ขนาดรวม ~1 MB ไม่มีการเรียก URL ภายนอก และในเบราว์เซอร์จริงอ่าน `?id=` ได้ เมนูไฮไลต์ถูก
   - `shadcn` รุ่นนี้ใช้แพ็กเกจ `cn` (ของ shadcn เอง) แทน `clsx` + `tailwind-merge` ตรวจแล้วว่าเจ้าของและ repo ตรงกับ shadcn
 - ~~F2 ต่อ Orval~~ **เสร็จแล้ว**: `orval.config.ts` อ่าน `apps/server/openapi.json` สร้าง client + React Query hook 16 ตัว (`useGetStatus`, `useListReviews`, `useAddRepo`, ...) ไว้ที่ `apps/web/src/api/generated/` (**ไม่ commit** สร้างตอน `prebuild` และด้วย `pnpm gen:api` ที่ root)
-  - `src/api/fetcher.ts` เป็นทางผ่านเดียวของทุกคำขอ: โยน `ApiError` (พร้อมข้อความที่แสดงให้ผู้ใช้ได้ เช่น "Could not reach the Diffy server. Is it running?" และรวม error ของ Zod validation) เมื่อเครือข่ายล้มหรือ HTTP ไม่ใช่ 2xx ทำให้ hook เข้าสถานะ error จริง `.env.development` ตั้ง `NEXT_PUBLIC_API_URL` ให้ `next dev`; build จริงเว้นว่างเพื่อเรียก API origin เดียวกัน
+  - `src/api/fetcher.ts` เป็นทางผ่านเดียวของทุกคำขอ: โยน `ApiError` (พร้อมข้อความที่แสดงให้ผู้ใช้ได้ เช่น "Could not reach the diffy server. Is it running?" และรวม error ของ Zod validation) เมื่อเครือข่ายล้มหรือ HTTP ไม่ใช่ 2xx ทำให้ hook เข้าสถานะ error จริง `.env.development` ตั้ง `NEXT_PUBLIC_API_URL` ให้ `next dev`; build จริงเว้นว่างเพื่อเรียก API origin เดียวกัน
   - `Providers` (React Query) ไม่ retry error 4xx
   - **CORS ที่ server เปิดเฉพาะตอนพัฒนา** และเฉพาะ origin `localhost:3000`/`127.0.0.1:3000` (เว็บ dev) (ไม่ใช่ `*` เพราะไม่มีระบบล็อกอิน) ปิดเมื่อ `NODE_ENV=production` (สคริปต์ `pnpm start` ใน G1 ต้องตั้งค่านี้)
   - ปิด `agentRules` ใน `next.config.ts` เพราะ `next dev` เขียนไฟล์ `AGENTS.md` (คำแนะนำสำหรับ AI tool) ลงโปรเจกต์เอง

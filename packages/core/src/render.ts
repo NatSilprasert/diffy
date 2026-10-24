@@ -59,7 +59,7 @@ export function renderSummary(input: SummaryInput): string {
   const inline = findings.filter((f) => f.placement === 'inline');
   const outside = findings.filter((f) => f.placement === 'summary');
 
-  const parts = ['## Diffy review', input.summary];
+  const parts = ['## diffy review', input.summary];
 
   if (findings.length === 0) {
     parts.push('No issues found.');

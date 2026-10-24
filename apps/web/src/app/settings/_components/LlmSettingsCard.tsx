@@ -64,7 +64,7 @@ export function LlmSettingsCard() {
           <CardTitle>Model</CardTitle>
           {saved?.configured && <Badge className="bg-success/15 text-success">Configured</Badge>}
         </div>
-        <CardDescription>The model that reviews your pull requests, and the key Diffy uses to reach it.</CardDescription>
+        <CardDescription>The model that reviews your pull requests, and the key diffy uses to reach it.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {settings.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}

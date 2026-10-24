@@ -4,7 +4,7 @@ import { Sidebar } from '@/components/Sidebar';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Diffy',
+  title: 'diffy',
   description: 'Self-hosted AI pull request reviews',
 };
 

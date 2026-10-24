@@ -6,7 +6,7 @@ import { SetupChecklist } from './_components/SetupChecklist';
 export default function DashboardPage() {
   return (
     <>
-      <PageHeader title="Dashboard" description="What Diffy is doing right now and what it found lately." />
+      <PageHeader title="Dashboard" description="What diffy is doing right now and what it found lately." />
       <div className="space-y-6">
         <SetupChecklist />
         <LiveStatus />

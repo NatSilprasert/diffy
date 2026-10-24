@@ -44,7 +44,7 @@ export async function apiFetch<T>(url: string, options: RequestInit): Promise<T>
   try {
     response = await fetch(`${BASE_URL}${url}`, { ...options, headers });
   } catch {
-    throw new ApiError(0, 'Could not reach the Diffy server. Is it running?');
+    throw new ApiError(0, 'Could not reach the diffy server. Is it running?');
   }
 
   // Empty bodies (204 No Content) and non-JSON answers (a proxy's error page) must not crash the parser.

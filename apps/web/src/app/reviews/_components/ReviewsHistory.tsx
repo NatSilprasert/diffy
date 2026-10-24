@@ -69,11 +69,11 @@ export function ReviewsHistory() {
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search title, repo, #12 or commit"
             aria-label="Search reviews"
-            className="h-9 pl-9"
+            className="h-10 pl-9"
           />
         </div>
         <Select value={repositoryId} onValueChange={setRepositoryId}>
-          <SelectTrigger aria-label="Repository" className="h-9 w-52">
+          <SelectTrigger aria-label="Repository" className="h-10 w-52">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -86,7 +86,7 @@ export function ReviewsHistory() {
           </SelectContent>
         </Select>
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger aria-label="Status" className="h-9 w-40">
+          <SelectTrigger aria-label="Status" className="h-10 w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

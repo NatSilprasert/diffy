@@ -31,7 +31,7 @@ export function RecentReviews() {
         {reviews.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
         {reviews.isError && <p className="text-sm text-destructive">{reviews.error.message}</p>}
         {reviews.data && reviews.data.reviews.length === 0 && (
-          <p className="text-sm text-muted-foreground">No reviews yet. They show up here as soon as Diffy reviews a pull request.</p>
+          <p className="text-sm text-muted-foreground">No reviews yet. They show up here as soon as diffy reviews a pull request.</p>
         )}
         {reviews.data && reviews.data.reviews.length > 0 && <ReviewsTable reviews={reviews.data.reviews} />}
       </CardContent>

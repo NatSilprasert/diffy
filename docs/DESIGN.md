@@ -1,7 +1,7 @@
 ---
 version: alpha
-name: Diffy
-description: The visual system for Diffy, a self-hosted AI pull-request reviewer. A near-black canvas (`#010102`, never pure black) with light gray text (`#f7f8f8`) and one chromatic accent, **Diffy Violet** (`#8257e6`), used for the primary action, the focus ring and the brand mark. Hierarchy comes from a four-step charcoal surface ladder and 1px hairlines, not from shadows. Display type is Inter at weight 600 with negative tracking. Dense, technical and calm; the review itself is the protagonist.
+name: diffy
+description: The visual system for diffy, a self-hosted AI pull-request reviewer. A near-black canvas (`#010102`, never pure black) with light gray text (`#f7f8f8`) and one chromatic accent, **diffy Violet** (`#8257e6`), used for the primary action, the focus ring and the brand mark. Hierarchy comes from a four-step charcoal surface ladder and 1px hairlines, not from shadows. Display type is Inter at weight 600 with negative tracking. Dense, technical and calm; the review itself is the protagonist.
 
 colors:
   primary: "#8257e6"
@@ -175,7 +175,7 @@ components:
 
 ## Overview
 
-Diffy is a developer tool you leave open next to your pull requests, so it should recede. The canvas is **near-black** (`{colors.canvas}`, #010102, with a faint blue cast), text is light gray (`{colors.ink}`, #f7f8f8), and the single chromatic color is **Diffy Violet** (`{colors.primary}`, #8257e6). Violet marks the one primary action on a page, the focus ring and the brand mark. It never fills a card, never decorates, and never sits beside a second accent.
+diffy is a developer tool you leave open next to your pull requests, so it should recede. The canvas is **near-black** (`{colors.canvas}`, #010102, with a faint blue cast), text is light gray (`{colors.ink}`, #f7f8f8), and the single chromatic color is **diffy Violet** (`{colors.primary}`, #8257e6). Violet marks the one primary action on a page, the focus ring and the brand mark. It never fills a card, never decorates, and never sits beside a second accent.
 
 Depth comes from a **four-step surface ladder** (`surface-1` to `surface-4`) and 1px hairlines (`{colors.hairline}`). There are no shadows and no gradients. Type is **Inter** at weight 600 for headings with negative tracking, 400 for body, and JetBrains Mono for every path, hash, snippet and fix prompt.
 

@@ -5,7 +5,7 @@ import { WatchedReposCard } from './_components/WatchedReposCard';
 export default function ReposPage() {
   return (
     <>
-      <PageHeader title="Repositories" description="The repositories Diffy watches for new pull requests." />
+      <PageHeader title="Repositories" description="The repositories diffy watches for new pull requests." />
       <div className="space-y-6">
         <WatchedReposCard />
         <AddRepoCard />

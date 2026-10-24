@@ -21,7 +21,7 @@ async function bootstrap() {
     enableDevCors(app);
     SwaggerModule.setup('api/docs', app, buildOpenApiDocument(app));
     await app.listen(env.PORT, env.HOST);
-    console.log(`Diffy server listening on http://${env.HOST}:${env.PORT}`);
+    console.log(`diffy server listening on http://${env.HOST}:${env.PORT}`);
   } catch (err) {
     console.error(err instanceof Error ? err.message : err);
     process.exit(1);

@@ -14,7 +14,7 @@ export function WatchedReposCard() {
     <Card>
       <CardHeader>
         <CardTitle>Watching</CardTitle>
-        <CardDescription>Diffy checks these for new pull requests. Removing one keeps its review history.</CardDescription>
+        <CardDescription>diffy checks these for new pull requests. Removing one keeps its review history.</CardDescription>
       </CardHeader>
       <CardContent>
         {repos.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}

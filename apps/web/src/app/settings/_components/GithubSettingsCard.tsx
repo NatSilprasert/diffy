@@ -33,7 +33,7 @@ export function GithubSettingsCard() {
     <Card>
       <CardHeader>
         <CardTitle>GitHub</CardTitle>
-        <CardDescription>A personal access token lets Diffy read pull requests and post reviews.</CardDescription>
+        <CardDescription>A personal access token lets diffy read pull requests and post reviews.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {settings.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}

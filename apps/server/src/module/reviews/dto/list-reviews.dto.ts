@@ -32,6 +32,6 @@ export type ReviewListItem = z.infer<typeof ReviewListItemSchema>;
 export const ListReviewsResponseSchema = z.object({
   reviews: z.array(ReviewListItemSchema),
   // Pass this as `cursor` to get the next page; null when this was the last one.
-  nextCursor: z.string().nullable(),
+  nextCursor: z.string().describe('Pass as `cursor` for the next page').nullable(),
 });
 export class ListReviewsResponseDto extends createZodDto(ListReviewsResponseSchema) {}

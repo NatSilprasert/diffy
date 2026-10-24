@@ -567,9 +567,14 @@
                 "type": "boolean"
               },
               "login": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "The GitHub account the saved token belongs to"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               }
             },
@@ -601,9 +606,14 @@
                 ]
               },
               "model": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "The model that is configured"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               }
             },
@@ -695,10 +705,15 @@
             "type": "boolean"
           },
           "error": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Why the test failed; null if it passed"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "latencyMs": {
             "anyOf": [
@@ -793,9 +808,14 @@
                   ]
                 },
                 "lastError": {
-                  "type": [
-                    "string",
-                    "null"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "description": "Why the last check of this repository failed; null if it went fine"
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "createdAt": {
@@ -864,10 +884,15 @@
             ]
           },
           "lastError": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Why the last check of this repository failed; null if it went fine"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "createdAt": {
             "type": "string",
@@ -928,10 +953,15 @@
             ]
           },
           "lastError": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Why the last check of this repository failed; null if it went fine"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "createdAt": {
             "type": "string",
@@ -1008,15 +1038,25 @@
                 ]
               },
               "error": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "Why the review failed; null otherwise"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "githubReviewUrl": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "Link to the posted review on GitHub; null until it is posted"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "createdAt": {
@@ -1096,15 +1136,25 @@
                   ]
                 },
                 "error": {
-                  "type": [
-                    "string",
-                    "null"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "description": "Why the review failed; null otherwise"
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "githubReviewUrl": {
-                  "type": [
-                    "string",
-                    "null"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "description": "Link to the posted review on GitHub; null until it is posted"
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "createdAt": {
@@ -1177,10 +1227,15 @@
             }
           },
           "nextCursor": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Pass as `cursor` for the next page"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -1323,15 +1378,25 @@
                 ]
               },
               "error": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "Why the review failed; null otherwise"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "githubReviewUrl": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "Link to the posted review on GitHub; null until it is posted"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "createdAt": {
@@ -1355,9 +1420,14 @@
                 "type": "string"
               },
               "summary": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "The overall summary the model wrote; null until the review has run"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "provider": {
@@ -1377,9 +1447,14 @@
                 ]
               },
               "model": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "The model that did the review; null until it has run"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "inputTokens": {
@@ -1548,16 +1623,26 @@
             ]
           },
           "error": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Why the review failed; null otherwise"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "githubReviewUrl": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Link to the posted review on GitHub; null until it is posted"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "createdAt": {
             "type": "string",
@@ -1612,10 +1697,15 @@
             "maximum": 9007199254740991
           },
           "error": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Why the check failed; null if it went fine"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [

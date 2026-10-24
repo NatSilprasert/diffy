@@ -8,8 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 // F2 only proves the wiring: the generated hook, the fetcher and the types. F7 builds the real dashboard.
 export default function DashboardPage() {
   const status = useGetStatus({ query: { refetchInterval: 5_000 } });
-  const queue = status.data?.data.queue;
-  const poller = status.data?.data.poller;
+  const queue = status.data?.queue;
+  const poller = status.data?.poller;
 
   return (
     <>

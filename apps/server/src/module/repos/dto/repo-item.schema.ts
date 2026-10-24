@@ -8,7 +8,7 @@ export const RepoItemSchema = z.object({
   fullName: z.string(),
   enabled: z.boolean(),
   lastPolledAt: z.iso.datetime().nullable(),
-  lastError: z.string().nullable(),
+  lastError: z.string().describe('Why the last check of this repository failed; null if it went fine').nullable(),
   createdAt: z.iso.datetime(),
 });
 export type RepoItem = z.infer<typeof RepoItemSchema>;

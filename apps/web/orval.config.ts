@@ -14,6 +14,10 @@ export default defineConfig({
       clean: true,
       override: {
         mutator: { path: './src/api/fetcher.ts', name: 'apiFetch' },
+        // Hooks return just the response body of a successful call. Failures never come back as a value:
+        // the fetcher throws ApiError for them, so the status and headers (and the typed error statuses
+        // declared on the server) have no use on the page.
+        fetch: { includeHttpResponseReturnType: false },
       },
     },
   },

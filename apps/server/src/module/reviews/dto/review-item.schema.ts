@@ -10,8 +10,8 @@ export const ReviewItemSchema = z.object({
   prUrl: z.string(),
   headSha: z.string(),
   status: ReviewStatus,
-  error: z.string().nullable(),
-  githubReviewUrl: z.string().nullable(),
+  error: z.string().describe('Why the review failed; null otherwise').nullable(),
+  githubReviewUrl: z.string().describe('Link to the posted review on GitHub; null until it is posted').nullable(),
   createdAt: z.iso.datetime(),
   finishedAt: z.iso.datetime().nullable(),
 });

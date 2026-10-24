@@ -57,5 +57,5 @@ export async function apiFetch<T>(url: string, options: RequestInit): Promise<T>
   }
 
   if (!response.ok) throw new ApiError(response.status, messageFrom(response.status, body), body);
-  return { data: body, status: response.status, headers: response.headers } as T;
+  return body as T;
 }

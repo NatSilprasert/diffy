@@ -10,9 +10,9 @@ export class GetReviewParamsDto extends createZodDto(GetReviewParamsSchema) {}
 
 export const ReviewDetailSchema = ReviewItemSchema.extend({
   repoFullName: z.string(),
-  summary: z.string().nullable(),
+  summary: z.string().describe('The overall summary the model wrote; null until the review has run').nullable(),
   provider: LlmProvider.nullable(),
-  model: z.string().nullable(),
+  model: z.string().describe('The model that did the review; null until it has run').nullable(),
   inputTokens: z.number().int().nullable(),
   outputTokens: z.number().int().nullable(),
 });

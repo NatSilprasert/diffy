@@ -6,12 +6,12 @@ import { z } from 'zod';
 export const GetSettingsResponseSchema = z.object({
   github: z.object({
     configured: z.boolean(),
-    login: z.string().nullable(),
+    login: z.string().describe('The GitHub account the saved token belongs to').nullable(),
   }),
   llm: z.object({
     configured: z.boolean(),
     provider: LlmProvider.nullable(),
-    model: z.string().nullable(),
+    model: z.string().describe('The model that is configured').nullable(),
   }),
 });
 export class GetSettingsResponseDto extends createZodDto(GetSettingsResponseSchema) {}

@@ -21,14 +21,14 @@ export class ReposRepository {
 
   // Restores the row if the user removed this repo earlier (keeping its review history),
   // otherwise creates it. Returns null when it is already being watched.
-  async add(data: { owner: string; name: string }) {
+  async add({ owner, name, baselineShas }: { owner: string; name: string; baselineShas: string[] }) {
     const restored = await this.prisma.repository.updateMany({
-      where: { ...data, removedAt: { not: null } },
-      data: { removedAt: null, enabled: true, lastError: null },
+      where: { owner, name, removedAt: { not: null } },
+      data: { removedAt: null, enabled: true, lastError: null, baselineShas },
     });
     try {
-      if (restored.count > 0) return await this.prisma.repository.findUnique({ where: { owner_name: data } });
-      return await this.prisma.repository.create({ data });
+      if (restored.count > 0) return await this.prisma.repository.findUnique({ where: { owner_name: { owner, name } } });
+      return await this.prisma.repository.create({ data: { owner, name, baselineShas } });
     } catch (err) {
       if (isUniqueViolation(err)) return null;
       throw err;

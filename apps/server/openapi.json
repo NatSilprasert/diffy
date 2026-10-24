@@ -470,6 +470,43 @@
           "Reviews"
         ]
       }
+    },
+    "/api/reviews/poll": {
+      "post": {
+        "operationId": "pollRepo",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PollRepoRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PollRepoResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body"
+          },
+          "404": {
+            "description": "No such repository"
+          }
+        },
+        "tags": [
+          "Reviews"
+        ]
+      }
     }
   },
   "info": {
@@ -1433,6 +1470,38 @@
           "githubReviewUrl",
           "createdAt",
           "finishedAt"
+        ]
+      },
+      "PollRepoRequestDto": {
+        "type": "object",
+        "properties": {
+          "repositoryId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "repositoryId"
+        ]
+      },
+      "PollRepoResponseDto": {
+        "type": "object",
+        "properties": {
+          "queued": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "error": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "queued",
+          "error"
         ]
       }
     }

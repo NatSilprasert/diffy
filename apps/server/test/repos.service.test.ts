@@ -7,9 +7,9 @@ const service = (found: unknown) =>
   new ReposService({ findActiveById: vi.fn().mockResolvedValue(found) } as unknown as ReposRepository);
 
 describe('ReposService.getActiveRepo', () => {
-  it('returns only the identifying fields', async () => {
-    const found = { id: 'r1', owner: 'acme', name: 'api', enabled: true, lastError: 'x', removedAt: null };
-    expect(await service(found).getActiveRepo('r1')).toEqual({ id: 'r1', owner: 'acme', name: 'api' });
+  it('returns only what other modules need: identity and baseline', async () => {
+    const found = { id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'], enabled: true, lastError: 'x', removedAt: null };
+    expect(await service(found).getActiveRepo('r1')).toEqual({ id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'] });
   });
 
   it('is a 404 for an unknown or removed repository', async () => {
@@ -18,10 +18,10 @@ describe('ReposService.getActiveRepo', () => {
 });
 
 describe('ReposService polling helpers', () => {
-  it('listPollableRepos returns only the identifying fields', async () => {
-    const findPollable = vi.fn().mockResolvedValue([{ id: 'r1', owner: 'acme', name: 'api', enabled: true, lastError: 'x', removedAt: null }]);
+  it('listPollableRepos returns identity and baseline only', async () => {
+    const findPollable = vi.fn().mockResolvedValue([{ id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'], enabled: true, lastError: 'x', removedAt: null }]);
     const service = new ReposService({ findPollable } as unknown as ReposRepository);
-    expect(await service.listPollableRepos()).toEqual([{ id: 'r1', owner: 'acme', name: 'api' }]);
+    expect(await service.listPollableRepos()).toEqual([{ id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'] }]);
   });
 
   it('recordPoll passes the error (or null) to the repository', async () => {

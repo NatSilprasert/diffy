@@ -10,10 +10,12 @@ import { ZodSerializerDto } from 'nestjs-zod';
 import { CreateReviewRequestDto, CreateReviewResponseDto } from './dto/create-review.dto';
 import { GetReviewParamsDto, GetReviewResponseDto } from './dto/get-review.dto';
 import { ListReviewsQueryDto, ListReviewsResponseDto } from './dto/list-reviews.dto';
+import { PollRepoRequestDto, PollRepoResponseDto } from './dto/poll-repo.dto';
 import { RetryReviewParamsDto, RetryReviewResponseDto } from './dto/retry-review.dto';
 import { CreateReviewUsecase } from './usecase/create-review.usecase';
 import { GetReviewUsecase } from './usecase/get-review.usecase';
 import { ListReviewsUsecase } from './usecase/list-reviews.usecase';
+import { PollRepoUsecase } from './usecase/poll-repo.usecase';
 import { RetryReviewUsecase } from './usecase/retry-review.usecase';
 
 @Controller('reviews')
@@ -23,6 +25,7 @@ export class ReviewsController {
     private readonly listReviewsUsecase: ListReviewsUsecase,
     private readonly getReviewUsecase: GetReviewUsecase,
     private readonly retryReviewUsecase: RetryReviewUsecase,
+    private readonly pollRepoUsecase: PollRepoUsecase,
   ) {}
 
   @Post()
@@ -58,5 +61,16 @@ export class ReviewsController {
   @ApiConflictResponse({ description: 'The review is not in the failed state' })
   retryReview(@Param() params: RetryReviewParamsDto) {
     return this.retryReviewUsecase.execute(params);
+  }
+
+  // "Check now": looks for new pull requests in one repository straight away, instead of waiting for the timer.
+  @Post('poll')
+  @HttpCode(200)
+  @ZodSerializerDto(PollRepoResponseDto)
+  @ApiOkResponse({ type: PollRepoResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid body' })
+  @ApiNotFoundResponse({ description: 'No such repository' })
+  pollRepo(@Body() body: PollRepoRequestDto) {
+    return this.pollRepoUsecase.execute(body);
   }
 }

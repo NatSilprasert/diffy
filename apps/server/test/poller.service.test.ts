@@ -25,7 +25,7 @@ const poller = () =>
     { enqueue } as unknown as ReviewQueueService,
   );
 
-const repo = { id: 'r1', owner: 'acme', name: 'api' };
+const repo = { id: 'r1', owner: 'acme', name: 'api', baselineShas: [] as string[] };
 const pr = (number: number, over: Record<string, unknown> = {}) => ({
   owner: 'acme',
   repo: 'api',
@@ -55,7 +55,7 @@ describe('PollerService.pollRepo', () => {
   it('queues a review for every new pull request and records a clean poll', async () => {
     vi.mocked(listOpenPullRequests).mockResolvedValue([pr(1), pr(2)] as never);
 
-    expect(await poller().pollRepo(repo)).toBe(2);
+    expect(await poller().pollRepo(repo)).toEqual({ queued: 2, error: null });
 
     expect(createGithubClient).toHaveBeenCalledWith('github_pat_x');
     expect(vi.mocked(listOpenPullRequests).mock.calls[0]!.slice(1)).toEqual(['acme', 'api']);
@@ -68,7 +68,7 @@ describe('PollerService.pollRepo', () => {
     vi.mocked(listOpenPullRequests).mockResolvedValue([pr(1), pr(2)] as never);
     createQueued.mockImplementation(async (data: { prNumber: number }) => ({ review: { id: `v${data.prNumber}` }, created: data.prNumber === 2 }));
 
-    expect(await poller().pollRepo(repo)).toBe(1);
+    expect(await poller().pollRepo(repo)).toEqual({ queued: 1, error: null });
     expect(enqueue.mock.calls.map((c) => c[0])).toEqual(['v2']);
   });
 
@@ -79,7 +79,7 @@ describe('PollerService.pollRepo', () => {
       pr(3),
     ] as never);
 
-    expect(await poller().pollRepo(repo)).toBe(1);
+    expect(await poller().pollRepo(repo)).toEqual({ queued: 1, error: null });
     expect(createQueued).toHaveBeenCalledTimes(1);
     expect(createQueued).toHaveBeenCalledWith(expect.objectContaining({ prNumber: 3 }));
   });
@@ -87,7 +87,7 @@ describe('PollerService.pollRepo', () => {
   it('records the error on the repository instead of throwing when GitHub fails', async () => {
     vi.mocked(listOpenPullRequests).mockRejectedValue(new Error('Not Found - https://docs.github.com/rest'));
 
-    await expect(poller().pollRepo(repo)).resolves.toBe(0);
+    await expect(poller().pollRepo(repo)).resolves.toEqual({ queued: 0, error: 'Not Found - https://docs.github.com/rest' });
 
     expect(recordPoll).toHaveBeenCalledWith('r1', 'Not Found - https://docs.github.com/rest');
     expect(enqueue).not.toHaveBeenCalled();
@@ -96,7 +96,7 @@ describe('PollerService.pollRepo', () => {
   it('records a missing or undecryptable token the same way, without calling GitHub', async () => {
     getGithubToken.mockRejectedValue(new Error('Connect your GitHub token in Settings first.'));
 
-    await expect(poller().pollRepo(repo)).resolves.toBe(0);
+    await expect(poller().pollRepo(repo)).resolves.toEqual({ queued: 0, error: 'Connect your GitHub token in Settings first.' });
 
     expect(listOpenPullRequests).not.toHaveBeenCalled();
     expect(recordPoll).toHaveBeenCalledWith('r1', 'Connect your GitHub token in Settings first.');
@@ -119,9 +119,34 @@ describe('PollerService.pollRepo', () => {
   });
 });
 
+describe('PollerService baseline (pull requests that were open when the repo was added)', () => {
+  it('does not review a pull request whose head commit is in the baseline', async () => {
+    vi.mocked(listOpenPullRequests).mockResolvedValue([pr(1), pr(2)] as never);
+
+    const result = await poller().pollRepo({ ...repo, baselineShas: ['sha1'] });
+
+    expect(result).toEqual({ queued: 1, error: null });
+    expect(createQueued).toHaveBeenCalledTimes(1);
+    expect(createQueued).toHaveBeenCalledWith(expect.objectContaining({ prNumber: 2 }));
+  });
+
+  it('reviews a baseline pull request once it gets a new commit', async () => {
+    vi.mocked(listOpenPullRequests).mockResolvedValue([pr(1, { headSha: 'a-newer-commit' })] as never);
+
+    expect(await poller().pollRepo({ ...repo, baselineShas: ['sha1'] })).toEqual({ queued: 1, error: null });
+    expect(createQueued).toHaveBeenCalledWith(expect.objectContaining({ prNumber: 1, headSha: 'a-newer-commit' }));
+  });
+
+  it('still records a clean poll when everything open is in the baseline', async () => {
+    vi.mocked(listOpenPullRequests).mockResolvedValue([pr(1)] as never);
+    expect(await poller().pollRepo({ ...repo, baselineShas: ['sha1'] })).toEqual({ queued: 0, error: null });
+    expect(recordPoll).toHaveBeenCalledWith('r1', null);
+  });
+});
+
 describe('PollerService.pollAll', () => {
   it('polls every pollable repository, and one failing repository does not stop the others', async () => {
-    listPollableRepos.mockResolvedValue([repo, { id: 'r2', owner: 'acme', name: 'web' }, { id: 'r3', owner: 'acme', name: 'docs' }]);
+    listPollableRepos.mockResolvedValue([repo, { ...repo, id: 'r2', name: 'web' }, { ...repo, id: 'r3', name: 'docs' }]);
     vi.mocked(listOpenPullRequests)
       .mockResolvedValueOnce([pr(1)] as never)
       .mockRejectedValueOnce(new Error('boom'))
@@ -134,7 +159,7 @@ describe('PollerService.pollAll', () => {
   });
 
   it('survives a failure while recording a poll', async () => {
-    listPollableRepos.mockResolvedValue([repo, { id: 'r2', owner: 'acme', name: 'web' }]);
+    listPollableRepos.mockResolvedValue([repo, { ...repo, id: 'r2', name: 'web' }]);
     recordPoll.mockRejectedValueOnce(new Error('database is down')).mockResolvedValue(undefined);
 
     await expect(poller().pollAll()).resolves.toBeUndefined();

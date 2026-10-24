@@ -9,7 +9,14 @@ import { ReviewQueueService } from './review-queue.service';
 
 const MAX_ERROR_CHARS = 500;
 
-type PolledRepo = { id: string; owner: string; name: string };
+type PolledRepo = { id: string; owner: string; name: string; baselineShas: string[] };
+
+export type PollResult = {
+  // How many reviews this poll queued.
+  queued: number;
+  // Why the poll failed, or null if it went fine.
+  error: string | null;
+};
 
 // Looks for new pull requests (and new commits on old ones) in every watched repository, on a timer,
 // and queues a review for each commit that has none yet. No webhooks: a plain poll is enough.
@@ -56,9 +63,9 @@ export class PollerService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
-  // Polls one repository and returns how many reviews it queued. A failure is written to the
-  // repository (lastError) instead of thrown, so one broken repository never stops the others.
-  async pollRepo(repo: PolledRepo): Promise<number> {
+  // Polls one repository. A failure is written to the repository (lastError) and returned, not thrown,
+  // so one broken repository never stops the others.
+  async pollRepo(repo: PolledRepo): Promise<PollResult> {
     try {
       const token = await this.settingsService.getGithubToken();
       const pulls = await listOpenPullRequests(createGithubClient(token), repo.owner, repo.name);
@@ -68,6 +75,8 @@ export class PollerService implements OnApplicationBootstrap, OnModuleDestroy {
         // Drafts are not ready for review yet; they get one when marked ready (same commit, no row yet).
         // Bots (Dependabot and the like) open many PRs nobody wants an AI opinion on.
         if (pr.isDraft || pr.authorIsBot) continue;
+        // Already open, at this exact commit, when the repo was added. A newer commit is reviewed.
+        if (repo.baselineShas.includes(pr.headSha)) continue;
 
         const { review, created } = await this.reviewsRepository.createQueued({
           repositoryId: repo.id,
@@ -84,12 +93,12 @@ export class PollerService implements OnApplicationBootstrap, OnModuleDestroy {
 
       await this.reposService.recordPoll(repo.id, null);
       if (queued > 0) this.logger.log(`${repo.owner}/${repo.name}: queued ${queued} review(s)`);
-      return queued;
+      return { queued, error: null };
     } catch (err) {
       const message = errorMessage(err).slice(0, MAX_ERROR_CHARS);
       this.logger.warn(`${repo.owner}/${repo.name}: poll failed: ${message}`);
       await this.reposService.recordPoll(repo.id, message);
-      return 0;
+      return { queued: 0, error: message };
     }
   }
 }

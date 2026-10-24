@@ -7,6 +7,10 @@ model Repository {
   // Set when the user removes the repo. Hidden everywhere, but the review history stays,
   // and adding the same repo again restores this row instead of creating a new one.
   removedAt    DateTime?
+  // Head commits of the pull requests that were already open when the repo was added. The poller does
+  // not review these, so adding a repo does not trigger a review of every open PR. Any later commit
+  // has a different SHA and is reviewed as usual.
+  baselineShas String[]  @default([])
   lastPolledAt DateTime?
   lastError    String?
   createdAt    DateTime  @default(now())

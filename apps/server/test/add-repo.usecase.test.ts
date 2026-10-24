@@ -1,9 +1,13 @@
 import { BadGatewayException, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@diffy/core', () => ({ createGithubClient: vi.fn(() => ({})), getRepository: vi.fn() }));
+vi.mock('@diffy/core', () => ({
+  createGithubClient: vi.fn(() => ({})),
+  getRepository: vi.fn(),
+  listOpenPullRequests: vi.fn(),
+}));
 
-import { createGithubClient, getRepository } from '@diffy/core';
+import { createGithubClient, getRepository, listOpenPullRequests } from '@diffy/core';
 import { AddRepoRequestSchema } from '../src/module/repos/dto/add-repo.dto';
 import type { ReposRepository } from '../src/module/repos/repos.repository';
 import { AddRepoUsecase } from '../src/module/repos/usecase/add-repo.usecase';
@@ -39,6 +43,7 @@ beforeEach(() => {
   add.mockReset();
   getGithubToken.mockReset().mockResolvedValue('github_pat_x');
   vi.mocked(getRepository).mockReset();
+  vi.mocked(listOpenPullRequests).mockReset().mockResolvedValue([]);
   vi.mocked(createGithubClient).mockClear();
 });
 
@@ -51,7 +56,7 @@ describe('AddRepoUsecase', () => {
 
     expect(createGithubClient).toHaveBeenCalledWith('github_pat_x');
     expect(vi.mocked(getRepository).mock.calls[0]!.slice(1)).toEqual(['acme', 'api']);
-    expect(add).toHaveBeenCalledWith({ owner: 'Acme', name: 'Api' });
+    expect(add).toHaveBeenCalledWith({ owner: 'Acme', name: 'Api', baselineShas: [] });
     expect(result).toEqual({
       id: 'r1',
       owner: 'Acme',
@@ -94,6 +99,33 @@ describe('AddRepoUsecase', () => {
     getGithubToken.mockRejectedValue(new BadRequestException('Connect your GitHub token in Settings first.'));
     await expect(usecase.execute({ fullName: 'acme/api' })).rejects.toThrow(/Connect your GitHub token/);
     expect(getRepository).not.toHaveBeenCalled();
+  });
+});
+
+describe('AddRepoUsecase baseline', () => {
+  it('saves the head commit of every open pull request as the baseline', async () => {
+    vi.mocked(getRepository).mockResolvedValue(info());
+    vi.mocked(listOpenPullRequests).mockResolvedValue([{ headSha: 'aaa' }, { headSha: 'bbb' }, { headSha: 'ccc' }] as never);
+    add.mockResolvedValue(row);
+
+    await usecase.execute({ fullName: 'acme/api' });
+
+    expect(vi.mocked(listOpenPullRequests).mock.calls[0]!.slice(1)).toEqual(['Acme', 'Api']); // GitHub's casing
+    expect(add).toHaveBeenCalledWith({ owner: 'Acme', name: 'Api', baselineShas: ['aaa', 'bbb', 'ccc'] });
+  });
+
+  it('does not add the repository when the open pull requests cannot be read', async () => {
+    vi.mocked(getRepository).mockResolvedValue(info());
+    vi.mocked(listOpenPullRequests).mockRejectedValue(new Error('ENOTFOUND'));
+
+    await expect(usecase.execute({ fullName: 'acme/api' })).rejects.toBeInstanceOf(BadGatewayException);
+    expect(add).not.toHaveBeenCalled();
+  });
+
+  it('does not read pull requests of an archived repository', async () => {
+    vi.mocked(getRepository).mockResolvedValue(info({ archived: true }));
+    await expect(usecase.execute({ fullName: 'acme/api' })).rejects.toThrow(/archived/);
+    expect(add).not.toHaveBeenCalled();
   });
 });
 

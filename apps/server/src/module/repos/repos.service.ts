@@ -1,22 +1,38 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ReposRepository } from './repos.repository';
 
+// What other modules get to know about a repository: enough to talk to GitHub and to poll it.
+export type WatchedRepo = {
+  id: string;
+  owner: string;
+  name: string;
+  // Head commits that already existed when the repo was added; the poller does not review these.
+  baselineShas: string[];
+};
+
+const toWatchedRepo = (repo: { id: string; owner: string; name: string; baselineShas: string[] }): WatchedRepo => ({
+  id: repo.id,
+  owner: repo.owner,
+  name: repo.name,
+  baselineShas: repo.baselineShas,
+});
+
 // The repos module's public API for other modules (reviews now, the poller later).
 @Injectable()
 export class ReposService {
   constructor(private readonly reposRepository: ReposRepository) {}
 
   // A repository the user is watching. Unknown and removed ids are both "not found".
-  async getActiveRepo(id: string): Promise<{ id: string; owner: string; name: string }> {
+  async getActiveRepo(id: string): Promise<WatchedRepo> {
     const repo = await this.reposRepository.findActiveById(id);
     if (!repo) throw new NotFoundException('Repository not found.');
-    return { id: repo.id, owner: repo.owner, name: repo.name };
+    return toWatchedRepo(repo);
   }
 
   // The repositories to poll for new pull requests.
-  async listPollableRepos(): Promise<Array<{ id: string; owner: string; name: string }>> {
+  async listPollableRepos(): Promise<WatchedRepo[]> {
     const repos = await this.reposRepository.findPollable();
-    return repos.map((repo) => ({ id: repo.id, owner: repo.owner, name: repo.name }));
+    return repos.map(toWatchedRepo);
   }
 
   // Remember when a repository was last polled, and why it failed (null = it went fine).

@@ -9,11 +9,13 @@ import {
 import { ZodSerializerDto } from 'nestjs-zod';
 import { CreateReviewRequestDto, CreateReviewResponseDto } from './dto/create-review.dto';
 import { GetReviewParamsDto, GetReviewResponseDto } from './dto/get-review.dto';
+import { GetStatusResponseDto } from './dto/get-status.dto';
 import { ListReviewsQueryDto, ListReviewsResponseDto } from './dto/list-reviews.dto';
 import { PollRepoRequestDto, PollRepoResponseDto } from './dto/poll-repo.dto';
 import { RetryReviewParamsDto, RetryReviewResponseDto } from './dto/retry-review.dto';
 import { CreateReviewUsecase } from './usecase/create-review.usecase';
 import { GetReviewUsecase } from './usecase/get-review.usecase';
+import { GetStatusUsecase } from './usecase/get-status.usecase';
 import { ListReviewsUsecase } from './usecase/list-reviews.usecase';
 import { PollRepoUsecase } from './usecase/poll-repo.usecase';
 import { RetryReviewUsecase } from './usecase/retry-review.usecase';
@@ -26,6 +28,7 @@ export class ReviewsController {
     private readonly getReviewUsecase: GetReviewUsecase,
     private readonly retryReviewUsecase: RetryReviewUsecase,
     private readonly pollRepoUsecase: PollRepoUsecase,
+    private readonly getStatusUsecase: GetStatusUsecase,
   ) {}
 
   @Post()
@@ -43,6 +46,14 @@ export class ReviewsController {
   @ApiBadRequestResponse({ description: 'Invalid filter, cursor or limit' })
   listReviews(@Query() query: ListReviewsQueryDto) {
     return this.listReviewsUsecase.execute(query);
+  }
+
+  // Declared before ':id' on purpose, otherwise "status" would be read as a review id.
+  @Get('status')
+  @ZodSerializerDto(GetStatusResponseDto)
+  @ApiOkResponse({ type: GetStatusResponseDto })
+  getStatus() {
+    return this.getStatusUsecase.execute();
   }
 
   @Get(':id')

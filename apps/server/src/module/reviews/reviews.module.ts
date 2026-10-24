@@ -5,6 +5,7 @@ import { ReviewsController } from './reviews.controller';
 import { ReviewsRepository } from './reviews.repository';
 import { CreateReviewUsecase } from './usecase/create-review.usecase';
 import { GetReviewUsecase } from './usecase/get-review.usecase';
+import { GetStatusUsecase } from './usecase/get-status.usecase';
 import { ListReviewsUsecase } from './usecase/list-reviews.usecase';
 import { PollRepoUsecase } from './usecase/poll-repo.usecase';
 import { RetryReviewUsecase } from './usecase/retry-review.usecase';
@@ -22,6 +23,7 @@ import { RunReviewService } from './worker/run-review.service';
     GetReviewUsecase,
     RetryReviewUsecase,
     PollRepoUsecase,
+    GetStatusUsecase,
     RunReviewService,
     ReviewQueueService,
     PollerService,

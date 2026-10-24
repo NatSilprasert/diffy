@@ -11,6 +11,16 @@ const MAX_ERROR_CHARS = 500;
 
 type PolledRepo = { id: string; owner: string; name: string; baselineShas: string[] };
 
+export type PollerState = {
+  intervalSeconds: number;
+  // A timer-driven pass over all repositories is running right now.
+  running: boolean;
+  // When the last timer-driven pass finished; null before the first one.
+  lastRunAt: Date | null;
+  // When the timer is due to fire next; null if it is not running.
+  nextRunAt: Date | null;
+};
+
 export type PollResult = {
   // How many reviews this poll queued.
   queued: number;
@@ -25,6 +35,8 @@ export class PollerService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(PollerService.name);
   private timer: NodeJS.Timeout | undefined;
   private polling = false;
+  private lastTickAt: Date | null = null;
+  private lastRunAt: Date | null = null;
 
   constructor(
     @Inject(ENV) private readonly env: Env,
@@ -35,12 +47,28 @@ export class PollerService implements OnApplicationBootstrap, OnModuleDestroy {
   ) {}
 
   onApplicationBootstrap(): void {
-    void this.pollAll();
-    this.timer = setInterval(() => void this.pollAll(), this.env.POLL_INTERVAL_SECONDS * 1000);
+    this.tick();
+    this.timer = setInterval(() => this.tick(), this.env.POLL_INTERVAL_SECONDS * 1000);
   }
 
   onModuleDestroy(): void {
     clearInterval(this.timer);
+    this.timer = undefined;
+  }
+
+  getState(): PollerState {
+    const intervalMs = this.env.POLL_INTERVAL_SECONDS * 1000;
+    return {
+      intervalSeconds: this.env.POLL_INTERVAL_SECONDS,
+      running: this.polling,
+      lastRunAt: this.lastRunAt,
+      nextRunAt: this.timer && this.lastTickAt ? new Date(this.lastTickAt.getTime() + intervalMs) : null,
+    };
+  }
+
+  private tick(): void {
+    this.lastTickAt = new Date();
+    void this.pollAll();
   }
 
   // One pass over every pollable repository, one after the other (gentle on GitHub's rate limit).
@@ -60,6 +88,7 @@ export class PollerService implements OnApplicationBootstrap, OnModuleDestroy {
       this.logger.error(`Poll failed: ${errorMessage(err)}`);
     } finally {
       this.polling = false;
+      this.lastRunAt = new Date();
     }
   }
 

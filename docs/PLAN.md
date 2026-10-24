@@ -1,6 +1,6 @@
 # Diffy: แผนและความคืบหน้า
 
-อัปเดตล่าสุด: 2026-10-24 (หลังทำ E6)
+อัปเดตล่าสุด: 2026-10-24 (หลังทำ E7: Phase E เสร็จ)
 เอกสารนี้สรุปว่า Diffy คืออะไร ออกแบบอย่างไร ตอนนี้ทำถึงไหน อะไรยืนยันแล้ว อะไรยังไม่ได้ยืนยัน และเหลืออะไรต้องทำ
 
 ---
@@ -29,13 +29,13 @@ AI รีวิว pull request แบบ open source ที่ผู้ใช�
 | B | โครง NestJS, Prisma, Swagger/OpenAPI, เข้ารหัสความลับ (B1–B4) | เสร็จ |
 | C | Settings API (C1–C4) | เสร็จ |
 | D | Repos API (D1–D3) | เสร็จ |
-| E | Reviews API และ worker | **E1–E6 เสร็จ**, เหลือ E7 |
+| E | Reviews API และ worker (E1–E7) | เสร็จ |
 | F | หน้าเว็บ (Next.js) F1–F7 | ยังไม่เริ่ม |
 | G | รวมเป็น process เดียวและเอกสาร G1–G2 | ยังไม่เริ่ม |
 
-จำนวน test ที่ผ่าน ณ วันที่เขียน: `shared` 8, `core` 74, `server` 215
+จำนวน test ที่ผ่าน ณ วันที่เขียน: `shared` 8, `core` 74, `server` 225
 
-**ขั้นถัดไปคือ E7** (`GET /status`) จากนั้นเริ่ม Phase F (เว็บ) ดูหัวข้อ 9
+**ขั้นถัดไปคือ Phase F** (หน้าเว็บ) เริ่มที่ F1 ดูหัวข้อ 9 ฝั่ง API ของ v1 ครบแล้ว
 
 ---
 
@@ -116,7 +116,7 @@ GitHub จะปฏิเสธรีวิวทั้งก้อนถ้า�
 
 ## 5. API
 
-### ทำแล้ว (15 endpoint)
+### ทำแล้ว (16 endpoint: API ของ v1 ครบ)
 
 | Method | Path | ทำอะไร |
 |---|---|---|
@@ -133,15 +133,17 @@ GitHub จะปฏิเสธรีวิวทั้งก้อนถ้า�
 | POST | `/api/reviews/poll` | "ตรวจตอนนี้" body `{ repositoryId }` ตอบ `{ queued, error }` (poll ที่ล้มก็ตอบ 200 พร้อมเหตุผล) |
 | POST | `/api/reviews` | ขอรีวิวด้วยมือ สร้างแถว `queued` และเข้าคิว |
 | GET | `/api/reviews` | ประวัติ แบ่งหน้าด้วย cursor กรองด้วย `repositoryId`/`status` มี `findingCounts` |
+| GET | `/api/reviews/status` | สถานะ worker: คิว (กี่รายการรอ, กำลังรันอะไร) และ poller (รอบล่าสุด, รอบถัดไป) |
 | GET | `/api/reviews/:id` | รายละเอียดรีวิว + findings เรียงตามความรุนแรง |
 | POST | `/api/reviews/:id/retry` | ลองใหม่ **เฉพาะรีวิวที่ `failed`** (อย่างอื่นตอบ 409) |
 
 เอกสารเชิงโต้ตอบ: `/api/docs` (Swagger UI)
 
-### ที่เหลือ
+ไม่เหลือแล้ว ฝั่ง API ของ v1 ครบ
 
-| Method | Path | ขั้น |
-|---|---|---|
+หมายเหตุ: `status` อยู่ใต้ `/reviews` ไม่ใช่ `/api/status` ตามแผนเดิม (ให้ `ReviewsController` ถือทุกอย่างของรีวิวและการตรวจ PR) และตอบเฉพาะสถานะของ worker ส่วน "การตั้งค่าครบหรือยัง" ให้หน้าเว็บประกอบเองจาก `GET /settings` และ `GET /repos`
+
+---|---|---|
 | GET | `/api/status` | E7 |
 
 ---
@@ -219,7 +221,7 @@ Migration ที่มี: `init`, `add_repository_removed_at`, `lowercase_enums
 - ~~**E4 retry และกู้งานค้าง**~~ **เสร็จแล้ว**: `POST /reviews/:id/retry` (failed → queued แล้วเข้าคิว; ใช้ conditional update จึงยิงพร้อมกัน 25 คำขอชนะ 1) และตอนเริ่ม server เปลี่ยนแถว `running` ที่ค้างกลับเป็น `queued` แล้วเข้าคิวทั้งหมดของ `queued` เรียงเก่าก่อน ทดสอบโดยตั้ง DB ให้เหมือน server ดับกลางคัน แล้วเปิดใหม่: ทั้งสามรีวิวที่ค้างถูกหยิบไปทำ ส่วนรีวิวที่ `failed`/`posted` อยู่แล้วไม่ถูกแตะ
 - ~~**E5 poller**~~ **เสร็จแล้ว**: `PollerService` poll ทันทีตอนเริ่ม แล้วทุก `POLL_INTERVAL_SECONDS` วนทุก repo ที่ `removedAt = null AND enabled = true` ดึง PR ที่เปิดอยู่ ข้าม draft และบอท สร้างแถว `queued` ให้ commit ที่ยังไม่มีรีวิว (ซ้ำถูกกันด้วย unique constraint) และบันทึก `lastPolledAt`/`lastError` ต่อ repo repo ที่พังไม่ทำให้ repo อื่นหยุด ทดสอบกับ GitHub จริง: repo ปกติ, repo ที่ไม่มีอยู่ (บันทึก error), repo ที่หยุด/ลบ (ไม่ถูกแตะ) และรอบที่สองไม่สร้างรีวิวซ้ำ
 - ~~**E6 poll ทันที และ baseline**~~ **เสร็จแล้ว**: `POST /reviews/poll` (ส่ง `repositoryId` ใน body; วางใน `ReviewsController` เพราะ reviews พึ่ง repos อยู่แล้ว ถ้าวางใน repos จะเป็นวงกลม) และเมื่อเพิ่ม repo (รวมถึงฟื้น repo ที่เคยลบ) จะอ่าน PR ที่เปิดอยู่แล้วจด head commit เป็น baseline ก่อนบันทึก ถ้าอ่านไม่ได้จะ **ไม่เพิ่ม repo** (ไม่งั้นจะรีวิวทุก PR พร้อมกัน) ต้องทำตอนเพิ่ม ไม่ใช่ตอน poll รอบแรก เพราะผู้ใช้ที่เพิ่ม repo แล้วเปิด PR ทดสอบทันทีจะถูกข้ามเงียบ ๆ ทดสอบกับ GitHub จริง: เพิ่ม repo ที่มี PR #1 เปิดอยู่ → poll แล้วไม่มีรีวิว; เมื่อ PR มี commit ใหม่ (จำลอง) → ถูกรีวิว 1 ครั้ง
-- **E7 สถานะ**: `GET /status` ความยาวคิว งานปัจจุบัน และ poll ล่าสุด
+- ~~**E7 สถานะ**~~ **เสร็จแล้ว**: `GET /reviews/status` เป็นสถานะสดในหน่วยความจำของ process นี้ จึงมีความหมายเมื่อรัน instance เดียว
 
 ### Phase F: เว็บ (Next.js `output: 'export'`, Tailwind, shadcn/ui, Orval + React Query)
 - F1 โครงเว็บ, F2 ต่อ Orval (`pnpm gen:api`: เปลี่ยน DTO แล้ว type ฝั่งเว็บต้อง error), F3 `/settings`, F4 `/repos`, F5 `/reviews`, F6 `/reviews/view?id=` (คัดลอก fix prompt, ปุ่มลองใหม่), F7 `/` แดชบอร์ด (เช็กลิสต์การตั้งค่า + สถานะสด)

@@ -216,3 +216,78 @@ describe('PollerService timer', () => {
     expect(listPollableRepos).toHaveBeenCalledTimes(4);
   });
 });
+
+describe('PollerService.getState', () => {
+  it('has no times before the timer starts', () => {
+    expect(poller().getState()).toEqual({ intervalSeconds: 60, running: false, lastRunAt: null, nextRunAt: null });
+  });
+
+  it('reports the last run and the next due time once the timer is going', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-24T01:00:00.000Z'));
+    listPollableRepos.mockResolvedValue([]);
+    const p = poller();
+
+    p.onApplicationBootstrap();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(p.getState()).toMatchObject({
+      running: false,
+      lastRunAt: new Date('2026-10-24T01:00:00.000Z'),
+      nextRunAt: new Date('2026-10-24T01:01:00.000Z'),
+    });
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(p.getState()).toMatchObject({
+      lastRunAt: new Date('2026-10-24T01:01:00.000Z'),
+      nextRunAt: new Date('2026-10-24T01:02:00.000Z'),
+    });
+    p.onModuleDestroy();
+  });
+
+  it('says it is running while a pass is in progress', async () => {
+    listPollableRepos.mockResolvedValue([repo]);
+    let release!: () => void;
+    vi.mocked(listOpenPullRequests).mockImplementation(() => new Promise((resolve) => (release = () => resolve([]))));
+
+    const p = poller();
+    const pass = p.pollAll();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(p.getState().running).toBe(true);
+
+    release();
+    await pass;
+    expect(p.getState().running).toBe(false);
+    expect(p.getState().lastRunAt).toBeInstanceOf(Date);
+  });
+
+  it('does not count a pass that was skipped because another one was running', async () => {
+    listPollableRepos.mockResolvedValue([repo]);
+    let release!: () => void;
+    vi.mocked(listOpenPullRequests).mockImplementation(() => new Promise((resolve) => (release = () => resolve([]))));
+
+    const p = poller();
+    const first = p.pollAll();
+    await new Promise((resolve) => setImmediate(resolve));
+    await p.pollAll(); // skipped
+    expect(p.getState().lastRunAt).toBeNull();
+
+    release();
+    await first;
+  });
+
+  it('a manual pollRepo does not change the timer based state', async () => {
+    const p = poller();
+    await p.pollRepo(repo);
+    expect(p.getState().lastRunAt).toBeNull();
+  });
+
+  it('clears the next due time when the module is destroyed', async () => {
+    vi.useFakeTimers();
+    listPollableRepos.mockResolvedValue([]);
+    const p = poller();
+    p.onApplicationBootstrap();
+    await vi.advanceTimersByTimeAsync(0);
+    p.onModuleDestroy();
+    expect(p.getState().nextRunAt).toBeNull();
+  });
+});

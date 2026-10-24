@@ -1,12 +1,20 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { ApiBadRequestResponse, ApiCreatedResponse, ApiNotFoundResponse, ApiOkResponse } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+} from '@nestjs/swagger';
 import { ZodSerializerDto } from 'nestjs-zod';
 import { CreateReviewRequestDto, CreateReviewResponseDto } from './dto/create-review.dto';
 import { GetReviewParamsDto, GetReviewResponseDto } from './dto/get-review.dto';
 import { ListReviewsQueryDto, ListReviewsResponseDto } from './dto/list-reviews.dto';
+import { RetryReviewParamsDto, RetryReviewResponseDto } from './dto/retry-review.dto';
 import { CreateReviewUsecase } from './usecase/create-review.usecase';
 import { GetReviewUsecase } from './usecase/get-review.usecase';
 import { ListReviewsUsecase } from './usecase/list-reviews.usecase';
+import { RetryReviewUsecase } from './usecase/retry-review.usecase';
 
 @Controller('reviews')
 export class ReviewsController {
@@ -14,6 +22,7 @@ export class ReviewsController {
     private readonly createReviewUsecase: CreateReviewUsecase,
     private readonly listReviewsUsecase: ListReviewsUsecase,
     private readonly getReviewUsecase: GetReviewUsecase,
+    private readonly retryReviewUsecase: RetryReviewUsecase,
   ) {}
 
   @Post()
@@ -39,5 +48,15 @@ export class ReviewsController {
   @ApiNotFoundResponse({ description: 'No such review' })
   getReview(@Param() params: GetReviewParamsDto) {
     return this.getReviewUsecase.execute(params);
+  }
+
+  @Post(':id/retry')
+  @HttpCode(200)
+  @ZodSerializerDto(RetryReviewResponseDto)
+  @ApiOkResponse({ type: RetryReviewResponseDto })
+  @ApiNotFoundResponse({ description: 'No such review' })
+  @ApiConflictResponse({ description: 'The review is not in the failed state' })
+  retryReview(@Param() params: RetryReviewParamsDto) {
+    return this.retryReviewUsecase.execute(params);
   }
 }

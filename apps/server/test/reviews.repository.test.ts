@@ -69,3 +69,39 @@ describe('ReviewsRepository.countFindingsBySeverity', () => {
     expect(await repo.countFindingsBySeverity(['v1'])).toEqual([{ reviewId: 'v1', severity: 'high', count: 3 }]);
   });
 });
+
+describe('ReviewsRepository.requeueIfFailed', () => {
+  it('only touches a failed review and clears the old error and finish time', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const findUnique = vi.fn().mockResolvedValue({ id: 'v1', status: 'queued' });
+    const result = await repoWith({ updateMany, findUnique }).requeueIfFailed('v1');
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'v1', status: 'failed' },
+      data: { status: 'queued', error: null, finishedAt: null },
+    });
+    expect(result).toEqual({ id: 'v1', status: 'queued' });
+  });
+
+  it('returns null, without reading the row, when it was not failed', async () => {
+    const findUnique = vi.fn();
+    const result = await repoWith({ updateMany: vi.fn().mockResolvedValue({ count: 0 }), findUnique }).requeueIfFailed('v1');
+    expect(result).toBeNull();
+    expect(findUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe('ReviewsRepository.recoverUnfinished', () => {
+  it('turns running reviews back into queued, then lists all queued ids oldest first', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 2 });
+    const findMany = vi.fn().mockResolvedValue([{ id: 'a' }, { id: 'b' }]);
+
+    expect(await repoWith({ updateMany, findMany }).recoverUnfinished()).toEqual(['a', 'b']);
+    expect(updateMany).toHaveBeenCalledWith({ where: { status: 'running' }, data: { status: 'queued' } });
+    expect(findMany).toHaveBeenCalledWith({
+      where: { status: 'queued' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { id: true },
+    });
+  });
+});

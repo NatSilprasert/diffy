@@ -6,6 +6,7 @@ import { ReviewsRepository } from './reviews.repository';
 import { CreateReviewUsecase } from './usecase/create-review.usecase';
 import { GetReviewUsecase } from './usecase/get-review.usecase';
 import { ListReviewsUsecase } from './usecase/list-reviews.usecase';
+import { RetryReviewUsecase } from './usecase/retry-review.usecase';
 import { ReviewQueueService } from './worker/review-queue.service';
 import { RunReviewService } from './worker/run-review.service';
 
@@ -17,6 +18,7 @@ import { RunReviewService } from './worker/run-review.service';
     CreateReviewUsecase,
     ListReviewsUsecase,
     GetReviewUsecase,
+    RetryReviewUsecase,
     RunReviewService,
     ReviewQueueService,
   ],

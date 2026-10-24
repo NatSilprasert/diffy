@@ -433,6 +433,43 @@
           "Reviews"
         ]
       }
+    },
+    "/api/reviews/{id}/retry": {
+      "post": {
+        "operationId": "retryReview",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetryReviewResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such review"
+          },
+          "409": {
+            "description": "The review is not in the failed state"
+          }
+        },
+        "tags": [
+          "Reviews"
+        ]
+      }
     }
   },
   "info": {
@@ -1319,6 +1356,83 @@
         "required": [
           "review",
           "findings"
+        ]
+      },
+      "RetryReviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "repositoryId": {
+            "type": "string"
+          },
+          "prNumber": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "prTitle": {
+            "type": "string"
+          },
+          "prUrl": {
+            "type": "string"
+          },
+          "headSha": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "posted",
+              "failed",
+              "skipped"
+            ]
+          },
+          "error": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "githubReviewUrl": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "repositoryId",
+          "prNumber",
+          "prTitle",
+          "prUrl",
+          "headSha",
+          "status",
+          "error",
+          "githubReviewUrl",
+          "createdAt",
+          "finishedAt"
         ]
       }
     }

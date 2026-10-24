@@ -120,4 +120,30 @@ export class ReviewsRepository {
       },
     });
   }
+
+  findById(id: string) {
+    return this.prisma.review.findUnique({ where: { id } });
+  }
+
+  // failed -> queued, as one conditional update: of two simultaneous retries only one can win.
+  // Returns the updated row, or null if the review was not failed (any more).
+  async requeueIfFailed(id: string): Promise<Review | null> {
+    const result = await this.prisma.review.updateMany({
+      where: { id, status: 'failed' },
+      data: { status: 'queued', error: null, finishedAt: null },
+    });
+    return result.count > 0 ? this.findById(id) : null;
+  }
+
+  // For startup. A review left 'running' means the server stopped in the middle of it, so it goes
+  // back to 'queued' (claim only accepts queued rows). Returns every queued id, oldest first.
+  async recoverUnfinished(): Promise<string[]> {
+    await this.prisma.review.updateMany({ where: { status: 'running' }, data: { status: 'queued' } });
+    const queued = await this.prisma.review.findMany({
+      where: { status: 'queued' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { id: true },
+    });
+    return queued.map((review) => review.id);
+  }
 }

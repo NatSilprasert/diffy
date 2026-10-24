@@ -2,7 +2,11 @@ model Repository {
   id           String    @id @default(cuid())
   owner        String
   name         String
+  // false = paused: still listed, but never polled.
   enabled      Boolean   @default(true)
+  // Set when the user removes the repo. Hidden everywhere, but the review history stays,
+  // and adding the same repo again restores this row instead of creating a new one.
+  removedAt    DateTime?
   lastPolledAt DateTime?
   lastError    String?
   createdAt    DateTime  @default(now())

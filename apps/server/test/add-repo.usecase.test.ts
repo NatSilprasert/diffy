@@ -9,10 +9,10 @@ import type { ReposRepository } from '../src/module/repos/repos.repository';
 import { AddRepoUsecase } from '../src/module/repos/usecase/add-repo.usecase';
 import type { SettingsService } from '../src/module/settings/settings.service';
 
-const create = vi.fn();
+const add = vi.fn();
 const getGithubToken = vi.fn();
 const usecase = new AddRepoUsecase(
-  { create } as unknown as ReposRepository,
+  { add } as unknown as ReposRepository,
   { getGithubToken } as unknown as SettingsService,
 );
 
@@ -36,7 +36,7 @@ const row = {
 };
 
 beforeEach(() => {
-  create.mockReset();
+  add.mockReset();
   getGithubToken.mockReset().mockResolvedValue('github_pat_x');
   vi.mocked(getRepository).mockReset();
   vi.mocked(createGithubClient).mockClear();
@@ -45,13 +45,13 @@ beforeEach(() => {
 describe('AddRepoUsecase', () => {
   it('checks the repo with GitHub, saves it with GitHub\'s casing and returns the item', async () => {
     vi.mocked(getRepository).mockResolvedValue(info());
-    create.mockResolvedValue(row);
+    add.mockResolvedValue(row);
 
     const result = await usecase.execute({ fullName: 'acme/api' });
 
     expect(createGithubClient).toHaveBeenCalledWith('github_pat_x');
     expect(vi.mocked(getRepository).mock.calls[0]!.slice(1)).toEqual(['acme', 'api']);
-    expect(create).toHaveBeenCalledWith({ owner: 'Acme', name: 'Api' });
+    expect(add).toHaveBeenCalledWith({ owner: 'Acme', name: 'Api' });
     expect(result).toEqual({
       id: 'r1',
       owner: 'Acme',
@@ -66,20 +66,20 @@ describe('AddRepoUsecase', () => {
 
   it('returns 409 when the repository is already watched', async () => {
     vi.mocked(getRepository).mockResolvedValue(info());
-    create.mockResolvedValue(null);
+    add.mockResolvedValue(null);
     await expect(usecase.execute({ fullName: 'acme/api' })).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('returns 404 and saves nothing when GitHub does not know the repository', async () => {
     vi.mocked(getRepository).mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
     await expect(usecase.execute({ fullName: 'acme/nope' })).rejects.toBeInstanceOf(NotFoundException);
-    expect(create).not.toHaveBeenCalled();
+    expect(add).not.toHaveBeenCalled();
   });
 
   it('refuses an archived repository', async () => {
     vi.mocked(getRepository).mockResolvedValue(info({ archived: true }));
     await expect(usecase.execute({ fullName: 'acme/api' })).rejects.toThrow(/archived/);
-    expect(create).not.toHaveBeenCalled();
+    expect(add).not.toHaveBeenCalled();
   });
 
   it('maps a rejected token to 400 and a network failure to 502', async () => {

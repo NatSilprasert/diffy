@@ -22,7 +22,7 @@ export class AddRepoUsecase {
     }
 
     // Saved with GitHub's casing, so "Acme/API" and "acme/api" cannot become two entries.
-    const created = await this.reposRepository.create({ owner: info.owner, name: info.name });
+    const created = await this.reposRepository.add({ owner: info.owner, name: info.name });
     if (!created) throw new ConflictException(`${info.fullName} is already being watched.`);
     return toRepoItem(created);
   }

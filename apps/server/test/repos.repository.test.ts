@@ -3,34 +3,94 @@ import { Prisma } from '../src/generated/prisma/client';
 import type { PrismaService } from '../src/infra/prisma/prisma.service';
 import { ReposRepository } from '../src/module/repos/repos.repository';
 
-const repoWith = (create: () => Promise<unknown>) =>
-  new ReposRepository({ repository: { create: vi.fn(create) } } as unknown as PrismaService);
-
 const knownError = (code: string) =>
   new Prisma.PrismaClientKnownRequestError('boom', { code, clientVersion: 'test' });
 
-describe('ReposRepository.create', () => {
-  it('returns the new row', async () => {
-    const created = { id: 'r1' };
-    expect(await repoWith(async () => created).create({ owner: 'a', name: 'b' })).toBe(created);
+// A fake Prisma delegate; each test overrides only what it needs.
+function setup(delegate: Record<string, unknown> = {}) {
+  const repository = {
+    updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    findMany: vi.fn(),
+    ...delegate,
+  };
+  return { repository, repo: new ReposRepository({ repository } as unknown as PrismaService) };
+}
+
+describe('ReposRepository.findAll', () => {
+  it('hides removed repositories', async () => {
+    const { repo, repository } = setup({ findMany: vi.fn().mockResolvedValue([]) });
+    await repo.findAll();
+    expect(repository.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { removedAt: null } }));
+  });
+});
+
+describe('ReposRepository.add', () => {
+  const data = { owner: 'a', name: 'b' };
+
+  it('creates a new row when nothing was removed before', async () => {
+    const { repo, repository } = setup({ create: vi.fn().mockResolvedValue({ id: 'new' }) });
+    expect(await repo.add(data)).toEqual({ id: 'new' });
+    expect(repository.create).toHaveBeenCalledWith({ data });
   });
 
-  it('returns null on a unique-constraint violation (already watched)', async () => {
-    const repo = repoWith(async () => {
-      throw knownError('P2002');
+  it('restores a removed row, keeping its id, instead of creating one', async () => {
+    const { repo, repository } = setup({
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUnique: vi.fn().mockResolvedValue({ id: 'old' }),
     });
-    expect(await repo.create({ owner: 'a', name: 'b' })).toBeNull();
+    expect(await repo.add(data)).toEqual({ id: 'old' });
+    expect(repository.updateMany).toHaveBeenCalledWith({
+      where: { ...data, removedAt: { not: null } },
+      data: { removedAt: null, enabled: true, lastError: null },
+    });
+    expect(repository.findUnique).toHaveBeenCalledWith({ where: { owner_name: data } });
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it('returns null when it is already being watched (unique violation)', async () => {
+    const { repo } = setup({ create: vi.fn().mockRejectedValue(knownError('P2002')) });
+    expect(await repo.add(data)).toBeNull();
   });
 
   it('rethrows every other error', async () => {
-    const other = repoWith(async () => {
-      throw knownError('P2003');
-    });
-    await expect(other.create({ owner: 'a', name: 'b' })).rejects.toMatchObject({ code: 'P2003' });
+    const { repo } = setup({ create: vi.fn().mockRejectedValue(new Error('connection lost')) });
+    await expect(repo.add(data)).rejects.toThrow('connection lost');
+  });
+});
 
-    const plain = repoWith(async () => {
-      throw new Error('connection lost');
-    });
-    await expect(plain.create({ owner: 'a', name: 'b' })).rejects.toThrow('connection lost');
+describe('ReposRepository.updateEnabled', () => {
+  it('updates only a non-removed row', async () => {
+    const { repo, repository } = setup({ update: vi.fn().mockResolvedValue({ id: 'r1', enabled: false }) });
+    expect(await repo.updateEnabled('r1', false)).toEqual({ id: 'r1', enabled: false });
+    expect(repository.update).toHaveBeenCalledWith({ where: { id: 'r1', removedAt: null }, data: { enabled: false } });
+  });
+
+  it('returns null when no such row exists (record not found)', async () => {
+    const { repo } = setup({ update: vi.fn().mockRejectedValue(knownError('P2025')) });
+    expect(await repo.updateEnabled('missing', true)).toBeNull();
+  });
+
+  it('rethrows other errors', async () => {
+    const { repo } = setup({ update: vi.fn().mockRejectedValue(knownError('P2003')) });
+    await expect(repo.updateEnabled('r1', true)).rejects.toMatchObject({ code: 'P2003' });
+  });
+});
+
+describe('ReposRepository.softRemove', () => {
+  it('marks the row removed and paused, never deleting it', async () => {
+    const { repo, repository } = setup({ updateMany: vi.fn().mockResolvedValue({ count: 1 }) });
+    expect(await repo.softRemove('r1')).toBe(true);
+    const call = repository.updateMany.mock.calls[0]![0];
+    expect(call.where).toEqual({ id: 'r1', removedAt: null });
+    expect(call.data.enabled).toBe(false);
+    expect(call.data.removedAt).toBeInstanceOf(Date);
+  });
+
+  it('returns false when nothing matched (unknown or already removed)', async () => {
+    const { repo } = setup({ updateMany: vi.fn().mockResolvedValue({ count: 0 }) });
+    expect(await repo.softRemove('r1')).toBe(false);
   });
 });

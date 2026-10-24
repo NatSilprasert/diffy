@@ -134,6 +134,39 @@
           "Settings"
         ]
       }
+    },
+    "/api/repos/available": {
+      "get": {
+        "operationId": "listAvailableRepos",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListAvailableReposResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No GitHub token saved, or GitHub rejected it"
+          }
+        },
+        "tags": [
+          "Repos"
+        ]
+      }
     }
   },
   "info": {
@@ -323,6 +356,44 @@
           "ok",
           "error",
           "latencyMs"
+        ]
+      },
+      "ListAvailableReposResponseDto": {
+        "type": "object",
+        "properties": {
+          "repos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fullName": {
+                  "type": "string"
+                },
+                "owner": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "isPrivate": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "fullName",
+                "owner",
+                "name",
+                "isPrivate"
+              ]
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "repos",
+          "hasMore"
         ]
       }
     }

@@ -22,6 +22,16 @@ export type ChangedFile = {
   patch: string | undefined;
 };
 
+export type AccessibleRepo = {
+  fullName: string;
+  owner: string;
+  name: string;
+  isPrivate: boolean;
+};
+
+// Safety stop for accounts with a huge number of repositories.
+export const MAX_ACCESSIBLE_REPOS = 1_000;
+
 export function createGithubClient(token: string): Octokit {
   return new Octokit({ auth: token });
 }
@@ -71,4 +81,23 @@ export async function listChangedFiles(
     deletions: f.deletions,
     patch: f.patch,
   }));
+}
+
+// Repositories the token can see. Archived and disabled ones are left out: GitHub does not
+// allow reviews on them.
+export async function listAccessibleRepos(octokit: Octokit): Promise<AccessibleRepo[]> {
+  const repos: AccessibleRepo[] = [];
+  const pages = octokit.paginate.iterator(octokit.rest.repos.listForAuthenticatedUser, {
+    per_page: 100,
+    sort: 'full_name',
+  });
+
+  for await (const { data } of pages) {
+    for (const repo of data) {
+      if (repo.archived || repo.disabled) continue;
+      repos.push({ fullName: repo.full_name, owner: repo.owner.login, name: repo.name, isPrivate: repo.private });
+    }
+    if (repos.length >= MAX_ACCESSIBLE_REPOS) break;
+  }
+  return repos.slice(0, MAX_ACCESSIBLE_REPOS);
 }

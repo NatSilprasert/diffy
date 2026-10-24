@@ -1,6 +1,7 @@
 import { getAuthenticatedLogin } from '@diffy/core';
-import { BadGatewayException, BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CryptoService } from '../../../infra/crypto/crypto.service';
+import { toGithubHttpException } from '../../../infra/github/github-errors';
 import type {
   UpdateGithubSettingsRequestDto,
   UpdateGithubSettingsResponseDto,
@@ -30,11 +31,10 @@ export class UpdateGithubSettingsUsecase {
     try {
       return await getAuthenticatedLogin(token);
     } catch (err) {
-      const status = (err as { status?: number }).status;
-      if (status === 401 || status === 403) {
-        throw new BadRequestException('GitHub rejected this token. Check that it is correct and has not expired.');
-      }
-      throw new BadGatewayException('Could not reach GitHub to verify the token. Try again in a moment.');
+      throw toGithubHttpException(err, {
+        rejected: 'GitHub rejected this token. Check that it is correct and has not expired.',
+        unreachable: 'Could not reach GitHub to verify the token. Try again in a moment.',
+      });
     }
   }
 }

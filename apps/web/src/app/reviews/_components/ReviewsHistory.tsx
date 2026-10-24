@@ -8,7 +8,7 @@ import { getListReviewsQueryKey, listReviews, useListRepos } from '@/api/generat
 import type { ListReviewsParams, ListReviewsPeriod, ListReviewsStatus } from '@/api/generated/model';
 import { ReviewsTable } from '@/components/ReviewsTable';
 import { Select } from '@/components/Select';
-import { useDebouncedValue } from '@/lib/useDebouncedValue';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { ReviewStatCards } from './ReviewStatCards';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

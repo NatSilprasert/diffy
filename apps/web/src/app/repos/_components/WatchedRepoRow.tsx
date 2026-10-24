@@ -2,18 +2,17 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import {
-  getListReposQueryKey,
-  usePollRepo,
-  useRemoveRepo,
-  useUpdateRepo,
-} from '@/api/generated/diffy';
+import { getListReposQueryKey, usePollRepo, useRemoveRepo, useUpdateRepo } from '@/api/generated/diffy';
 import type { ListReposResponseDtoReposItem } from '@/api/generated/model';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { timeAgo } from '@/lib/time';
+import { cn } from '@/lib/utils';
+
+const CELL = 'px-4 py-3.5 align-top';
 
 export function WatchedRepoRow({ repo }: { repo: ListReposResponseDtoReposItem }) {
   const queryClient = useQueryClient();
@@ -25,14 +24,15 @@ export function WatchedRepoRow({ repo }: { repo: ListReposResponseDtoReposItem }
   const poll = usePollRepo({ mutation: { onSuccess: refresh } });
 
   const busy = update.isPending || remove.isPending;
-  const error = update.error ?? remove.error ?? poll.error;
+  const error = update.error ?? poll.error;
+  const [owner, name] = repo.fullName.split('/');
 
   return (
-    <TableRow className={repo.enabled ? undefined : 'text-muted-foreground'}>
-      <TableCell className="align-top">
-        <div className="flex items-center gap-2 font-medium">
-          {repo.fullName}
-          {!repo.enabled && <Badge variant="secondary">Paused</Badge>}
+    <TableRow className="border-border bg-card hover:bg-secondary/60">
+      <TableCell className={CELL}>
+        <div className={cn('text-sm font-medium', !repo.enabled && 'text-muted-foreground')}>
+          <span className="font-normal text-muted-foreground">{owner}/</span>
+          {name}
         </div>
         {repo.lastError && (
           <p className="mt-1 max-w-md break-words text-xs text-destructive" title={repo.lastError}>
@@ -54,7 +54,19 @@ export function WatchedRepoRow({ repo }: { repo: ListReposResponseDtoReposItem }
           </p>
         )}
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell className={CELL}>
+        {!repo.enabled ? (
+          <Badge variant="secondary">Paused</Badge>
+        ) : repo.lastError ? (
+          <Badge variant="destructive">Check failed</Badge>
+        ) : (
+          <Badge className="bg-success/15 text-success">Watching</Badge>
+        )}
+      </TableCell>
+      <TableCell className={cn(CELL, 'text-sm text-muted-foreground')} title={repo.lastPolledAt ?? undefined}>
+        {repo.lastPolledAt ? timeAgo(repo.lastPolledAt) : 'Not yet'}
+      </TableCell>
+      <TableCell className={CELL}>
         <Switch
           aria-label={`Watch ${repo.fullName}`}
           checked={repo.enabled}
@@ -62,10 +74,7 @@ export function WatchedRepoRow({ repo }: { repo: ListReposResponseDtoReposItem }
           onCheckedChange={(enabled) => update.mutate({ id: repo.id, data: { enabled } })}
         />
       </TableCell>
-      <TableCell className="align-top text-sm" title={repo.lastPolledAt ?? undefined}>
-        {repo.lastPolledAt ? timeAgo(repo.lastPolledAt) : 'Not yet'}
-      </TableCell>
-      <TableCell className="align-top">
+      <TableCell className="px-4 py-3 align-top">
         <div className="flex justify-end gap-2">
           <Button
             size="sm"
@@ -75,27 +84,24 @@ export function WatchedRepoRow({ repo }: { repo: ListReposResponseDtoReposItem }
           >
             {poll.isPending ? 'Checking…' : 'Check now'}
           </Button>
-          {confirmingRemove ? (
-            <>
-              <Button
-                size="sm"
-                variant="destructive"
-                disabled={busy}
-                onClick={() => remove.mutate({ id: repo.id })}
-              >
-                {remove.isPending ? 'Removing…' : 'Confirm'}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setConfirmingRemove(false)}>
-                Cancel
-              </Button>
-            </>
-          ) : (
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirmingRemove(true)}>
-              Remove
-            </Button>
-          )}
+          <Button size="sm" className="bg-destructive text-white hover:bg-destructive/90" disabled={busy} onClick={() => setConfirmingRemove(true)}>
+            Remove
+          </Button>
         </div>
       </TableCell>
+      <ConfirmDialog
+        open={confirmingRemove}
+        onOpenChange={(open) => {
+          setConfirmingRemove(open);
+          if (!open) remove.reset();
+        }}
+        title={`Remove ${repo.fullName}?`}
+        description="diffy stops watching this repository and no longer reviews its pull requests. The reviews it already made stay in your history."
+        confirmLabel="Remove"
+        pending={remove.isPending}
+        error={remove.error?.message}
+        onConfirm={() => remove.mutate({ id: repo.id })}
+      />
     </TableRow>
   );
 }

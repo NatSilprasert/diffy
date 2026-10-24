@@ -2,18 +2,11 @@
 
 import { useGetReviewStats } from '@/api/generated/diffy';
 import type { ListReviewsPeriod } from '@/api/generated/model';
-import { cn } from '@/lib/utils';
+import { StatCards, type StatCard } from '@/components/StatCards';
 
-type Card = { period: ListReviewsPeriod | null; label: string; count: 'total' | ListReviewsPeriod };
+type Key = 'total' | ListReviewsPeriod;
 
-const CARDS: Card[] = [
-  { period: null, label: 'Total reviews', count: 'total' },
-  { period: 'month', label: 'This month', count: 'month' },
-  { period: 'week', label: 'This week', count: 'week' },
-  { period: 'day', label: 'Last 24 hours', count: 'day' },
-];
-
-// Four counts that double as the time filter: the selected card is the window the table below shows.
+// Four counts that double as the time filter. Pressing the selected one again goes back to all reviews.
 export function ReviewStatCards({
   period,
   onChange,
@@ -22,31 +15,22 @@ export function ReviewStatCards({
   onChange: (period: ListReviewsPeriod | null) => void;
 }) {
   const stats = useGetReviewStats({ query: { refetchInterval: 15_000 } });
+  const selected: Key = period ?? 'total';
+
+  const cards: StatCard<Key>[] = [
+    { key: 'total', label: 'Total reviews', value: stats.data?.total },
+    { key: 'month', label: 'This month', value: stats.data?.month },
+    { key: 'week', label: 'This week', value: stats.data?.week },
+    { key: 'day', label: 'Last 24 hours', value: stats.data?.day },
+  ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" role="group" aria-label="Filter by time">
-      {CARDS.map((card) => {
-        const selected = period === card.period;
-        const value = stats.data?.[card.count];
-        return (
-          <button
-            key={card.label}
-            type="button"
-            aria-pressed={selected}
-            // Pressing the selected window again goes back to all reviews.
-            onClick={() => onChange(selected ? null : card.period)}
-            className={cn(
-              'cursor-pointer rounded-xl border bg-card p-1 text-left transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              selected && 'border-primary ring-2 ring-primary hover:bg-card',
-            )}
-          >
-            <span className="block px-3 pt-2 pb-2 text-sm text-foreground">{card.label}</span>
-            <span className="block rounded-lg bg-background px-3 py-3 text-2xl font-semibold tabular-nums">
-              {value ?? (stats.isError ? '–' : '…')}
-            </span>
-          </button>
-        );
-      })}
-    </div>
+    <StatCards
+      label="Filter by time"
+      cards={cards}
+      selected={selected}
+      unavailable={stats.isError}
+      onSelect={(key) => onChange(key === selected || key === 'total' ? null : key)}
+    />
   );
 }

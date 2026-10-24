@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Providers } from '@/components/Providers';
+import { ReviewDrawer } from '@/components/ReviewDrawer';
 import { Sidebar } from '@/components/Sidebar';
+import { Suspense } from 'react';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -27,6 +29,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
             </main>
           </div>
+          {/* useSearchParams needs a Suspense boundary in a static export. */}
+          <Suspense fallback={null}>
+            <ReviewDrawer />
+          </Suspense>
         </Providers>
       </body>
     </html>

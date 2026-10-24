@@ -1,25 +1,15 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, ExternalLink, Loader2, RotateCw } from 'lucide-react';
-import { getGetReviewQueryKey, getListReviewsQueryKey, useRetryReview } from '@/api/generated/diffy';
 import type { GetReviewResponseDtoReview } from '@/api/generated/model';
 import { ReviewStatusBadge } from '@/components/ReviewStatusBadge';
 import { Button } from '@/components/ui/button';
 import { formatDuration, timeAgo } from '@/lib/time';
+import { useRetryAndRefresh } from '@/lib/useRetryAndRefresh';
 
 // The top of the page: what was reviewed, how it went, and the things you can do about it.
 export function ReviewHeader({ review }: { review: GetReviewResponseDtoReview }) {
-  const queryClient = useQueryClient();
-  const retry = useRetryReview({
-    mutation: {
-      onSuccess: async () => {
-        // The detail goes back to "queued" and the history page must show that too.
-        await queryClient.invalidateQueries({ queryKey: getGetReviewQueryKey(review.id) });
-        await queryClient.invalidateQueries({ queryKey: getListReviewsQueryKey().slice(0, 1) });
-      },
-    },
-  });
+  const retry = useRetryAndRefresh(review.id);
 
   const duration = formatDuration(review.createdAt, review.finishedAt);
   const working = review.status === 'queued' || review.status === 'running';

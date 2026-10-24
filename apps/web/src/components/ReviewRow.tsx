@@ -1,10 +1,8 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, RotateCw } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { getListReviewsQueryKey, useRetryReview } from '@/api/generated/diffy';
+import { usePathname, useRouter } from 'next/navigation';
 import type { ListReviewsResponseDtoReviewsItem } from '@/api/generated/model';
 import { ReviewStatusBadge } from '@/components/ReviewStatusBadge';
 import { SeverityBadge } from '@/components/SeverityBadge';
@@ -12,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { SEVERITY_ORDER } from '@/lib/findings';
 import { timeAgo } from '@/lib/time';
+import { useRetryAndRefresh } from '@/lib/useRetryAndRefresh';
 
 // A click anywhere on the row opens the review. The links and the button inside stop that click,
 // and the chevron is a real link so the keyboard can reach the same place.
@@ -19,16 +18,12 @@ const stop = (event: React.SyntheticEvent) => event.stopPropagation();
 
 export function ReviewRow({ review }: { review: ListReviewsResponseDtoReviewsItem }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const pathname = usePathname();
   const found = SEVERITY_ORDER.filter((severity) => review.findingCounts[severity] > 0);
-  const href = `/reviews/view/?id=${encodeURIComponent(review.id)}`;
+  // The review opens in a panel over the current page: the page address just gains ?review=<id>.
+  const href = `${pathname}?review=${encodeURIComponent(review.id)}`;
 
-  const retry = useRetryReview({
-    mutation: {
-      // The row goes back to "queued" and the list has to show that.
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListReviewsQueryKey().slice(0, 1) }),
-    },
-  });
+  const retry = useRetryAndRefresh(review.id);
 
   return (
     <TableRow className="cursor-pointer border-border bg-card hover:bg-secondary/60" onClick={() => router.push(href)}>

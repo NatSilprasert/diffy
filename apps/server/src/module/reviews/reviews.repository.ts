@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Review } from '../../generated/prisma/client';
+import type { Prisma, Review } from '../../generated/prisma/client';
 import type { LlmProvider, Placement, ReviewStatus, Severity } from '../../generated/prisma/enums';
 import { isUniqueViolation } from '../../infra/prisma/prisma-errors';
 import { PrismaService } from '../../infra/prisma/prisma.service';
@@ -38,7 +38,40 @@ export type ReviewResultData = {
 export type ReviewFilter = {
   repositoryId?: string;
   status?: ReviewStatus;
+  // Only reviews created at or after this moment.
+  since?: Date;
+  // Free text, see ListReviewsQuery.
+  search?: string;
 };
+
+// Turns the filter into a Prisma where, leaving out every condition that was not asked for.
+function buildWhere({ repositoryId, status, since, search }: ReviewFilter): Prisma.ReviewWhereInput {
+  const where: Prisma.ReviewWhereInput = {};
+  if (repositoryId) where.repositoryId = repositoryId;
+  if (status) where.status = status;
+  if (since) where.createdAt = { gte: since };
+
+  const text = search?.trim();
+  if (text) {
+    const term = text.replace(/^#/, '');
+    const any: Prisma.ReviewWhereInput[] = [
+      { prTitle: { contains: term, mode: 'insensitive' } },
+      { repository: { owner: { contains: term, mode: 'insensitive' } } },
+      { repository: { name: { contains: term, mode: 'insensitive' } } },
+    ];
+    if (/^\d{1,9}$/.test(term)) any.push({ prNumber: Number(term) });
+    if (/^[0-9a-f]{4,40}$/i.test(term)) any.push({ headSha: { startsWith: term.toLowerCase() } });
+    // "owner/name", or a part of it on each side of the slash.
+    const [owner, name] = term.split('/');
+    if (term.includes('/') && owner && name) {
+      any.push({
+        repository: { owner: { contains: owner, mode: 'insensitive' }, name: { contains: name, mode: 'insensitive' } },
+      });
+    }
+    where.OR = any;
+  }
+  return where;
+}
 
 @Injectable()
 export class ReviewsRepository {
@@ -91,12 +124,17 @@ export class ReviewsRepository {
   // The cursor is the id of the last row of the previous page; id is the tie-breaker for equal createdAt.
   listPage(filter: ReviewFilter, limit: number, cursor?: string) {
     return this.prisma.review.findMany({
-      where: filter,
+      where: buildWhere(filter),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: { repository: true },
     });
+  }
+
+  // How many reviews exist, optionally only those created at or after `since`.
+  countSince(since?: Date) {
+    return this.prisma.review.count({ where: since ? { createdAt: { gte: since } } : {} });
   }
 
   // How many findings of each severity, for a set of reviews, in one query.

@@ -2,6 +2,7 @@ import { ReviewStatus } from '@diffy/shared';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { ReviewItemSchema } from './review-item.schema';
+import { ReviewPeriod } from './review-period.schema';
 
 export const DEFAULT_REVIEWS_PAGE_SIZE = 20;
 export const MAX_REVIEWS_PAGE_SIZE = 100;
@@ -9,6 +10,10 @@ export const MAX_REVIEWS_PAGE_SIZE = 100;
 export const ListReviewsQuerySchema = z.object({
   repositoryId: z.string().min(1).optional(),
   status: ReviewStatus.optional(),
+  // Only reviews created in this window (see ReviewPeriod).
+  period: ReviewPeriod.optional(),
+  // Free text: matches the pull request title, the repository, the PR number ("12" or "#12") or the start of a commit hash.
+  q: z.string().trim().min(1).max(100).optional(),
   // The nextCursor of the previous page. Leave out for the first page.
   cursor: z.string().min(1).optional(),
   // Query strings are text, so the number is converted here.

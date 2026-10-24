@@ -49,10 +49,62 @@ describe('ReviewsRepository.listPage', () => {
     });
   });
 
+  it('leaves out conditions that were not asked for', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    await repoWith({ findMany }).listPage({ repositoryId: 'r1', since: new Date('2026-10-01') }, 5);
+    expect(findMany.mock.calls[0]![0].where).toStrictEqual({ repositoryId: 'r1', createdAt: { gte: new Date('2026-10-01') } });
+  });
+
+  it('searches the title, owner and name for plain text', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    await repoWith({ findMany }).listPage({ search: 'cart' }, 5);
+    expect(findMany.mock.calls[0]![0].where.OR).toStrictEqual([
+      { prTitle: { contains: 'cart', mode: 'insensitive' } },
+      { repository: { owner: { contains: 'cart', mode: 'insensitive' } } },
+      { repository: { name: { contains: 'cart', mode: 'insensitive' } } },
+    ]);
+  });
+
+  it('also matches the PR number for "#12" and the start of a commit for hex text', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    await repoWith({ findMany }).listPage({ search: '#12' }, 5);
+    expect(findMany.mock.calls[0]![0].where.OR).toContainEqual({ prNumber: 12 });
+    // "12" is also valid hex, so a short number can match a commit too.
+    expect(findMany.mock.calls[0]![0].where.OR).not.toContainEqual({ headSha: { startsWith: '12' } });
+
+    await repoWith({ findMany }).listPage({ search: '78515B5' }, 5);
+    expect(findMany.mock.calls[1]![0].where.OR).toContainEqual({ headSha: { startsWith: '78515b5' } });
+  });
+
+  it('matches "owner/name" on both sides of the slash', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    await repoWith({ findMany }).listPage({ search: 'acme/ap' }, 5);
+    expect(findMany.mock.calls[0]![0].where.OR).toContainEqual({
+      repository: { owner: { contains: 'acme', mode: 'insensitive' }, name: { contains: 'ap', mode: 'insensitive' } },
+    });
+  });
+
+  it('ignores a search that is only spaces', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    await repoWith({ findMany }).listPage({ search: '   ' }, 5);
+    expect(findMany.mock.calls[0]![0].where).toStrictEqual({});
+  });
+
   it('continues after the cursor row without repeating it', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
     await repoWith({ findMany }).listPage({}, 5, 'v9');
     expect(findMany.mock.calls[0]![0]).toMatchObject({ cursor: { id: 'v9' }, skip: 1, take: 6 });
+  });
+});
+
+describe('ReviewsRepository.countSince', () => {
+  it('counts everything without a start, and only newer rows with one', async () => {
+    const count = vi.fn().mockResolvedValue(3);
+    const repo = repoWith({ count });
+    await repo.countSince();
+    await repo.countSince(new Date('2026-10-01'));
+    expect(count).toHaveBeenNthCalledWith(1, { where: {} });
+    expect(count).toHaveBeenNthCalledWith(2, { where: { createdAt: { gte: new Date('2026-10-01') } } });
   });
 });
 

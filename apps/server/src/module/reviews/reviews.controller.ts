@@ -9,11 +9,13 @@ import {
 import { ZodSerializerDto } from 'nestjs-zod';
 import { CreateReviewRequestDto, CreateReviewResponseDto } from './dto/create-review.dto';
 import { GetReviewParamsDto, GetReviewResponseDto } from './dto/get-review.dto';
+import { GetReviewStatsResponseDto } from './dto/get-review-stats.dto';
 import { GetStatusResponseDto } from './dto/get-status.dto';
 import { ListReviewsQueryDto, ListReviewsResponseDto } from './dto/list-reviews.dto';
 import { PollRepoRequestDto, PollRepoResponseDto } from './dto/poll-repo.dto';
 import { RetryReviewParamsDto, RetryReviewResponseDto } from './dto/retry-review.dto';
 import { CreateReviewUsecase } from './usecase/create-review.usecase';
+import { GetReviewStatsUsecase } from './usecase/get-review-stats.usecase';
 import { GetReviewUsecase } from './usecase/get-review.usecase';
 import { GetStatusUsecase } from './usecase/get-status.usecase';
 import { ListReviewsUsecase } from './usecase/list-reviews.usecase';
@@ -29,6 +31,7 @@ export class ReviewsController {
     private readonly retryReviewUsecase: RetryReviewUsecase,
     private readonly pollRepoUsecase: PollRepoUsecase,
     private readonly getStatusUsecase: GetStatusUsecase,
+    private readonly getReviewStatsUsecase: GetReviewStatsUsecase,
   ) {}
 
   @Post()
@@ -48,7 +51,14 @@ export class ReviewsController {
     return this.listReviewsUsecase.execute(query);
   }
 
-  // Declared before ':id' on purpose, otherwise "status" would be read as a review id.
+  // Declared before ':id' on purpose, otherwise "stats" and "status" would be read as review ids.
+  @Get('stats')
+  @ZodSerializerDto(GetReviewStatsResponseDto)
+  @ApiOkResponse({ type: GetReviewStatsResponseDto })
+  getReviewStats() {
+    return this.getReviewStatsUsecase.execute();
+  }
+
   @Get('status')
   @ZodSerializerDto(GetStatusResponseDto)
   @ApiOkResponse({ type: GetStatusResponseDto })

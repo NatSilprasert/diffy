@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { ListReviewsQueryDto, ListReviewsResponseDto } from '../dto/list-reviews.dto';
+import { periodStart } from '../reviews.period';
 import { toReviewListItem } from '../reviews.mapper';
 import { ReviewsRepository } from '../reviews.repository';
 
@@ -8,8 +9,9 @@ export class ListReviewsUsecase {
   constructor(private readonly reviewsRepository: ReviewsRepository) {}
 
   async execute(input: ListReviewsQueryDto): Promise<ListReviewsResponseDto> {
-    const { limit, cursor, repositoryId, status } = input;
-    const rows = await this.reviewsRepository.listPage({ repositoryId, status }, limit, cursor);
+    const { limit, cursor, repositoryId, status, period, q } = input;
+    const since = period ? periodStart(period) : undefined;
+    const rows = await this.reviewsRepository.listPage({ repositoryId, status, since, search: q }, limit, cursor);
 
     // One extra row was fetched: its presence means there is a next page, and it is not shown.
     const hasMore = rows.length > limit;

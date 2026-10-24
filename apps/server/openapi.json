@@ -360,6 +360,29 @@
             }
           },
           {
+            "name": "period",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "day",
+                "week",
+                "month"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
             "name": "cursor",
             "required": false,
             "in": "query",
@@ -393,6 +416,27 @@
           },
           "400": {
             "description": "Invalid filter, cursor or limit"
+          }
+        },
+        "tags": [
+          "Reviews"
+        ]
+      }
+    },
+    "/api/reviews/stats": {
+      "get": {
+        "operationId": "getReviewStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetReviewStatsResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -1241,6 +1285,37 @@
         "required": [
           "reviews",
           "nextCursor"
+        ]
+      },
+      "GetReviewStatsResponseDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "month": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "week": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "day": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "total",
+          "month",
+          "week",
+          "day"
         ]
       },
       "GetStatusResponseDto": {

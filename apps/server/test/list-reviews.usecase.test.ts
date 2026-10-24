@@ -57,6 +57,16 @@ describe('ListReviewsUsecase', () => {
     expect(listPage).toHaveBeenCalledWith({ repositoryId: 'r1', status: 'failed' }, 10, 'v9');
   });
 
+  it('turns the period into a start time and passes the search text on', async () => {
+    const { usecase, listPage } = setup([]);
+    const before = Date.now();
+    await usecase.execute({ limit: 10, period: 'day', q: 'cart' });
+    const filter = listPage.mock.calls[0]![0];
+    expect(filter.search).toBe('cart');
+    // 24 hours before "now", give or take the time the test took.
+    expect(Math.abs(filter.since.getTime() - (before - 24 * 3600 * 1000))).toBeLessThan(5000);
+  });
+
   it('returns an empty list for an empty result, without counting findings', async () => {
     const { usecase } = setup([]);
     expect(await usecase.execute({ limit: 20 })).toEqual({ reviews: [], nextCursor: null });

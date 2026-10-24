@@ -2,59 +2,74 @@
 
 import Link from 'next/link';
 import { useGetStatus } from '@/api/generated/diffy';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { StatTile } from '@/components/StatTile';
 import { timeAgo } from '@/lib/time';
+import { cn } from '@/lib/utils';
 
-// What the server is doing right now. On a failed refresh the last numbers stay, dimmed and labelled, not wiped.
+// A small light that says what diffy is doing: steady green when it is waiting, pulsing violet when it is reviewing.
+function Light({ busy }: { busy: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn('inline-block size-2.5 rounded-full', busy ? 'animate-pulse bg-primary' : 'bg-success', 'motion-reduce:animate-none')}
+    />
+  );
+}
+
+// What the server is doing right now, in the same four tiles as the usage totals below.
+// When a refresh fails the last numbers stay, dimmed, instead of being wiped.
 export function LiveStatus() {
   const status = useGetStatus({ query: { refetchInterval: 5_000 } });
   const queue = status.data?.queue;
   const poller = status.data?.poller;
 
+  if (status.isPending) return null;
+  if (!queue || !poller) {
+    return (
+      <p role="alert" className="text-sm text-destructive">
+        The diffy server is unreachable: {status.error?.message}
+      </p>
+    );
+  }
+
+  const current = queue.current;
+  const lastCheck = poller.running ? 'Checking…' : poller.lastRunAt ? timeAgo(poller.lastRunAt) : 'Not yet';
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <CardTitle>Right now</CardTitle>
-          {status.isPending && <Badge variant="secondary">Loading</Badge>}
-          {status.isError && <Badge variant="destructive">Server unreachable</Badge>}
-        </div>
-      </CardHeader>
-      <CardContent className={status.isError ? 'space-y-2 text-sm opacity-50' : 'space-y-2 text-sm'}>
-        {status.isError && !status.data && <p className="text-destructive">{status.error.message}</p>}
-        {queue && poller && (
-          <>
-            <p>
-              {queue.current ? (
-                <>
-                  Reviewing{' '}
-                  <span className="font-medium">
-                    {queue.current.repoFullName}#{queue.current.prNumber}
-                  </span>
-                  : {queue.current.prTitle}
-                </>
-              ) : (
-                'No review is running.'
-              )}{' '}
-              <span className="text-muted-foreground">{queue.waiting} waiting.</span>
-            </p>
-            <p className="text-muted-foreground">
-              Looks for new pull requests every {poller.intervalSeconds} s.{' '}
-              {poller.running
-                ? 'Checking now.'
-                : poller.lastRunAt
-                  ? `Last check ${timeAgo(poller.lastRunAt)}.`
-                  : 'Has not checked yet.'}{' '}
-              Manage repositories on the{' '}
-              <Link href="/repos/" className="underline">
-                Repositories
-              </Link>{' '}
-              page.
-            </p>
-          </>
-        )}
-      </CardContent>
-    </Card>
+    <div className={cn('space-y-2', status.isError && 'opacity-50')}>
+      {status.isError && (
+        <p role="alert" className="text-sm text-destructive">
+          The diffy server is unreachable. These numbers are the last ones it sent.
+        </p>
+      )}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile
+          label="Right now"
+          value={
+            <span className="flex items-center gap-2.5">
+              <Light busy={current !== null} />
+              {current ? 'Reviewing' : 'Idle'}
+            </span>
+          }
+          detail={current ? `${current.repoFullName}#${current.prNumber}` : 'Waiting for new pull requests'}
+          title={current?.prTitle}
+        />
+        <StatTile label="In the queue" value={queue.waiting} detail={queue.waiting === 1 ? 'review waiting' : 'reviews waiting'} />
+        <StatTile
+          label="Last check"
+          value={lastCheck}
+          detail={poller.lastRunAt ? new Date(poller.lastRunAt).toLocaleTimeString() : 'The first one is on its way'}
+        />
+        <StatTile
+          label="Checks every"
+          value={`${poller.intervalSeconds} s`}
+          detail={
+            <Link href="/repos/" className="underline-offset-2 hover:underline">
+              Manage repositories
+            </Link>
+          }
+        />
+      </div>
+    </div>
   );
 }

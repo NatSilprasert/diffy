@@ -21,7 +21,7 @@ const saved = (over: Partial<NonNullable<Row>> = {}): Row => ({
   id: 1,
   githubTokenEnc: null,
   githubLogin: null,
-  llmProvider: 'ANTHROPIC',
+  llmProvider: 'anthropic',
   llmModel: 'claude-x',
   llmApiKeyEnc: 'v1:enc',
   updatedAt: new Date(),

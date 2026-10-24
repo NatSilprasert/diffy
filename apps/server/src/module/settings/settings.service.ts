@@ -1,3 +1,4 @@
+import type { LlmConfig } from '@diffy/core';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { CryptoService } from '../../infra/crypto/crypto.service';
 import { SettingsRepository } from './settings.repository';
@@ -22,6 +23,25 @@ export class SettingsService {
     } catch {
       throw new BadRequestException(
         'The saved GitHub token cannot be decrypted (was ENCRYPTION_KEY changed?). Enter the token again.',
+      );
+    }
+  }
+
+  // The saved LLM choice with its key in plain text, ready to hand to @diffy/core.
+  async getLlmConfig(): Promise<LlmConfig> {
+    const settings = await this.settingsRepository.findSingleton();
+    if (!settings?.llmProvider || !settings.llmModel || !settings.llmApiKeyEnc) {
+      throw new BadRequestException('Save an LLM provider, model and API key in Settings first.');
+    }
+    try {
+      return {
+        provider: settings.llmProvider,
+        model: settings.llmModel,
+        apiKey: this.crypto.decrypt(settings.llmApiKeyEnc),
+      };
+    } catch {
+      throw new BadRequestException(
+        'The saved LLM API key cannot be decrypted (was ENCRYPTION_KEY changed?). Enter the key again.',
       );
     }
   }

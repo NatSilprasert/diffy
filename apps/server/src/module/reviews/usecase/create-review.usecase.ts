@@ -6,6 +6,7 @@ import { SettingsService } from '../../settings/settings.service';
 import type { CreateReviewRequestDto, CreateReviewResponseDto } from '../dto/create-review.dto';
 import { toReviewItem } from '../reviews.mapper';
 import { ReviewsRepository } from '../reviews.repository';
+import { ReviewQueueService } from '../worker/review-queue.service';
 
 @Injectable()
 export class CreateReviewUsecase {
@@ -13,6 +14,7 @@ export class CreateReviewUsecase {
     private readonly reviewsRepository: ReviewsRepository,
     private readonly reposService: ReposService,
     private readonly settingsService: SettingsService,
+    private readonly reviewQueue: ReviewQueueService,
   ) {}
 
   async execute(input: CreateReviewRequestDto): Promise<CreateReviewResponseDto> {
@@ -26,6 +28,8 @@ export class CreateReviewUsecase {
       prUrl: pr.url,
       headSha: pr.headSha,
     });
+    // Only a brand-new row is queued; an existing one is already queued, running or finished.
+    if (created) this.reviewQueue.enqueue(review.id);
     return { skipped: !created, review: toReviewItem(review) };
   }
 

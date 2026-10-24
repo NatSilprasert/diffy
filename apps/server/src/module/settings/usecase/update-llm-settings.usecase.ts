@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { CryptoService } from '../../../infra/crypto/crypto.service';
 import type { UpdateLlmSettingsRequestDto, UpdateLlmSettingsResponseDto } from '../dto/update-llm-settings.dto';
-import { toApiProvider, toDbProvider } from '../settings.mapper';
 import { SettingsRepository } from '../settings.repository';
 
 @Injectable()
@@ -15,7 +14,7 @@ export class UpdateLlmSettingsUsecase {
     const llmApiKeyEnc = await this.resolveApiKey(input);
 
     await this.settingsRepository.upsertLlm({
-      llmProvider: toDbProvider(input.provider),
+      llmProvider: input.provider,
       llmModel: input.model,
       llmApiKeyEnc,
     });
@@ -28,7 +27,7 @@ export class UpdateLlmSettingsUsecase {
     if (input.apiKey) return this.crypto.encrypt(input.apiKey);
 
     const current = await this.settingsRepository.findSingleton();
-    const sameProvider = current?.llmProvider != null && toApiProvider(current.llmProvider) === input.provider;
+    const sameProvider = current?.llmProvider === input.provider;
     if (sameProvider && current?.llmApiKeyEnc) return current.llmApiKeyEnc;
 
     throw new BadRequestException(

@@ -1,26 +1,29 @@
+// Values are lower-case on purpose: they are identical in the database, in the generated Prisma
+// client, in the API and in @diffy/shared, so no mapping code is needed anywhere. A test keeps
+// this file and @diffy/shared in sync.
 enum LlmProvider {
-  OPENAI
-  ANTHROPIC
-  GOOGLE
-  OPENROUTER
+  openai
+  anthropic
+  google
+  openrouter
 }
 
 enum ReviewStatus {
-  QUEUED
-  RUNNING
-  POSTED
-  FAILED
-  SKIPPED
+  queued
+  running
+  posted
+  failed
+  skipped
 }
 
 enum Severity {
-  CRITICAL
-  HIGH
-  MEDIUM
-  LOW
+  critical
+  high
+  medium
+  low
 }
 
 enum Placement {
-  INLINE
-  SUMMARY
+  inline
+  summary
 }

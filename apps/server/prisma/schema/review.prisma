@@ -6,7 +6,7 @@ model Review {
   prTitle         String
   prUrl           String
   headSha         String
-  status          ReviewStatus @default(QUEUED)
+  status          ReviewStatus @default(queued)
   summary         String?
   githubReviewUrl String?
   provider        LlmProvider?

@@ -27,3 +27,32 @@ describe('SettingsService.getGithubToken', () => {
     await expect(broken.getGithubToken()).rejects.toThrow(/ENCRYPTION_KEY/);
   });
 });
+
+describe('SettingsService.getLlmConfig', () => {
+  const llmService = (row: Record<string, unknown> | null, decrypt: (v: string) => string = (v) => `plain(${v})`) =>
+    new SettingsService(
+      { findSingleton: vi.fn().mockResolvedValue(row) } as unknown as SettingsRepository,
+      { decrypt } as unknown as CryptoService,
+    );
+  const full = { llmProvider: 'google', llmModel: 'gemini-x', llmApiKeyEnc: 'v1:k' };
+
+  it('returns the provider in API spelling with the decrypted key', async () => {
+    expect(await llmService(full).getLlmConfig()).toEqual({ provider: 'google', model: 'gemini-x', apiKey: 'plain(v1:k)' });
+  });
+
+  it.each([
+    ['no row', null],
+    ['no provider', { ...full, llmProvider: null }],
+    ['no model', { ...full, llmModel: null }],
+    ['no key', { ...full, llmApiKeyEnc: null }],
+  ])('asks the user to save settings (%s)', async (_name, row) => {
+    await expect(llmService(row).getLlmConfig()).rejects.toThrow(/Save an LLM provider/);
+  });
+
+  it('explains an undecryptable key', async () => {
+    const broken = llmService(full, () => {
+      throw new Error('Cannot decrypt value');
+    });
+    await expect(broken.getLlmConfig()).rejects.toThrow(/ENCRYPTION_KEY/);
+  });
+});

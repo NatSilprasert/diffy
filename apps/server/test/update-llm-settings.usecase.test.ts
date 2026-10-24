@@ -18,7 +18,7 @@ const saved = (over: Partial<NonNullable<Row>> = {}): Row => ({
   id: 1,
   githubTokenEnc: null,
   githubLogin: null,
-  llmProvider: 'OPENAI',
+  llmProvider: 'openai',
   llmModel: 'gpt-x',
   llmApiKeyEnc: 'v1:saved-key',
   updatedAt: new Date(),
@@ -36,7 +36,7 @@ describe('UpdateLlmSettingsUsecase', () => {
     const result = await usecase.execute({ provider: 'anthropic', model: 'claude-x', apiKey: 'sk-ant-1' });
 
     expect(result).toEqual({ provider: 'anthropic', model: 'claude-x' });
-    expect(upsertLlm).toHaveBeenCalledWith({ llmProvider: 'ANTHROPIC', llmModel: 'claude-x', llmApiKeyEnc: 'enc(sk-ant-1)' });
+    expect(upsertLlm).toHaveBeenCalledWith({ llmProvider: 'anthropic', llmModel: 'claude-x', llmApiKeyEnc: 'enc(sk-ant-1)' });
     expect(JSON.stringify(result)).not.toContain('sk-ant');
   });
 
@@ -49,7 +49,7 @@ describe('UpdateLlmSettingsUsecase', () => {
   it('keeps the saved key when the key is omitted for the same provider (model change only)', async () => {
     findSingleton.mockResolvedValue(saved());
     await usecase.execute({ provider: 'openai', model: 'gpt-y' });
-    expect(upsertLlm).toHaveBeenCalledWith({ llmProvider: 'OPENAI', llmModel: 'gpt-y', llmApiKeyEnc: 'v1:saved-key' });
+    expect(upsertLlm).toHaveBeenCalledWith({ llmProvider: 'openai', llmModel: 'gpt-y', llmApiKeyEnc: 'v1:saved-key' });
   });
 
   it('treats an empty key as omitted', async () => {

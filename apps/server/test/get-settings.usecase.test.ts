@@ -33,18 +33,18 @@ describe('GetSettingsUsecase', () => {
   });
 
   it('reports the LLM as configured and maps the provider to lower-case', async () => {
-    const result = await run(row({ llmProvider: 'ANTHROPIC', llmModel: 'claude-sonnet-5-5', llmApiKeyEnc: 'v1:x:y:z' }));
+    const result = await run(row({ llmProvider: 'anthropic', llmModel: 'claude-sonnet-5-5', llmApiKeyEnc: 'v1:x:y:z' }));
     expect(result.llm).toEqual({ configured: true, provider: 'anthropic', model: 'claude-sonnet-5-5' });
   });
 
   it('keeps provider and model visible but not configured when the key is missing', async () => {
-    const result = await run(row({ llmProvider: 'GOOGLE', llmModel: 'gemini-2.5-flash' }));
+    const result = await run(row({ llmProvider: 'google', llmModel: 'gemini-2.5-flash' }));
     expect(result.llm).toEqual({ configured: false, provider: 'google', model: 'gemini-2.5-flash' });
   });
 
   it('never returns encrypted values', async () => {
     const result = await run(
-      row({ githubTokenEnc: 'v1:SECRET-A:x:y', llmProvider: 'OPENAI', llmModel: 'm', llmApiKeyEnc: 'v1:SECRET-B:x:y' }),
+      row({ githubTokenEnc: 'v1:SECRET-A:x:y', llmProvider: 'openai', llmModel: 'm', llmApiKeyEnc: 'v1:SECRET-B:x:y' }),
     );
     expect(JSON.stringify(result)).not.toMatch(/SECRET|v1:/);
     expect(GetSettingsResponseSchema.safeParse(result).success).toBe(true);

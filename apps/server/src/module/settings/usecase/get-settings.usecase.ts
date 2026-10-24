@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import type { GetSettingsResponseDto } from '../dto/get-settings.dto';
-import { toApiProvider } from '../settings.mapper';
 import { SettingsRepository } from '../settings.repository';
 
 @Injectable()
@@ -18,7 +17,7 @@ export class GetSettingsUsecase {
       },
       llm: {
         configured: settings?.llmProvider != null && settings.llmModel != null && settings.llmApiKeyEnc != null,
-        provider: settings?.llmProvider ? toApiProvider(settings.llmProvider) : null,
+        provider: settings?.llmProvider ?? null,
         model: settings?.llmModel ?? null,
       },
     };

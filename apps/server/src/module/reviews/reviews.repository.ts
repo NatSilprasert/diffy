@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Review } from '../../generated/prisma/client';
-import type { LlmProvider, Placement, Severity } from '../../generated/prisma/enums';
+import type { LlmProvider, Placement, ReviewStatus, Severity } from '../../generated/prisma/enums';
 import { isUniqueViolation } from '../../infra/prisma/prisma-errors';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 
@@ -33,6 +33,11 @@ export type ReviewResultData = {
   inputTokens: number | null;
   outputTokens: number | null;
   findings: NewFinding[];
+};
+
+export type ReviewFilter = {
+  repositoryId?: string;
+  status?: ReviewStatus;
 };
 
 @Injectable()
@@ -80,5 +85,39 @@ export class ReviewsRepository {
 
   async markFailed(id: string, error: string): Promise<void> {
     await this.prisma.review.update({ where: { id }, data: { status: 'failed', error, finishedAt: new Date() } });
+  }
+
+  // Newest first. Fetches one row more than asked for, so the caller can tell if another page exists.
+  // The cursor is the id of the last row of the previous page; id is the tie-breaker for equal createdAt.
+  listPage(filter: ReviewFilter, limit: number, cursor?: string) {
+    return this.prisma.review.findMany({
+      where: filter,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      include: { repository: true },
+    });
+  }
+
+  // How many findings of each severity, for a set of reviews, in one query.
+  async countFindingsBySeverity(reviewIds: string[]) {
+    if (reviewIds.length === 0) return [];
+    const groups = await this.prisma.finding.groupBy({
+      by: ['reviewId', 'severity'],
+      where: { reviewId: { in: reviewIds } },
+      _count: { _all: true },
+    });
+    return groups.map((group) => ({ reviewId: group.reviewId, severity: group.severity, count: group._count._all }));
+  }
+
+  // Findings come back most severe first (the enum is declared critical -> low), then by position.
+  findDetail(id: string) {
+    return this.prisma.review.findUnique({
+      where: { id },
+      include: {
+        repository: true,
+        findings: { orderBy: [{ severity: 'asc' }, { path: 'asc' }, { line: 'asc' }] },
+      },
+    });
   }
 }

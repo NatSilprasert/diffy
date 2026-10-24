@@ -1,0 +1,283 @@
+# Diffy: แผนและความคืบหน้า
+
+อัปเดตล่าสุด: 2026-10-24 (หลังทำ E3)
+เอกสารนี้สรุปว่า Diffy คืออะไร ออกแบบอย่างไร ตอนนี้ทำถึงไหน อะไรยืนยันแล้ว อะไรยังไม่ได้ยืนยัน และเหลืออะไรต้องทำ
+
+---
+
+## 1. Diffy คืออะไร
+
+AI รีวิว pull request แบบ open source ที่ผู้ใช้รันเองบนเครื่องตัวเอง
+
+1. ผู้ใช้ clone repo ใส่ URL ฐานข้อมูลใน `.env` แล้วรัน `pnpm install && pnpm start`
+2. เปิด http://localhost:3000 แล้วตั้งค่าที่เหลือในเบราว์เซอร์: GitHub token, ผู้ให้บริการ LLM (OpenAI, Anthropic, Gemini, OpenRouter) พร้อมคีย์และโมเดล, และ repo ที่จะเฝ้า
+3. เซิร์ฟเวอร์ poll repo ที่เฝ้าทุก 1 นาที เมื่อมี PR ใหม่หรือมี commit ใหม่ จะให้ LLM รีวิว diff แล้วโพสต์ **รีวิวเดียว** ลง GitHub ประกอบด้วย
+   - ข้อความสรุป (finding จัดกลุ่มตามความรุนแรง)
+   - คอมเมนต์ inline: ความรุนแรง, คำอธิบาย, "fix prompt" ที่คัดลอกไปให้ coding agent ได้, และ block `suggestion` เมื่อแก้ได้แน่นอน
+   - finding ที่ชี้บรรทัดนอก diff (GitHub ปฏิเสธ) จะย้ายไปอยู่ในข้อความสรุปแทน
+4. หน้าประวัติแสดงรีวิวที่ผ่านมาพร้อม finding
+
+หลักออกแบบ: **ทุกส่วนเรียบง่ายที่สุดเท่าที่ยังใช้งานจริงได้** ไม่มี GitHub App, webhook, Docker image, ระบบล็อกอิน หรือกฎกำหนดเอง ใน v1
+
+---
+
+## 2. สถานะภาพรวม
+
+| Phase | เนื้อหา | สถานะ |
+|---|---|---|
+| A | `packages/core` ทำงานได้จากสคริปต์ (A1–A11) | เสร็จ |
+| B | โครง NestJS, Prisma, Swagger/OpenAPI, เข้ารหัสความลับ (B1–B4) | เสร็จ |
+| C | Settings API (C1–C4) | เสร็จ |
+| D | Repos API (D1–D3) | เสร็จ |
+| E | Reviews API และ worker | **E1–E3 เสร็จ**, เหลือ E4–E7 |
+| F | หน้าเว็บ (Next.js) F1–F7 | ยังไม่เริ่ม |
+| G | รวมเป็น process เดียวและเอกสาร G1–G2 | ยังไม่เริ่ม |
+
+จำนวน test ที่ผ่าน ณ วันที่เขียน: `shared` 8, `core` 69, `server` 175
+
+**ขั้นถัดไปคือ E4** (retry และกู้รีวิวที่ค้าง) ดูหัวข้อ 9
+
+---
+
+## 3. สถาปัตยกรรม
+
+### 3.1 โครงโฟลเดอร์
+
+```
+diffy/
+├─ docs/PLAN.md                 ไฟล์นี้
+├─ .env  /  .env.example        ไฟล์ .env ไฟล์เดียวที่ root (ไม่ถูก commit)
+├─ package.json                 สคริปต์: build, test, dev, db:up, db:down
+├─ apps/
+│  ├─ server/                   NestJS (CommonJS)
+│  │  ├─ openapi.json           สร้างจากโค้ด ใช้เป็นอินพุตของ Orval ฝั่งเว็บ
+│  │  ├─ prisma/schema/*.prisma schema แยกไฟล์ + prisma/migrations/
+│  │  └─ src/
+│  │     ├─ infra/              config, prisma, crypto, github errors, security (redact)
+│  │     └─ module/             health, settings, repos, reviews
+│  └─ web/                      Next.js (ยังไม่สร้าง)
+└─ packages/
+   ├─ shared/                   Zod schema ของโดเมน: Finding, Severity, LlmProvider, ReviewStatus
+   └─ core/                     ตรรกะรีวิวเป็นฟังก์ชัน TypeScript ล้วน (ไม่รู้จัก Nest/Prisma)
+```
+
+ความสัมพันธ์ของแพ็กเกจ: `core` พึ่ง `shared`, `server` พึ่ง `core` และ `shared`, `web` จะพึ่ง API ผ่าน client ที่ Orval สร้างจาก `openapi.json` ไม่ import `shared` ตรง ๆ ทั้งสามแพ็กเกจ build เป็น `dist/` ด้วย `tsc` เพราะ Nest ไม่ compile TypeScript ใน `node_modules` (ทำงานได้เพราะ Node 22+ `require()` ไฟล์ ESM ได้)
+
+### 3.2 สายงานของหนึ่งรีวิว
+
+```
+POST /api/reviews                        (ผู้ใช้กด)  หรือ  poller (E5)
+   │ อ่าน head SHA จาก GitHub แล้วสร้างแถว Review (queued)
+   │ unique(repository, PR, SHA) กันรีวิว commit เดียวซ้ำ   ← ฐานข้อมูลเป็นผู้ตัดสิน
+   ▼
+ReviewQueueService   คิวใน memory เก็บแค่ id รันทีละรีวิว
+   ▼
+RunReviewService     claim (queued→running) → โหลด token/LLM → ดึง PR
+   │                 ถ้า PR ขยับไป commit ใหม่แล้ว → skipped
+   ▼
+core.reviewPullRequest
+   ├─ ดึงไฟล์ที่เปลี่ยน (แบ่งหน้า) → กรอง lockfile/generated/ไบนารี + จำกัดขนาด ~60k ตัวอักษร (ทีละไฟล์เต็ม)
+   ├─ แปะเลขบรรทัดฝั่งไฟล์ใหม่หน้าทุกบรรทัดของ diff
+   ├─ LLM (AI SDK + structured output ตาม Zod schema)
+   ├─ ตรวจเลขบรรทัดกับ hunk ของ diff → inline หรือ summary
+   ├─ render markdown
+   └─ pulls.createReview ครั้งเดียว (event COMMENT, ปัก commit_id) ถ้า 422 ลองใหม่โดยย้ายทุกอย่างไปไว้ใน summary
+   ▼
+บันทึกผล: Review + Finding ใน transaction เดียว (posted/skipped) หรือ failed พร้อมข้อความ (ซ่อนคีย์)
+```
+
+### 3.3 การตรวจเลขบรรทัด (สิ่งที่ทำให้รีวิวไม่พัง)
+
+GitHub จะปฏิเสธรีวิวทั้งก้อนถ้ามีคอมเมนต์ inline แม้อันเดียวที่ชี้ไปบรรทัดนอก diff การป้องกันมี 2 ชั้น
+
+1. `parsePatch` แตก diff เป็น hunk และสร้างดัชนีบรรทัดที่คอมเมนต์ได้ (บรรทัดที่เพิ่มและบรรทัดบริบทฝั่งไฟล์ใหม่) `placeFindings` จึงตัดสินว่า finding ไหน inline ไหน summary
+   - ช่วงบรรทัดที่ข้าม hunk หรือเริ่มนอก diff ถูกย่อเหลือบรรทัดเดียว และ **ทิ้ง suggestion** (suggestion เขียนมาแทนทั้งช่วง ถ้าช่วงเปลี่ยน การกด Commit suggestion จะทำให้โค้ดพัง)
+   - เรียงตามความรุนแรงและตัดเหลือ 25 รายการ
+2. ถ้า GitHub ยังตอบ 422 ลองใหม่ครั้งเดียวโดยย้ายทุก finding ไปไว้ใน summary รีวิวจึงไม่หาย
+
+---
+
+## 4. กติกาโค้ดของ `apps/server`
+
+ผู้ใช้กำหนดไว้ระหว่างทำ (บันทึกในความจำของ Claude ด้วย)
+
+- โมดูลอยู่ที่ `src/module/<ชื่อ>/` ส่วนโค้ดข้ามส่วนอยู่ที่ `src/infra/`
+- **ทุก endpoint** = เมธอดใน controller + `usecase/<ชื่อ>.usecase.ts` 1 ไฟล์ + `dto/<ชื่อ>.dto.ts` 1 ไฟล์ + repository ของโมดูล controller ไม่มีตรรกะ มีแต่ repository ที่แตะ Prisma
+- ตรรกะที่ **โมดูลอื่นต้องใช้** อยู่ใน `<ชื่อ>.service.ts` ไฟล์เดียวที่ root ของโมดูล (เช่น `SettingsService.getGithubToken()`) โมดูล export เฉพาะ service นั้น โมดูลอื่น inject service ตรง ๆ **ห้าม** export หรือ inject repository ของโมดูลอื่น
+  - usecase = ทางเข้า HTTP ที่ controller เรียก ส่วน service = ความสามารถที่โค้ดอื่นเรียก controller ไม่เรียก service ตรง ๆ
+  - ส่วนที่ไม่ใช่ทั้งสองอย่าง (คิว และตัวรัน) อยู่ใน `worker/` ของโมดูล reviews
+- mapper (แปลงแถว DB เป็นรูปแบบ API เช่น `Date` เป็น ISO string) ใช้ไฟล์เดียว `<ชื่อโมดูล>.mapper.ts`
+- ค่า enum ของ Prisma เป็น **ตัวพิมพ์เล็ก** (`openai`, `queued`, `critical`, `inline`) จึงเหมือนกันทุกที่: ฐานข้อมูล, Prisma client, API และ `@diffy/shared` ไม่ต้องมีตัวแปลง มี test (`enums-in-sync.test.ts`) คอยตรวจว่าสองฝั่งตรงกัน
+- ความปลอดภัยของ type ตั้งแต่ต้นจนปลาย: Zod DTO (nestjs-zod) → `openapi.json` → Orval สร้าง client และ hook ให้เว็บ
+- ตัวกรอง response (`ZodSerializerInterceptor`) ตัดฟิลด์ที่ไม่อยู่ใน DTO และ usecase ยังคัดลอกฟิลด์ทีละตัวเอง ความลับที่เข้ารหัสไว้จึงไม่มีทางหลุดไปเบราว์เซอร์
+- migration ที่อยู่ใน git แล้ว **ห้ามแก้** ให้เพิ่มอันใหม่เสมอ
+
+---
+
+## 5. API
+
+### ทำแล้ว (13 endpoint)
+
+| Method | Path | ทำอะไร |
+|---|---|---|
+| GET | `/api/health` | ตรวจ server และฐานข้อมูล |
+| GET | `/api/settings` | สถานะการตั้งค่า (`configured`, login, provider, model) **ไม่ส่งคีย์กลับ** |
+| PUT | `/api/settings/github` | ตรวจ token กับ GitHub แล้วเก็บแบบเข้ารหัส |
+| PUT | `/api/settings/llm` | บันทึก provider/model/คีย์ (ไม่ส่งคีย์ = ใช้คีย์เดิม แต่เปลี่ยน provider ต้องส่งคีย์ใหม่) |
+| POST | `/api/settings/llm/test` | เรียก LLM จริงด้วยคำขอเล็ก ๆ ตอบ `ok`/`error`/`latencyMs` |
+| GET | `/api/repos/available?q=` | repo ที่ token เข้าถึงได้ (ไม่รวม archived) |
+| GET | `/api/repos` | repo ที่เฝ้าอยู่ |
+| POST | `/api/repos` | เพิ่ม repo (ตรวจกับ GitHub ก่อน เก็บตัวพิมพ์ตาม GitHub) |
+| PATCH | `/api/repos/:id` | หยุด/เริ่มเฝ้า (`enabled`) |
+| DELETE | `/api/repos/:id` | ลบแบบซ่อน (เก็บประวัติรีวิว เพิ่มซ้ำจะฟื้นแถวเดิม) |
+| POST | `/api/reviews` | ขอรีวิวด้วยมือ สร้างแถว `queued` และเข้าคิว |
+| GET | `/api/reviews` | ประวัติ แบ่งหน้าด้วย cursor กรองด้วย `repositoryId`/`status` มี `findingCounts` |
+| GET | `/api/reviews/:id` | รายละเอียดรีวิว + findings เรียงตามความรุนแรง |
+
+เอกสารเชิงโต้ตอบ: `/api/docs` (Swagger UI)
+
+### ที่เหลือ
+
+| Method | Path | ขั้น |
+|---|---|---|
+| POST | `/api/reviews/:id/retry` | E4 |
+| POST | `/api/repos/:id/poll` | E6 |
+| GET | `/api/status` | E7 |
+
+---
+
+## 6. ข้อมูล (Prisma, ฐานข้อมูล Postgres)
+
+schema แยกไฟล์ใน `apps/server/prisma/schema/`: `base`, `enums`, `settings`, `repository`, `review`, `finding`
+
+- **Settings**: แถวเดียว (id = 1) เก็บ token และคีย์ **แบบเข้ารหัส** (AES-256-GCM รูปแบบ `v1:iv:tag:ciphertext` กุญแจจาก `ENCRYPTION_KEY`) ถ้าเปลี่ยน `ENCRYPTION_KEY` ค่าที่เก็บไว้ถอดไม่ได้ ผู้ใช้ต้องกรอกใหม่ (ระบบแจ้งข้อความชัดเจน)
+- **Repository**: `enabled` = หยุดชั่วคราว (ยังเห็นในรายการ) ส่วน `removedAt` = ผู้ใช้ลบ (ซ่อน แต่เก็บประวัติ) สองสถานะนี้แยกกัน
+- **Review**: `unique(repositoryId, prNumber, headSha)` คือกลไกกันรีวิว commit เดียวซ้ำ สถานะ `queued → running → posted | failed | skipped`
+- **Finding**: ผูกกับ Review (ลบตามกัน)
+- ต่อฐานข้อมูล 2 URL: `DATABASE_URL` (ตอนรัน, Supabase transaction pooler :6543) และ `DIRECT_URL` (ตอน migrate, session pooler :5432 หรือ direct) ตอนนี้ dev ใช้ Postgres ใน Docker ตัวเดียวกันทั้งสอง URL
+
+Migration ที่มี: `init`, `add_repository_removed_at`, `lowercase_enums`
+
+---
+
+## 7. สิ่งที่เปลี่ยนจากแผนเดิม (และเหตุผล)
+
+| เรื่อง | แผนเดิม | ที่ทำจริง | เหตุผล |
+|---|---|---|---|
+| NestJS | 11 (ในแผน) ติดตั้งได้ 12 | ใช้ **11** | `nestjs-zod` ยังไม่รองรับ 12 |
+| Prisma | 7 | ตรึง **7.10.1** | ค่าเริ่มต้นของ `pnpm add` ให้ CLI รุ่น 8 rc ไม่ตรงกับ client |
+| AI SDK | v6 | **v7** | เป็นรุ่นที่ได้ตอนติดตั้ง API ที่ใช้เหมือนกัน |
+| `temperature: 0` | ตั้งไว้ | **ไม่ตั้ง** | โมเดลรุ่นใหม่บางตัวไม่รับค่านี้ |
+| timeout เรียก LLM | ไม่มี | **10 นาที** (ตั้งเองได้) | กันผู้ให้บริการที่ค้างจนคิวติดทั้งแถว |
+| ลบ repo | `enabled = false` | คอลัมน์ **`removedAt`** | `enabled` ใช้เป็นสวิตช์หยุดชั่วคราวอยู่แล้ว |
+| enum ใน DB | ตัวพิมพ์ใหญ่ | **ตัวพิมพ์เล็ก** | ตัด mapper ที่ต้องมีถึง 4 ตัว |
+| OpenAPI | (ค่าเริ่มต้น 3.0) | **3.1** | nestjs-zod สร้าง schema แบบ 3.1 ต้องให้หัวไฟล์ตรงกัน |
+| `tsc` incremental | ใส่ไว้ | **เอาออก** | Nest ลบ `dist` ทุกครั้ง แคชของ tsc ทำให้ build ครั้งที่สองขาดไฟล์เงียบ ๆ |
+| DB สำหรับ dev | Supabase cloud/local | **Postgres ใน Docker** (`pnpm db:up`, พอร์ต 54322) | ผู้ใช้เลือก ยังไม่ได้ลอง Supabase จริง |
+| หน้ารายละเอียดรีวิว | `/reviews/[id]` | **`/reviews/view?id=`** | static export ของ Next.js ใช้ route แบบ dynamic ไม่ได้ |
+
+---
+
+## 8. สิ่งที่ยืนยันแล้ว และยังไม่ได้ยืนยัน
+
+### ยืนยันแล้ว (ทดสอบกับของจริง)
+- ดึง PR และไฟล์จาก GitHub, แยก diff, แปะเลขบรรทัด, เรียก LLM แบบ structured output (เจ้าของโปรเจกต์ลอง `--dry-run` กับ Gemini แล้ว)
+- ตรวจ token ปลอมกับ GitHub, ตรวจคีย์ปลอมกับ Anthropic/OpenAI/Google (ได้ข้อความ error ที่อ่านรู้เรื่อง)
+- ดึงรายการ repo จริง (114 repo), เพิ่ม repo พร้อมตรวจกับ GitHub (404, archived, ซ้ำ, ตัวพิมพ์ต่าง)
+- unique constraint กันรีวิวซ้ำ **รวมกรณียิง 3 คำขอพร้อมกัน** (ได้ 1 แถว) และผ่าน driver adapter ของ Prisma
+- การเคลมรีวิว: 5 ตัวแย่งกัน ชนะ 1 ตัว
+- บันทึกผลรีวิวพร้อม findings ใน transaction, pagination ที่เวลาเท่ากันเป๊ะไม่ซ้ำไม่ตก
+- ทั้งสาย POST → คิว → ตัวรัน → GitHub จริง → LLM (คีย์ปลอม) จบที่ `failed` พร้อมข้อความ
+
+### ยังไม่ได้ยืนยัน
+- **เส้นทางสำเร็จเต็มเส้นผ่าน server** (LLM ตอบจริง → โพสต์รีวิวขึ้น PR → บันทึก `posted`) แต่ละส่วนทดสอบแยกแล้ว (สคริปต์ `core --post` และการบันทึกผลฝั่ง server) แต่ยังไม่เคยต่อกันด้วยคีย์ที่มีเครดิตจริง
+- ปุ่ม **Commit suggestion** ของ GitHub ว่าใช้ได้กับบรรทัดที่คอมเมนต์จริง
+- **Supabase** (cloud และ local) และพฤติกรรมของ pooler `:6543`/`:5432` จะลองตอน G2
+- การซ่อนคีย์ใน error: ทดสอบด้วย unit test เท่านั้น (ผู้ให้บริการที่ลองจริงไม่ส่งคีย์กลับมา)
+- `POST /api/repos` และ `GET /api/repos/available` ผ่าน HTTP ด้วย token ที่เก็บเข้ารหัสใน DB จริง (ทดสอบผ่านคลาสจริงด้วย token จาก environment)
+
+### ข้อจำกัดที่ยอมรับใน v1
+- คิวอยู่ใน memory เก็บแค่ id ข้อมูลจริงอยู่ใน DB ดับแล้วคิวหาย (E4 จะกู้จาก DB)
+- **รันได้ instance เดียว** ถ้าเปิดสองตัวชี้ DB เดียวกัน การเคลมยังกันซ้ำได้ แต่การกู้ตอนเริ่มระบบ (E4) อาจดึงงานของอีกตัวมารันซ้ำ ต้องระบุใน README
+- ไม่มีระบบล็อกอินหน้าเว็บ จึงตั้งให้ฟังที่ `127.0.0.1` เท่านั้น ห้ามเปิดให้เครือข่ายภายนอกเข้าถึง
+- รีวิวโพสต์ในนามเจ้าของ token และใช้ `COMMENT` เสมอ (GitHub ไม่ให้ request changes/approve PR ของตัวเอง)
+- ไม่มี retry อัตโนมัติ ล้มแล้วอยู่ที่ `failed` จนกดลองใหม่เอง
+- ไม่มีการหมุนกุญแจเข้ารหัส (เวอร์ชัน `v1:` ในค่าที่เก็บเผื่อไว้)
+- ไฟล์เดียวที่ใหญ่เกินงบ ~60k ตัวอักษรจะไม่ถูกรีวิว (บันทึกเหตุผลไว้)
+- `cursor` ที่ไม่มีอยู่จริงได้รายการว่าง ไม่ใช่ 400
+
+---
+
+## 9. ขั้นที่เหลือ
+
+แต่ละขั้นทำและทดสอบทีละขั้น ตามที่ผู้ใช้ต้องการ
+
+### Phase E (ต่อ)
+- **E4 retry และกู้งานค้าง**: `POST /reviews/:id/retry` (failed → queued แล้วเข้าคิว) และตอนเริ่ม server ให้เปลี่ยนแถว `running` ที่ค้างกลับเป็น `queued` แล้วเข้าคิวทั้งหมดของ `queued` (ต้องรีเซ็ตก่อน เพราะ `claim` รับเฉพาะ `queued`)
+  ทดสอบ: ใส่คีย์ผิด → failed → แก้คีย์ → retry → posted; ฆ่า server กลางรีวิว → เริ่มใหม่ → รีวิวถูกทำต่อ
+- **E5 poller**: `@nestjs/schedule` ทุก `POLL_INTERVAL_SECONDS` วนทุก repo ที่ `removedAt = null AND enabled = true` ดึง PR ที่เปิดอยู่ (ต้องเพิ่มฟังก์ชันใน `core`) ข้าม draft และบอท (`[bot]`) สร้างแถว `queued` ให้ commit ใหม่ (ซ้ำถูกกันด้วย unique constraint) และอัปเดต `lastPolledAt`/`lastError`
+  ทดสอบ: push ใส่ PR ที่เฝ้าอยู่ → ได้รีวิวภายใน ~1 นาที; ไม่ push → ไม่มีแถวใหม่
+- **E6 poll ทันที และ baseline**: `POST /repos/:id/poll` และเมื่อเพิ่ม repo ให้บันทึก PR ที่เปิดอยู่เป็น `skipped` (ไม่รีวิวย้อนหลังทีเดียวหมด ป้องกันค่าใช้จ่ายพุ่ง)
+  ทดสอบ: เพิ่ม repo ที่มี PR เปิด 3 อัน → 3 แถว `skipped` ไม่มีรีวิวถูกโพสต์
+- **E7 สถานะ**: `GET /status` ความยาวคิว งานปัจจุบัน และ poll ล่าสุด
+
+### Phase F: เว็บ (Next.js `output: 'export'`, Tailwind, shadcn/ui, Orval + React Query)
+- F1 โครงเว็บ, F2 ต่อ Orval (`pnpm gen:api`: เปลี่ยน DTO แล้ว type ฝั่งเว็บต้อง error), F3 `/settings`, F4 `/repos`, F5 `/reviews`, F6 `/reviews/view?id=` (คัดลอก fix prompt, ปุ่มลองใหม่), F7 `/` แดชบอร์ด (เช็กลิสต์การตั้งค่า + สถานะสด)
+- การตัดสินใจที่ค้าง: **client ที่ Orval สร้างจะ commit หรือไม่** ตอนนี้แผนคือ commit เฉพาะ `openapi.json` และสร้าง client ตอน build (ผู้ใช้ปลายทางไม่ต้องรัน codegen เอง) ตัดสินตอน F2
+
+### Phase G: ส่งมอบ
+- **G1 process เดียว**: `ServeStaticModule` เสิร์ฟ `apps/web/out` ที่ `/` (ยกเว้น `/api`) และสคริปต์ root `pnpm start` = build → `prisma migrate deploy` → start (ตอนนี้ **ยังไม่มี** `pnpm start`)
+- **G2 เอกสารและทดสอบ clone ใหม่**: README พร้อมขั้นตอน Supabase cloud และ local ทดสอบทั้งสองแบบ รวมการตั้งค่า pooler
+
+### คำถามที่ยังเปิดอยู่
+1. **รีวิวซ้ำทุกครั้งที่ push**: ข้อเสนอคือข้าม finding ที่ `(path, title)` เหมือนที่เคยโพสต์ใน PR นั้นแล้ว (รีวิวเฉพาะส่วนที่เปลี่ยนจริงเก็บไว้ v2)
+2. ข้าม draft และบอทเป็นค่าตายตัวใน v1 หรือไม่ (ข้อเสนอ: ใช่ ถ้า draft ถูกเปลี่ยนเป็น ready แล้ว head ยังไม่เคยรีวิว จะถูกรีวิว)
+3. เพดานขนาดรีวิว: ตอนนี้ไฟล์ที่เกินงบถูกข้าม ควรรีวิวบางส่วนพร้อมหมายเหตุแทนหรือไม่
+4. `GET /repos/available` ใช้เวลา ~4 วินาทีเมื่อมี 100+ repo (GitHub ส่งทีละ 100) ข้อเสนอ: cache สั้น ๆ (เช่น 60 วินาที) ฝั่ง server ตัดสินตอนทำหน้า `/repos`
+5. รีวิวขึ้นในนามเจ้าของ token ยอมรับได้ใน v1 หรือไม่ (GitHub App ใน v2 แก้เรื่องนี้)
+
+---
+
+## 10. วิธีรันและทดสอบตอนนี้
+
+ต้องมี Node 22.12+, pnpm และ Docker
+
+```bash
+pnpm install
+pnpm db:up                                   # Postgres ใน Docker (พอร์ต 54322)
+cp .env.example .env                         # แล้วใส่ ENCRYPTION_KEY (openssl rand -base64 32)
+                                             # DATABASE_URL และ DIRECT_URL ให้ใช้ค่าของ Postgres ในเครื่อง
+pnpm --filter @diffy/server db:deploy        # สร้างตาราง
+pnpm build && pnpm test
+
+# เปิด server (http://127.0.0.1:3000, เอกสารที่ /api/docs)
+pnpm --filter @diffy/server start:prod       # หรือ pnpm dev
+```
+
+ทดสอบ `core` จากสคริปต์ (ใช้ repo ทดลองของตัวเอง):
+
+```bash
+export GITHUB_TOKEN=...   LLM_API_KEY=...
+cd packages/core
+pnpm review-pr owner/repo#1 --print-diff
+pnpm review-pr owner/repo#1 --dry-run --provider=google --model=<id>
+pnpm review-pr owner/repo#1 --print-review --provider=... --model=...
+pnpm review-pr owner/repo#1 --post --provider=... --model=...     # โพสต์จริง
+```
+
+สร้าง `openapi.json` ใหม่หลังแก้ DTO: `pnpm --filter @diffy/server gen:openapi`
+
+หมายเหตุ: ใน `.env` ต้องเขียนเป็น `ชื่อ=ค่า` เท่านั้น บรรทัดที่เป็นแค่ค่าเปล่า ๆ จะถูกละเว้น และอย่าวาง token หรือคีย์ลงในแชตหรือ commit
+
+---
+
+## 11. v2 (ไว้ทีหลัง)
+
+- รีวิวแบบ incremental (เฉพาะ `lastReviewedSha..head`) และไม่ซ้ำ finding เดิม พร้อมจัดการคอมเมนต์ที่ล้าสมัย
+- GitHub App และ webhook (รีวิวทันที ไม่ต้องใช้ token ส่วนตัว)
+- ระบบล็อกอินหน้าเว็บ (ปลอดภัยพอจะเปิดนอก localhost)
+- คิวถาวรบน Postgres เอง (เช่น `pg-boss` หรือ `SELECT ... FOR UPDATE SKIP LOCKED`) รองรับ retry/backoff และหลาย worker โดยไม่ต้องเพิ่ม Redis
+- ตั้งค่าต่อ repo (`.diffy.yml`): ข้ามพาธ, กฎ/คำสั่งเพิ่มเติม, เกณฑ์ความรุนแรงขั้นต่ำ
+- บริบทเพิ่ม (ไฟล์เต็ม ไฟล์ที่เกี่ยวข้อง)
+- ตอบคอมเมนต์ (`@diffy explain`) และปุ่ม "apply fix"
+- Docker image, ติดตามค่าใช้จ่าย/งบต่อเดือน, หลายโปรไฟล์ LLM, GitLab/Bitbucket, ปุ่มถูกใจ/ไม่ถูกใจต่อ finding

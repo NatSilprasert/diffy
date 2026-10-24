@@ -36,3 +36,36 @@ describe('ReviewsRepository.createQueued', () => {
     await expect(repo.createQueued(data)).rejects.toThrow('connection lost');
   });
 });
+
+describe('ReviewsRepository.listPage', () => {
+  it('asks for one more row than the limit, newest first, with a stable tie-breaker', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    await repoWith({ findMany }).listPage({ status: 'failed' }, 20);
+    expect(findMany).toHaveBeenCalledWith({
+      where: { status: 'failed' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 21,
+      include: { repository: true },
+    });
+  });
+
+  it('continues after the cursor row without repeating it', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    await repoWith({ findMany }).listPage({}, 5, 'v9');
+    expect(findMany.mock.calls[0]![0]).toMatchObject({ cursor: { id: 'v9' }, skip: 1, take: 6 });
+  });
+});
+
+describe('ReviewsRepository.countFindingsBySeverity', () => {
+  it('skips the query when there are no reviews', async () => {
+    const groupBy = vi.fn();
+    expect(await new ReviewsRepository({ finding: { groupBy } } as unknown as PrismaService).countFindingsBySeverity([])).toEqual([]);
+    expect(groupBy).not.toHaveBeenCalled();
+  });
+
+  it('flattens the grouped counts', async () => {
+    const groupBy = vi.fn().mockResolvedValue([{ reviewId: 'v1', severity: 'high', _count: { _all: 3 } }]);
+    const repo = new ReviewsRepository({ finding: { groupBy } } as unknown as PrismaService);
+    expect(await repo.countFindingsBySeverity(['v1'])).toEqual([{ reviewId: 'v1', severity: 'high', count: 3 }]);
+  });
+});

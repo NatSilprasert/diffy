@@ -53,4 +53,17 @@ export class ReposRepository {
     });
     return result.count > 0;
   }
+
+  // Repositories the poller should look at: not removed and not paused.
+  findPollable() {
+    return this.prisma.repository.findMany({
+      where: { removedAt: null, enabled: true },
+      orderBy: [{ owner: 'asc' }, { name: 'asc' }],
+    });
+  }
+
+  // lastError = null records a clean poll. The repository may have been removed meanwhile; that is fine.
+  async markPolled(id: string, lastError: string | null): Promise<void> {
+    await this.prisma.repository.updateMany({ where: { id }, data: { lastPolledAt: new Date(), lastError } });
+  }
 }

@@ -16,3 +16,19 @@ describe('ReposService.getActiveRepo', () => {
     await expect(service(null).getActiveRepo('nope')).rejects.toBeInstanceOf(NotFoundException);
   });
 });
+
+describe('ReposService polling helpers', () => {
+  it('listPollableRepos returns only the identifying fields', async () => {
+    const findPollable = vi.fn().mockResolvedValue([{ id: 'r1', owner: 'acme', name: 'api', enabled: true, lastError: 'x', removedAt: null }]);
+    const service = new ReposService({ findPollable } as unknown as ReposRepository);
+    expect(await service.listPollableRepos()).toEqual([{ id: 'r1', owner: 'acme', name: 'api' }]);
+  });
+
+  it('recordPoll passes the error (or null) to the repository', async () => {
+    const markPolled = vi.fn().mockResolvedValue(undefined);
+    const service = new ReposService({ markPolled } as unknown as ReposRepository);
+    await service.recordPoll('r1', null);
+    await service.recordPoll('r1', 'boom');
+    expect(markPolled.mock.calls).toEqual([['r1', null], ['r1', 'boom']]);
+  });
+});

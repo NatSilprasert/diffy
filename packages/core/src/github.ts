@@ -43,6 +43,32 @@ export async function getAuthenticatedLogin(token: string): Promise<string> {
   return data.login;
 }
 
+type RawPullRequest = {
+  number: number;
+  title: string;
+  body: string | null;
+  html_url: string;
+  draft?: boolean;
+  head: { sha: string };
+  // GitHub can return null here, e.g. when the author's account was deleted.
+  user: { login: string; type: string } | null;
+};
+
+function toPullRequestInfo(owner: string, repo: string, data: RawPullRequest): PullRequestInfo {
+  return {
+    owner,
+    repo,
+    number: data.number,
+    title: data.title,
+    body: data.body ?? '',
+    url: data.html_url,
+    headSha: data.head.sha,
+    isDraft: data.draft ?? false,
+    authorLogin: data.user?.login ?? 'ghost',
+    authorIsBot: data.user?.type === 'Bot',
+  };
+}
+
 export async function getPullRequest(
   octokit: Octokit,
   owner: string,
@@ -50,18 +76,13 @@ export async function getPullRequest(
   number: number,
 ): Promise<PullRequestInfo> {
   const { data } = await octokit.rest.pulls.get({ owner, repo, pull_number: number });
-  return {
-    owner,
-    repo,
-    number,
-    title: data.title,
-    body: data.body ?? '',
-    url: data.html_url,
-    headSha: data.head.sha,
-    isDraft: data.draft ?? false,
-    authorLogin: data.user.login,
-    authorIsBot: data.user.type === 'Bot',
-  };
+  return toPullRequestInfo(owner, repo, data);
+}
+
+// Every open pull request of a repository (all pages), with the head commit it has right now.
+export async function listOpenPullRequests(octokit: Octokit, owner: string, repo: string): Promise<PullRequestInfo[]> {
+  const pulls = await octokit.paginate(octokit.rest.pulls.list, { owner, repo, state: 'open', per_page: 100 });
+  return pulls.map((data) => toPullRequestInfo(owner, repo, data));
 }
 
 export async function listChangedFiles(

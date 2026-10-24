@@ -1,0 +1,97 @@
+import { createGithubClient, listOpenPullRequests } from '@diffy/core';
+import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnModuleDestroy } from '@nestjs/common';
+import { ENV } from '../../../infra/config/config.module';
+import type { Env } from '../../../infra/config/env';
+import { ReposService } from '../../repos/repos.service';
+import { SettingsService } from '../../settings/settings.service';
+import { ReviewsRepository } from '../reviews.repository';
+import { ReviewQueueService } from './review-queue.service';
+
+const MAX_ERROR_CHARS = 500;
+
+type PolledRepo = { id: string; owner: string; name: string };
+
+// Looks for new pull requests (and new commits on old ones) in every watched repository, on a timer,
+// and queues a review for each commit that has none yet. No webhooks: a plain poll is enough.
+@Injectable()
+export class PollerService implements OnApplicationBootstrap, OnModuleDestroy {
+  private readonly logger = new Logger(PollerService.name);
+  private timer: NodeJS.Timeout | undefined;
+  private polling = false;
+
+  constructor(
+    @Inject(ENV) private readonly env: Env,
+    private readonly reposService: ReposService,
+    private readonly settingsService: SettingsService,
+    private readonly reviewsRepository: ReviewsRepository,
+    private readonly reviewQueue: ReviewQueueService,
+  ) {}
+
+  onApplicationBootstrap(): void {
+    void this.pollAll();
+    this.timer = setInterval(() => void this.pollAll(), this.env.POLL_INTERVAL_SECONDS * 1000);
+  }
+
+  onModuleDestroy(): void {
+    clearInterval(this.timer);
+  }
+
+  // One pass over every pollable repository, one after the other (gentle on GitHub's rate limit).
+  // A pass that is still running when the timer fires again is not started twice.
+  async pollAll(): Promise<void> {
+    if (this.polling) return;
+    this.polling = true;
+    try {
+      for (const repo of await this.reposService.listPollableRepos()) {
+        try {
+          await this.pollRepo(repo);
+        } catch (err) {
+          this.logger.error(`Could not record the poll of ${repo.owner}/${repo.name}: ${errorMessage(err)}`);
+        }
+      }
+    } catch (err) {
+      this.logger.error(`Poll failed: ${errorMessage(err)}`);
+    } finally {
+      this.polling = false;
+    }
+  }
+
+  // Polls one repository and returns how many reviews it queued. A failure is written to the
+  // repository (lastError) instead of thrown, so one broken repository never stops the others.
+  async pollRepo(repo: PolledRepo): Promise<number> {
+    try {
+      const token = await this.settingsService.getGithubToken();
+      const pulls = await listOpenPullRequests(createGithubClient(token), repo.owner, repo.name);
+
+      let queued = 0;
+      for (const pr of pulls) {
+        // Drafts are not ready for review yet; they get one when marked ready (same commit, no row yet).
+        // Bots (Dependabot and the like) open many PRs nobody wants an AI opinion on.
+        if (pr.isDraft || pr.authorIsBot) continue;
+
+        const { review, created } = await this.reviewsRepository.createQueued({
+          repositoryId: repo.id,
+          prNumber: pr.number,
+          prTitle: pr.title,
+          prUrl: pr.url,
+          headSha: pr.headSha,
+        });
+        if (created) {
+          this.reviewQueue.enqueue(review.id);
+          queued++;
+        }
+      }
+
+      await this.reposService.recordPoll(repo.id, null);
+      if (queued > 0) this.logger.log(`${repo.owner}/${repo.name}: queued ${queued} review(s)`);
+      return queued;
+    } catch (err) {
+      const message = errorMessage(err).slice(0, MAX_ERROR_CHARS);
+      this.logger.warn(`${repo.owner}/${repo.name}: poll failed: ${message}`);
+      await this.reposService.recordPoll(repo.id, message);
+      return 0;
+    }
+  }
+}
+
+const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));

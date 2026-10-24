@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Octokit } from 'octokit';
-import { MAX_ACCESSIBLE_REPOS, getRepository, listAccessibleRepos } from '../src/github.js';
+import { MAX_ACCESSIBLE_REPOS, getPullRequest, getRepository, listAccessibleRepos, listOpenPullRequests } from '../src/github.js';
 
 const repo = (name: string, over: Record<string, unknown> = {}) => ({
   full_name: `acme/${name}`,
@@ -74,5 +74,67 @@ describe('getRepository', () => {
   it('lets a 404 propagate so the caller can explain it', async () => {
     const get = vi.fn().mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
     await expect(getRepository(octokitReturning(get), 'acme', 'nope')).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+const pull = (number: number, over: Record<string, unknown> = {}) => ({
+  number,
+  title: `PR ${number}`,
+  body: 'desc',
+  html_url: `https://github.com/acme/api/pull/${number}`,
+  draft: false,
+  head: { sha: `sha${number}` },
+  user: { login: 'dev', type: 'User' },
+  ...over,
+});
+
+describe('listOpenPullRequests', () => {
+  const octokitWith = (pulls: unknown[]) =>
+    ({
+      rest: { pulls: { list: vi.fn() } },
+      paginate: vi.fn().mockResolvedValue(pulls),
+    }) as unknown as Octokit;
+
+  it('asks for open pull requests, 100 per page, and maps the fields we use', async () => {
+    const octokit = octokitWith([pull(1), pull(2, { draft: true, body: null, user: { login: 'dependabot[bot]', type: 'Bot' } })]);
+    const result = await listOpenPullRequests(octokit, 'acme', 'api');
+
+    expect(vi.mocked(octokit.paginate).mock.calls[0]![1]).toEqual({ owner: 'acme', repo: 'api', state: 'open', per_page: 100 });
+    expect(result[0]).toEqual({
+      owner: 'acme',
+      repo: 'api',
+      number: 1,
+      title: 'PR 1',
+      body: 'desc',
+      url: 'https://github.com/acme/api/pull/1',
+      headSha: 'sha1',
+      isDraft: false,
+      authorLogin: 'dev',
+      authorIsBot: false,
+    });
+    expect(result[1]).toMatchObject({ isDraft: true, body: '', authorLogin: 'dependabot[bot]', authorIsBot: true });
+  });
+
+  it('copes with a pull request whose author account was deleted (user: null)', async () => {
+    const result = await listOpenPullRequests(octokitWith([pull(3, { user: null })]), 'acme', 'api');
+    expect(result[0]).toMatchObject({ authorLogin: 'ghost', authorIsBot: false });
+  });
+
+  it('treats a missing draft flag as not a draft', async () => {
+    const { draft: _draft, ...withoutDraft } = pull(4);
+    expect((await listOpenPullRequests(octokitWith([withoutDraft]), 'acme', 'api'))[0]!.isDraft).toBe(false);
+  });
+
+  it('returns an empty list when nothing is open', async () => {
+    expect(await listOpenPullRequests(octokitWith([]), 'acme', 'api')).toEqual([]);
+  });
+});
+
+describe('getPullRequest', () => {
+  it('shares the mapping and also copes with a deleted author', async () => {
+    const get = vi.fn().mockResolvedValue({ data: pull(7, { user: null }) });
+    const octokit = { rest: { pulls: { get } } } as unknown as Octokit;
+    expect(await getPullRequest(octokit, 'acme', 'api', 7)).toMatchObject({ number: 7, authorLogin: 'ghost', headSha: 'sha7' });
+    expect(get).toHaveBeenCalledWith({ owner: 'acme', repo: 'api', pull_number: 7 });
   });
 });

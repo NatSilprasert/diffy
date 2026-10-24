@@ -94,3 +94,23 @@ describe('ReposRepository.softRemove', () => {
     expect(await repo.softRemove('r1')).toBe(false);
   });
 });
+
+describe('ReposRepository polling queries', () => {
+  it('findPollable excludes removed and paused repositories', async () => {
+    const { repo, repository } = setup({ findMany: vi.fn().mockResolvedValue([]) });
+    await repo.findPollable();
+    expect(repository.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { removedAt: null, enabled: true } }));
+  });
+
+  it('markPolled stamps the time and stores the error (null clears it)', async () => {
+    const { repo, repository } = setup({ updateMany: vi.fn().mockResolvedValue({ count: 1 }) });
+    await repo.markPolled('r1', 'boom');
+    const call = repository.updateMany.mock.calls[0]![0];
+    expect(call.where).toEqual({ id: 'r1' });
+    expect(call.data.lastError).toBe('boom');
+    expect(call.data.lastPolledAt).toBeInstanceOf(Date);
+
+    await repo.markPolled('r1', null);
+    expect(repository.updateMany.mock.calls[1]![0].data.lastError).toBeNull();
+  });
+});

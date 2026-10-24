@@ -1,6 +1,6 @@
 # Diffy: แผนและความคืบหน้า
 
-อัปเดตล่าสุด: 2026-10-24 (หลังทำ E4)
+อัปเดตล่าสุด: 2026-10-24 (หลังทำ E5)
 เอกสารนี้สรุปว่า Diffy คืออะไร ออกแบบอย่างไร ตอนนี้ทำถึงไหน อะไรยืนยันแล้ว อะไรยังไม่ได้ยืนยัน และเหลืออะไรต้องทำ
 
 ---
@@ -29,13 +29,13 @@ AI รีวิว pull request แบบ open source ที่ผู้ใช�
 | B | โครง NestJS, Prisma, Swagger/OpenAPI, เข้ารหัสความลับ (B1–B4) | เสร็จ |
 | C | Settings API (C1–C4) | เสร็จ |
 | D | Repos API (D1–D3) | เสร็จ |
-| E | Reviews API และ worker | **E1–E4 เสร็จ**, เหลือ E5–E7 |
+| E | Reviews API และ worker | **E1–E5 เสร็จ**, เหลือ E6–E7 |
 | F | หน้าเว็บ (Next.js) F1–F7 | ยังไม่เริ่ม |
 | G | รวมเป็น process เดียวและเอกสาร G1–G2 | ยังไม่เริ่ม |
 
-จำนวน test ที่ผ่าน ณ วันที่เขียน: `shared` 8, `core` 69, `server` 188
+จำนวน test ที่ผ่าน ณ วันที่เขียน: `shared` 8, `core` 74, `server` 205
 
-**ขั้นถัดไปคือ E5** (poller ตรวจ PR ใหม่อัตโนมัติ) ดูหัวข้อ 9
+**ขั้นถัดไปคือ E6** (baseline ตอนเพิ่ม repo และปุ่ม poll ทันที) ดูหัวข้อ 9 **สำคัญ:** ตอนนี้ poller ทำงานแล้ว ถ้าเพิ่ม repo ที่มี PR เปิดอยู่หลายอัน ทุกอันจะถูกรีวิวทั้งหมดในรอบ poll แรก (เสียเงิน LLM) จนกว่าจะทำ E6 ให้ใช้กับ repo ทดลองไปก่อน
 
 ---
 
@@ -172,6 +172,7 @@ Migration ที่มี: `init`, `add_repository_removed_at`, `lowercase_enums
 | ลบ repo | `enabled = false` | คอลัมน์ **`removedAt`** | `enabled` ใช้เป็นสวิตช์หยุดชั่วคราวอยู่แล้ว |
 | enum ใน DB | ตัวพิมพ์ใหญ่ | **ตัวพิมพ์เล็ก** | ตัด mapper ที่ต้องมีถึง 4 ตัว |
 | OpenAPI | (ค่าเริ่มต้น 3.0) | **3.1** | nestjs-zod สร้าง schema แบบ 3.1 ต้องให้หัวไฟล์ตรงกัน |
+| ตัวจับเวลา poller | `@nestjs/schedule` | **`setInterval`** ตัวเดียว | ความถี่มาจาก `.env` (decorator ของแพ็กเกจรับได้เฉพาะค่าตายตัว) และไม่ต้องเพิ่ม dependency |
 | `tsc` incremental | ใส่ไว้ | **เอาออก** | Nest ลบ `dist` ทุกครั้ง แคชของ tsc ทำให้ build ครั้งที่สองขาดไฟล์เงียบ ๆ |
 | DB สำหรับ dev | Supabase cloud/local | **Postgres ใน Docker** (`pnpm db:up`, พอร์ต 54322) | ผู้ใช้เลือก ยังไม่ได้ลอง Supabase จริง |
 | หน้ารายละเอียดรีวิว | `/reviews/[id]` | **`/reviews/view?id=`** | static export ของ Next.js ใช้ route แบบ dynamic ไม่ได้ |
@@ -215,9 +216,8 @@ Migration ที่มี: `init`, `add_repository_removed_at`, `lowercase_enums
 
 ### Phase E (ต่อ)
 - ~~**E4 retry และกู้งานค้าง**~~ **เสร็จแล้ว**: `POST /reviews/:id/retry` (failed → queued แล้วเข้าคิว; ใช้ conditional update จึงยิงพร้อมกัน 25 คำขอชนะ 1) และตอนเริ่ม server เปลี่ยนแถว `running` ที่ค้างกลับเป็น `queued` แล้วเข้าคิวทั้งหมดของ `queued` เรียงเก่าก่อน ทดสอบโดยตั้ง DB ให้เหมือน server ดับกลางคัน แล้วเปิดใหม่: ทั้งสามรีวิวที่ค้างถูกหยิบไปทำ ส่วนรีวิวที่ `failed`/`posted` อยู่แล้วไม่ถูกแตะ
-- **E5 poller**: `@nestjs/schedule` ทุก `POLL_INTERVAL_SECONDS` วนทุก repo ที่ `removedAt = null AND enabled = true` ดึง PR ที่เปิดอยู่ (ต้องเพิ่มฟังก์ชันใน `core`) ข้าม draft และบอท (`[bot]`) สร้างแถว `queued` ให้ commit ใหม่ (ซ้ำถูกกันด้วย unique constraint) และอัปเดต `lastPolledAt`/`lastError`
-  ทดสอบ: push ใส่ PR ที่เฝ้าอยู่ → ได้รีวิวภายใน ~1 นาที; ไม่ push → ไม่มีแถวใหม่
-- **E6 poll ทันที และ baseline**: `POST /repos/:id/poll` และเมื่อเพิ่ม repo ให้บันทึก PR ที่เปิดอยู่เป็น `skipped` (ไม่รีวิวย้อนหลังทีเดียวหมด ป้องกันค่าใช้จ่ายพุ่ง)
+- ~~**E5 poller**~~ **เสร็จแล้ว**: `PollerService` poll ทันทีตอนเริ่ม แล้วทุก `POLL_INTERVAL_SECONDS` วนทุก repo ที่ `removedAt = null AND enabled = true` ดึง PR ที่เปิดอยู่ ข้าม draft และบอท สร้างแถว `queued` ให้ commit ที่ยังไม่มีรีวิว (ซ้ำถูกกันด้วย unique constraint) และบันทึก `lastPolledAt`/`lastError` ต่อ repo repo ที่พังไม่ทำให้ repo อื่นหยุด ทดสอบกับ GitHub จริง: repo ปกติ, repo ที่ไม่มีอยู่ (บันทึก error), repo ที่หยุด/ลบ (ไม่ถูกแตะ) และรอบที่สองไม่สร้างรีวิวซ้ำ
+- **E6 poll ทันที และ baseline**: `POST /repos/:id/poll` และเมื่อเพิ่ม repo ให้บันทึก PR ที่เปิดอยู่เป็น `skipped` (หมายเหตุออกแบบ: `ReviewsModule` import `ReposModule` อยู่แล้ว ถ้า `ReposModule` import กลับจะเป็นวงกลม จึงต้องวาง endpoint นี้ฝั่ง reviews หรือแยกวิธีเรียก) (ไม่รีวิวย้อนหลังทีเดียวหมด ป้องกันค่าใช้จ่ายพุ่ง)
   ทดสอบ: เพิ่ม repo ที่มี PR เปิด 3 อัน → 3 แถว `skipped` ไม่มีรีวิวถูกโพสต์
 - **E7 สถานะ**: `GET /status` ความยาวคิว งานปัจจุบัน และ poll ล่าสุด
 

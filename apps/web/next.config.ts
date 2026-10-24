@@ -8,6 +8,8 @@ const config: NextConfig = {
   trailingSlash: true,
   // The image optimizer needs a server; there are no photos here anyway.
   images: { unoptimized: true },
+  // `next dev` would otherwise write an AGENTS.md of instructions for AI tools into the project.
+  agentRules: false,
 };
 
 export default config;

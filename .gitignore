@@ -6,3 +6,4 @@ out/
 apps/server/src/generated/
 *.tsbuildinfo
 next-env.d.ts
+apps/web/src/api/generated/

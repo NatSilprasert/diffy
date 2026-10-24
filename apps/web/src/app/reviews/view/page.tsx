@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
-import { ComingSoon } from '@/components/coming-soon';
-import { PageHeader } from '@/components/page-header';
-import { ReviewIdFromUrl } from './review-id-from-url';
+import { ComingSoon } from '@/components/ComingSoon';
+import { PageHeader } from '@/components/PageHeader';
+import { ReviewIdFromUrl } from './ReviewIdFromUrl';
 
 // One review is addressed as /reviews/view/?id=... rather than /reviews/<id>, because a static export
 // cannot serve ids that are not known at build time.

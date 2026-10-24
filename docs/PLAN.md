@@ -1,6 +1,6 @@
 # Diffy: แผนและความคืบหน้า
 
-อัปเดตล่าสุด: 2026-10-24 (หลังทำ F1)
+อัปเดตล่าสุด: 2026-10-24 (หลังทำ F2)
 เอกสารนี้สรุปว่า Diffy คืออะไร ออกแบบอย่างไร ตอนนี้ทำถึงไหน อะไรยืนยันแล้ว อะไรยังไม่ได้ยืนยัน และเหลืออะไรต้องทำ
 
 ---
@@ -30,12 +30,12 @@ AI รีวิว pull request แบบ open source ที่ผู้ใช�
 | C | Settings API (C1–C4) | เสร็จ |
 | D | Repos API (D1–D3) | เสร็จ |
 | E | Reviews API และ worker (E1–E7) | เสร็จ |
-| F | หน้าเว็บ (Next.js) F1–F7 | **F1 เสร็จ**, เหลือ F2–F7 |
+| F | หน้าเว็บ (Next.js) F1–F7 | **F1–F2 เสร็จ**, เหลือ F3–F7 |
 | G | รวมเป็น process เดียวและเอกสาร G1–G2 | ยังไม่เริ่ม |
 
 จำนวน test ที่ผ่าน ณ วันที่เขียน: `shared` 8, `core` 74, `server` 225
 
-**ขั้นถัดไปคือ F2** (ต่อ Orval กับ API) ฝั่ง API ของ v1 ครบแล้ว ดูหัวข้อ 9
+**ขั้นถัดไปคือ F3** (หน้า `/settings` จริง) ฝั่ง API ของ v1 ครบแล้ว ดูหัวข้อ 9
 
 ---
 
@@ -47,7 +47,7 @@ AI รีวิว pull request แบบ open source ที่ผู้ใช�
 diffy/
 ├─ docs/PLAN.md                 ไฟล์นี้
 ├─ .env  /  .env.example        ไฟล์ .env ไฟล์เดียวที่ root (ไม่ถูก commit)
-├─ package.json                 สคริปต์: build, test, dev, db:up, db:down
+├─ package.json                 สคริปต์: build, test, dev, api:dev, web:dev, gen:api, db:up, db:down
 ├─ apps/
 │  ├─ server/                   NestJS (CommonJS)
 │  │  ├─ openapi.json           สร้างจากโค้ด ใช้เป็นอินพุตของ Orval ฝั่งเว็บ
@@ -228,8 +228,14 @@ Migration ที่มี: `init`, `add_repository_removed_at`, `lowercase_enums
 ### Phase F: เว็บ (Next.js `output: 'export'`, Tailwind, shadcn/ui, Orval + React Query)
 - ~~F1 โครงเว็บ~~ **เสร็จแล้ว**: Next.js 16 `output: 'export'` + `trailingSlash` (ได้ `settings/index.html` ซึ่ง static server ธรรมดาเสิร์ฟได้), Tailwind 4, shadcn/ui (สไตล์ `radix-nova`, มี `button` `card` `badge`), เมนูหลัก (ไฮไลต์หน้าปัจจุบัน), ธีมมืด/สว่างตามระบบ และหน้าเปล่า 5 หน้าบอกว่าจะแสดงอะไร (`/`, `/settings`, `/repos`, `/reviews`, `/reviews/view?id=`) ตรวจแล้ว: build ได้ 7 หน้า ขนาดรวม ~1 MB ไม่มีการเรียก URL ภายนอก และในเบราว์เซอร์จริงอ่าน `?id=` ได้ เมนูไฮไลต์ถูก
   - `shadcn` รุ่นนี้ใช้แพ็กเกจ `cn` (ของ shadcn เอง) แทน `clsx` + `tailwind-merge` ตรวจแล้วว่าเจ้าของและ repo ตรงกับ shadcn
-- F2 ต่อ Orval (`pnpm gen:api`: เปลี่ยน DTO แล้ว type ฝั่งเว็บต้อง error) **ต้องเปิด CORS ที่ server ด้วย** (ตอนนี้ยังไม่มี) สำหรับโหมด dev ที่เว็บอยู่ :3001 และ API อยู่ :3000, F3 `/settings`, F4 `/repos`, F5 `/reviews`, F6 `/reviews/view?id=` (คัดลอก fix prompt, ปุ่มลองใหม่), F7 `/` แดชบอร์ด (เช็กลิสต์การตั้งค่า + สถานะสด)
-- การตัดสินใจที่ค้าง: **client ที่ Orval สร้างจะ commit หรือไม่** ตอนนี้แผนคือ commit เฉพาะ `openapi.json` และสร้าง client ตอน build (ผู้ใช้ปลายทางไม่ต้องรัน codegen เอง) ตัดสินตอน F2
+- ~~F2 ต่อ Orval~~ **เสร็จแล้ว**: `orval.config.ts` อ่าน `apps/server/openapi.json` สร้าง client + React Query hook 16 ตัว (`useGetStatus`, `useListReviews`, `useAddRepo`, ...) ไว้ที่ `apps/web/src/api/generated/` (**ไม่ commit** สร้างตอน `prebuild` และด้วย `pnpm gen:api` ที่ root)
+  - `src/api/fetcher.ts` เป็นทางผ่านเดียวของทุกคำขอ: โยน `ApiError` (พร้อมข้อความที่แสดงให้ผู้ใช้ได้ เช่น "Could not reach the Diffy server. Is it running?" และรวม error ของ Zod validation) เมื่อเครือข่ายล้มหรือ HTTP ไม่ใช่ 2xx ทำให้ hook เข้าสถานะ error จริง `.env.development` ตั้ง `NEXT_PUBLIC_API_URL` ให้ `next dev`; build จริงเว้นว่างเพื่อเรียก API origin เดียวกัน
+  - `Providers` (React Query) ไม่ retry error 4xx
+  - **CORS ที่ server เปิดเฉพาะตอนพัฒนา** และเฉพาะ origin `localhost:3000`/`127.0.0.1:3000` (เว็บ dev) (ไม่ใช่ `*` เพราะไม่มีระบบล็อกอิน) ปิดเมื่อ `NODE_ENV=production` (สคริปต์ `pnpm start` ใน G1 ต้องตั้งค่านี้)
+  - ปิด `agentRules` ใน `next.config.ts` เพราะ `next dev` เขียนไฟล์ `AGENTS.md` (คำแนะนำสำหรับ AI tool) ลงโปรเจกต์เอง
+  - ตรวจแล้ว: เปลี่ยนชื่อฟิลด์ใน DTO ของ server → `pnpm gen:api` → หน้าเว็บ compile ไม่ผ่านทันที; ในเบราว์เซอร์จริงแดชบอร์ดแสดง live และเมื่อหยุด API ขึ้น "unreachable"
+  - ข้อควรระวังสำหรับ F7: React Query เก็บข้อมูลล่าสุดไว้ตอน error ข้อมูลเก่าจึงยังค้างใต้ข้อความ error ควรจางหรือซ่อน
+- ตัดสินแล้ว: **ไม่ commit client ที่ Orval สร้าง** commit เฉพาะ `openapi.json` ผู้ใช้ที่ clone มา build ได้เลยเพราะ `prebuild` สร้างให้ และ diff ของ PR ไม่ถูกกลบด้วยโค้ดที่สร้างอัตโนมัติ
 
 ### Phase G: ส่งมอบ
 - **G1 process เดียว**: `ServeStaticModule` เสิร์ฟ `apps/web/out` ที่ `/` (ยกเว้น `/api`) และสคริปต์ root `pnpm start` = build → `prisma migrate deploy` → start (ตอนนี้ **ยังไม่มี** `pnpm start`)
@@ -256,8 +262,14 @@ cp .env.example .env                         # แล้วใส่ ENCRYPTION_
 pnpm --filter @diffy/server db:deploy        # สร้างตาราง
 pnpm build && pnpm test
 
-# เปิด server (http://127.0.0.1:3000, เอกสารที่ /api/docs)
-pnpm --filter @diffy/server start:prod       # หรือ pnpm dev
+# โหมดพัฒนา (แต่ละคำสั่งเตรียมของที่ต้องใช้ให้เอง: build shared/core, generate Prisma client และ client ของ Orval)
+pnpm api:dev                                 # API ที่ http://127.0.0.1:4000 (เอกสารที่ /api/docs) รีสตาร์ตเองเมื่อแก้โค้ด
+pnpm web:dev                                 # เว็บที่ http://localhost:3000
+pnpm dev                                     # สองตัวข้างบนพร้อมกัน
+# พอร์ต: ตอนพัฒนา เว็บ 3000 / API 4000 ตอนใช้งานจริง process เดียวที่ PORT (ค่าเริ่มต้น 3000)
+
+# หรือรัน server ที่ build แล้ว
+pnpm --filter @diffy/server start:prod
 ```
 
 ทดสอบ `core` จากสคริปต์ (ใช้ repo ทดลองของตัวเอง):

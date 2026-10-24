@@ -15,6 +15,8 @@ export const EnvSchema = z.object({
     .string()
     .regex(/^postgres(ql)?:\/\//, 'must be a postgresql:// connection string (see .env.example)'),
   ENCRYPTION_KEY: EncryptionKey,
+  // The port of the single process that serves both the web app and the API. During development the
+  // `dev` script moves the API to 4000 so the web dev server can use 3000, as it does in production.
   PORT: z.coerce.number().int().positive().default(3000),
   // No auth in v1, so listen on localhost only unless the user opts out.
   HOST: z.string().min(1).default('127.0.0.1'),

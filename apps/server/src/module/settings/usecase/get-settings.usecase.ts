@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { GetSettingsResponseDto } from '../dto/get-settings.dto';
-import { toApiProvider } from '../llm-provider.mapper';
+import { toApiProvider } from '../settings.mapper';
 import { SettingsRepository } from '../settings.repository';
 
 @Injectable()

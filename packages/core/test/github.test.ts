@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Octokit } from 'octokit';
-import { MAX_ACCESSIBLE_REPOS, listAccessibleRepos } from '../src/github.js';
+import { MAX_ACCESSIBLE_REPOS, getRepository, listAccessibleRepos } from '../src/github.js';
 
 const repo = (name: string, over: Record<string, unknown> = {}) => ({
   full_name: `acme/${name}`,
@@ -52,5 +52,27 @@ describe('listAccessibleRepos', () => {
 
   it('returns an empty list when the token sees nothing', async () => {
     expect(await listAccessibleRepos(fakeOctokit([[]]))).toEqual([]);
+  });
+});
+
+describe('getRepository', () => {
+  const octokitReturning = (get: ReturnType<typeof vi.fn>) => ({ rest: { repos: { get } } }) as unknown as Octokit;
+
+  it('returns the repository with GitHub\'s own casing', async () => {
+    const get = vi.fn().mockResolvedValue({ data: repo('Api', { full_name: 'Acme/Api', owner: { login: 'Acme' }, private: true }) });
+    const result = await getRepository(octokitReturning(get), 'acme', 'api');
+
+    expect(get).toHaveBeenCalledWith({ owner: 'acme', repo: 'api' });
+    expect(result).toEqual({ fullName: 'Acme/Api', owner: 'Acme', name: 'Api', isPrivate: true, archived: false });
+  });
+
+  it('reports an archived repository', async () => {
+    const get = vi.fn().mockResolvedValue({ data: repo('old', { archived: true }) });
+    expect((await getRepository(octokitReturning(get), 'acme', 'old')).archived).toBe(true);
+  });
+
+  it('lets a 404 propagate so the caller can explain it', async () => {
+    const get = vi.fn().mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    await expect(getRepository(octokitReturning(get), 'acme', 'nope')).rejects.toMatchObject({ status: 404 });
   });
 });

@@ -29,6 +29,8 @@ export type AccessibleRepo = {
   isPrivate: boolean;
 };
 
+export type RepositoryInfo = AccessibleRepo & { archived: boolean };
+
 // Safety stop for accounts with a huge number of repositories.
 export const MAX_ACCESSIBLE_REPOS = 1_000;
 
@@ -100,4 +102,17 @@ export async function listAccessibleRepos(octokit: Octokit): Promise<AccessibleR
     if (repos.length >= MAX_ACCESSIBLE_REPOS) break;
   }
   return repos.slice(0, MAX_ACCESSIBLE_REPOS);
+}
+
+// One repository, with the owner/name casing GitHub uses. Throws a 404 error if it does not
+// exist or the token cannot see it (GitHub answers 404 for both, on purpose).
+export async function getRepository(octokit: Octokit, owner: string, name: string): Promise<RepositoryInfo> {
+  const { data } = await octokit.rest.repos.get({ owner, repo: name });
+  return {
+    fullName: data.full_name,
+    owner: data.owner.login,
+    name: data.name,
+    isPrivate: data.private,
+    archived: data.archived,
+  };
 }

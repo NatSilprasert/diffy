@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { CryptoService } from '../../../infra/crypto/crypto.service';
 import type { UpdateLlmSettingsRequestDto, UpdateLlmSettingsResponseDto } from '../dto/update-llm-settings.dto';
-import { toApiProvider, toDbProvider } from '../llm-provider.mapper';
+import { toApiProvider, toDbProvider } from '../settings.mapper';
 import { SettingsRepository } from '../settings.repository';
 
 @Injectable()

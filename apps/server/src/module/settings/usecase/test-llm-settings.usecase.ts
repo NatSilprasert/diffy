@@ -2,7 +2,7 @@ import { pingLlm } from '@diffy/core';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { CryptoService } from '../../../infra/crypto/crypto.service';
 import type { TestLlmSettingsResponseDto } from '../dto/test-llm-settings.dto';
-import { toApiProvider } from '../llm-provider.mapper';
+import { toApiProvider } from '../settings.mapper';
 import { SettingsRepository } from '../settings.repository';
 
 const TEST_TIMEOUT_MS = 60_000;

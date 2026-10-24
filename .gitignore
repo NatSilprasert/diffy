@@ -5,3 +5,4 @@ dist/
 out/
 apps/server/src/generated/
 *.tsbuildinfo
+next-env.d.ts

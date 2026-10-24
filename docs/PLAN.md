@@ -1,6 +1,6 @@
 # Diffy: แผนและความคืบหน้า
 
-อัปเดตล่าสุด: 2026-10-24 (หลังทำ E7: Phase E เสร็จ)
+อัปเดตล่าสุด: 2026-10-24 (หลังทำ F1)
 เอกสารนี้สรุปว่า Diffy คืออะไร ออกแบบอย่างไร ตอนนี้ทำถึงไหน อะไรยืนยันแล้ว อะไรยังไม่ได้ยืนยัน และเหลืออะไรต้องทำ
 
 ---
@@ -30,12 +30,12 @@ AI รีวิว pull request แบบ open source ที่ผู้ใช�
 | C | Settings API (C1–C4) | เสร็จ |
 | D | Repos API (D1–D3) | เสร็จ |
 | E | Reviews API และ worker (E1–E7) | เสร็จ |
-| F | หน้าเว็บ (Next.js) F1–F7 | ยังไม่เริ่ม |
+| F | หน้าเว็บ (Next.js) F1–F7 | **F1 เสร็จ**, เหลือ F2–F7 |
 | G | รวมเป็น process เดียวและเอกสาร G1–G2 | ยังไม่เริ่ม |
 
 จำนวน test ที่ผ่าน ณ วันที่เขียน: `shared` 8, `core` 74, `server` 225
 
-**ขั้นถัดไปคือ Phase F** (หน้าเว็บ) เริ่มที่ F1 ดูหัวข้อ 9 ฝั่ง API ของ v1 ครบแล้ว
+**ขั้นถัดไปคือ F2** (ต่อ Orval กับ API) ฝั่ง API ของ v1 ครบแล้ว ดูหัวข้อ 9
 
 ---
 
@@ -55,7 +55,7 @@ diffy/
 │  │  └─ src/
 │  │     ├─ infra/              config, prisma, crypto, github errors, security (redact)
 │  │     └─ module/             health, settings, repos, reviews
-│  └─ web/                      Next.js (ยังไม่สร้าง)
+│  └─ web/                      Next.js 16 (static export), Tailwind 4, shadcn/ui (หน้าเปล่าทุกหน้าแล้ว)
 └─ packages/
    ├─ shared/                   Zod schema ของโดเมน: Finding, Severity, LlmProvider, ReviewStatus
    └─ core/                     ตรรกะรีวิวเป็นฟังก์ชัน TypeScript ล้วน (ไม่รู้จัก Nest/Prisma)
@@ -178,6 +178,8 @@ Migration ที่มี: `init`, `add_repository_removed_at`, `lowercase_enums
 | ตัวจับเวลา poller | `@nestjs/schedule` | **`setInterval`** ตัวเดียว | ความถี่มาจาก `.env` (decorator ของแพ็กเกจรับได้เฉพาะค่าตายตัว) และไม่ต้องเพิ่ม dependency |
 | `tsc` incremental | ใส่ไว้ | **เอาออก** | Nest ลบ `dist` ทุกครั้ง แคชของ tsc ทำให้ build ครั้งที่สองขาดไฟล์เงียบ ๆ |
 | DB สำหรับ dev | Supabase cloud/local | **Postgres ใน Docker** (`pnpm db:up`, พอร์ต 54322) | ผู้ใช้เลือก ยังไม่ได้ลอง Supabase จริง |
+| ฟอนต์ของเว็บ | Geist จาก Google Fonts (ค่าเริ่มต้นของ shadcn) | **ฟอนต์ของระบบ** | `next/font/google` ดาวน์โหลดตอน build ถ้าเข้าเน็ตไม่ได้ build ล้ม |
+| TypeScript ของเว็บ | (ไม่ระบุ) | ตรึง **5.9** | `pnpm add` ให้ 7.0 (คอมไพเลอร์ตัวใหม่) ต่างรุ่นกับส่วนอื่นของ repo |
 | หน้ารายละเอียดรีวิว | `/reviews/[id]` | **`/reviews/view?id=`** | static export ของ Next.js ใช้ route แบบ dynamic ไม่ได้ |
 
 ---
@@ -224,7 +226,9 @@ Migration ที่มี: `init`, `add_repository_removed_at`, `lowercase_enums
 - ~~**E7 สถานะ**~~ **เสร็จแล้ว**: `GET /reviews/status` เป็นสถานะสดในหน่วยความจำของ process นี้ จึงมีความหมายเมื่อรัน instance เดียว
 
 ### Phase F: เว็บ (Next.js `output: 'export'`, Tailwind, shadcn/ui, Orval + React Query)
-- F1 โครงเว็บ, F2 ต่อ Orval (`pnpm gen:api`: เปลี่ยน DTO แล้ว type ฝั่งเว็บต้อง error), F3 `/settings`, F4 `/repos`, F5 `/reviews`, F6 `/reviews/view?id=` (คัดลอก fix prompt, ปุ่มลองใหม่), F7 `/` แดชบอร์ด (เช็กลิสต์การตั้งค่า + สถานะสด)
+- ~~F1 โครงเว็บ~~ **เสร็จแล้ว**: Next.js 16 `output: 'export'` + `trailingSlash` (ได้ `settings/index.html` ซึ่ง static server ธรรมดาเสิร์ฟได้), Tailwind 4, shadcn/ui (สไตล์ `radix-nova`, มี `button` `card` `badge`), เมนูหลัก (ไฮไลต์หน้าปัจจุบัน), ธีมมืด/สว่างตามระบบ และหน้าเปล่า 5 หน้าบอกว่าจะแสดงอะไร (`/`, `/settings`, `/repos`, `/reviews`, `/reviews/view?id=`) ตรวจแล้ว: build ได้ 7 หน้า ขนาดรวม ~1 MB ไม่มีการเรียก URL ภายนอก และในเบราว์เซอร์จริงอ่าน `?id=` ได้ เมนูไฮไลต์ถูก
+  - `shadcn` รุ่นนี้ใช้แพ็กเกจ `cn` (ของ shadcn เอง) แทน `clsx` + `tailwind-merge` ตรวจแล้วว่าเจ้าของและ repo ตรงกับ shadcn
+- F2 ต่อ Orval (`pnpm gen:api`: เปลี่ยน DTO แล้ว type ฝั่งเว็บต้อง error) **ต้องเปิด CORS ที่ server ด้วย** (ตอนนี้ยังไม่มี) สำหรับโหมด dev ที่เว็บอยู่ :3001 และ API อยู่ :3000, F3 `/settings`, F4 `/repos`, F5 `/reviews`, F6 `/reviews/view?id=` (คัดลอก fix prompt, ปุ่มลองใหม่), F7 `/` แดชบอร์ด (เช็กลิสต์การตั้งค่า + สถานะสด)
 - การตัดสินใจที่ค้าง: **client ที่ Orval สร้างจะ commit หรือไม่** ตอนนี้แผนคือ commit เฉพาะ `openapi.json` และสร้าง client ตอน build (ผู้ใช้ปลายทางไม่ต้องรัน codegen เอง) ตัดสินตอน F2
 
 ### Phase G: ส่งมอบ

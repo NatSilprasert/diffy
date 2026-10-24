@@ -9,6 +9,14 @@ const SEVERITY: Record<Severity, { label: string; className: string }> = {
   low: { label: 'Low', className: 'border-sky-500/30 bg-sky-500/15 text-sky-600 dark:text-sky-400' },
 };
 
+// The left edge colour of a finding card, in the same hue as its badge.
+export const SEVERITY_ACCENT: Record<Severity, string> = {
+  critical: 'border-l-red-500',
+  high: 'border-l-orange-500',
+  medium: 'border-l-yellow-500',
+  low: 'border-l-sky-500',
+};
+
 // The colour carries the severity but not alone: the word is always there.
 export function SeverityBadge({ severity, count }: { severity: Severity; count?: number }) {
   const { label, className } = SEVERITY[severity];

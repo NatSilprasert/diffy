@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select } from '@/components/Select';
 
 type ProviderValue = (typeof Provider)[keyof typeof Provider];
 
@@ -83,18 +83,14 @@ export function LlmSettingsCard() {
           >
             <div className="space-y-1.5">
               <Label htmlFor="llm-provider">Provider</Label>
-              <Select value={provider} onValueChange={(value) => setEdits((e) => ({ ...e, provider: value as ProviderValue }))}>
-                <SelectTrigger id="llm-provider" className="w-full sm:w-72">
-                  <SelectValue placeholder="Choose a provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PROVIDERS.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                id="llm-provider"
+                className="w-full sm:w-72"
+                placeholder="Choose a provider"
+                value={provider}
+                onChange={(value) => setEdits((e) => ({ ...e, provider: value }))}
+                options={PROVIDERS}
+              />
             </div>
 
             <div className="space-y-1.5">

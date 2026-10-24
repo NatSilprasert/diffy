@@ -7,17 +7,18 @@ import { useState } from 'react';
 import { getListReviewsQueryKey, listReviews, useListRepos } from '@/api/generated/diffy';
 import type { ListReviewsParams, ListReviewsPeriod, ListReviewsStatus } from '@/api/generated/model';
 import { ReviewsTable } from '@/components/ReviewsTable';
+import { Select } from '@/components/Select';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { ReviewStatCards } from './ReviewStatCards';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const PAGE_SIZE = 20;
 // "All" cannot be an empty string in a Select, so it gets a value that no repository id or status uses.
 const ALL = 'all';
 
-const STATUSES: ReadonlyArray<{ value: ListReviewsStatus; label: string }> = [
+const STATUS_OPTIONS: ReadonlyArray<{ value: ListReviewsStatus | typeof ALL; label: string }> = [
+  { value: ALL, label: 'Any status' },
   { value: 'queued', label: 'Queued' },
   { value: 'running', label: 'Running' },
   { value: 'posted', label: 'Posted' },
@@ -26,8 +27,8 @@ const STATUSES: ReadonlyArray<{ value: ListReviewsStatus; label: string }> = [
 ];
 
 export function ReviewsHistory() {
-  const [repositoryId, setRepositoryId] = useState(ALL);
-  const [status, setStatus] = useState(ALL);
+  const [repositoryId, setRepositoryId] = useState<string>(ALL);
+  const [status, setStatus] = useState<ListReviewsStatus | typeof ALL>(ALL);
   const [period, setPeriod] = useState<ListReviewsPeriod | null>(null);
   const [search, setSearch] = useState('');
   const q = useDebouncedValue(search.trim());
@@ -35,7 +36,7 @@ export function ReviewsHistory() {
 
   const filters: ListReviewsParams = {
     ...(repositoryId !== ALL ? { repositoryId } : {}),
-    ...(status !== ALL ? { status: status as ListReviewsStatus } : {}),
+    ...(status !== ALL ? { status } : {}),
     ...(period ? { period } : {}),
     ...(q ? { q } : {}),
   };
@@ -67,37 +68,19 @@ export function ReviewsHistory() {
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search title, repo, #12 or commit"
+            placeholder="Search"
             aria-label="Search reviews"
             className="h-10 pl-9"
           />
         </div>
-        <Select value={repositoryId} onValueChange={setRepositoryId}>
-          <SelectTrigger aria-label="Repository" className="h-10 w-52">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All repositories</SelectItem>
-            {repos.data?.repos.map((repo) => (
-              <SelectItem key={repo.id} value={repo.id}>
-                {repo.fullName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger aria-label="Status" className="h-10 w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Any status</SelectItem>
-            {STATUSES.map((s) => (
-              <SelectItem key={s.value} value={s.value}>
-                {s.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Select
+          label="Repository"
+          className="h-10 w-52"
+          value={repositoryId}
+          onChange={setRepositoryId}
+          options={[{ value: ALL, label: 'All repositories' }, ...(repos.data?.repos ?? []).map((r) => ({ value: r.id, label: r.fullName }))]}
+        />
+        <Select label="Status" className="h-10 w-40" value={status} onChange={setStatus} options={STATUS_OPTIONS} />
         {filtered && (
           <Button
             variant="ghost"

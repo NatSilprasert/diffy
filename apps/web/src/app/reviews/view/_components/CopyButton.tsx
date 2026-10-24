@@ -1,9 +1,10 @@
 'use client';
 
+import { Check, Copy } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 
-export function CopyButton({ text, label }: { text: string; label: string }) {
+export function CopyButton({ text, label, variant = 'outline' }: { text: string; label: string; variant?: 'outline' | 'ghost' }) {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
 
   // Go back to the normal label after a moment. Cleaned up if the page closes first.
@@ -24,7 +25,8 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
   }
 
   return (
-    <Button type="button" size="sm" variant="outline" onClick={copy} aria-live="polite">
+    <Button type="button" size="sm" variant={variant} onClick={copy} aria-live="polite">
+      {state === 'copied' ? <Check aria-hidden /> : <Copy aria-hidden />}
       {state === 'copied' ? 'Copied' : state === 'failed' ? 'Could not copy: select the text instead' : label}
     </Button>
   );

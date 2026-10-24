@@ -36,7 +36,7 @@ export function ReviewStatCards({
             // Pressing the selected window again goes back to all reviews.
             onClick={() => onChange(selected ? null : card.period)}
             className={cn(
-              'rounded-xl border bg-card p-1 text-left transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              'cursor-pointer rounded-xl border bg-card p-1 text-left transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               selected && 'border-primary ring-2 ring-primary hover:bg-card',
             )}
           >

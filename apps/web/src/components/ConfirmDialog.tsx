@@ -42,13 +42,13 @@ export function ConfirmDialog({
             </p>
           )}
         </div>
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-3 pt-2">
           <AlertDialogCancel asChild>
-            <Button variant="outline" disabled={pending}>
+            <Button variant="outline" className="h-10 px-5 text-sm" disabled={pending}>
               Cancel
             </Button>
           </AlertDialogCancel>
-          <Button className="bg-destructive text-white hover:bg-destructive/90" disabled={pending} onClick={onConfirm}>
+          <Button className="h-10 bg-destructive px-5 text-sm text-white hover:bg-destructive/90" disabled={pending} onClick={onConfirm}>
             {pending ? 'Removing…' : confirmLabel}
           </Button>
         </div>

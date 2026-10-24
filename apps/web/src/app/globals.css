@@ -109,6 +109,18 @@
     @apply font-sans;
     color-scheme: dark;
     }
+  /* Anything that can be clicked shows a pointer. Tailwind's reset leaves buttons with the plain arrow. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='combobox']:not(:disabled),
+  [role='option']:not([data-disabled]),
+  [role='switch']:not(:disabled),
+  a[href],
+  summary,
+  label[for],
+  select:not(:disabled) {
+    cursor: pointer;
+  }
   code, pre, kbd {
     font-family: var(--font-mono);
     }

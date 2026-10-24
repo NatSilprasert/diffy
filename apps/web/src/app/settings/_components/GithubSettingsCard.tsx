@@ -41,7 +41,7 @@ export function GithubSettingsCard() {
 
         {github?.configured && !replacing && (
           <div className="flex items-center gap-3">
-            <Badge>Connected</Badge>
+            <Badge className="bg-success/15 text-success">Connected</Badge>
             <span className="text-sm">
               as <strong>@{github.login}</strong>
             </span>

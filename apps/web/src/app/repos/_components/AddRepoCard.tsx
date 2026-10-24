@@ -98,7 +98,7 @@ export function AddRepoCard() {
                     {repo.isPrivate && <Badge variant="secondary">private</Badge>}
                   </span>
                   {isWatched ? (
-                    <Badge>Watching</Badge>
+                    <Badge className="bg-success/15 text-success">Watching</Badge>
                   ) : (
                     <Button
                       size="sm"

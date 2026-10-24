@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Providers } from '@/components/Providers';
-import { SiteNav } from '@/components/SiteNav';
+import { Sidebar } from '@/components/Sidebar';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -8,19 +8,25 @@ export const metadata: Metadata = {
   description: 'Self-hosted AI pull request reviews',
 };
 
-// Follow the system colour scheme. Runs before first paint, so there is no flash of the wrong theme.
-const applySystemTheme = `if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');`;
+// Runs before first paint, so a collapsed sidebar does not flash open.
+const restoreSidebar = `try{if(localStorage.getItem('sidebar')==='collapsed')document.documentElement.dataset.sidebar='collapsed'}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="font-sans" suppressHydrationWarning>
+    <html lang="en" className="dark font-sans" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: applySystemTheme }} />
+        <script dangerouslySetInnerHTML={{ __html: restoreSidebar }} />
       </head>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <Providers>
-          <SiteNav />
-          <main className="mx-auto w-full max-w-5xl px-4 py-8">{children}</main>
+          <div className="flex min-h-screen flex-col bg-sidebar md:flex-row">
+            <Sidebar />
+            <main className="min-w-0 flex-1 md:p-2 md:pl-0">
+              <div className="min-h-full rounded-xl border border-sidebar-border bg-background px-6 py-8 md:min-h-[calc(100vh-1rem)] md:px-10">
+                <div className="w-full max-w-6xl">{children}</div>
+              </div>
+            </main>
+          </div>
         </Providers>
       </body>
     </html>

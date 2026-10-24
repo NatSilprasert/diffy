@@ -62,7 +62,7 @@ export function LlmSettingsCard() {
       <CardHeader>
         <div className="flex items-center gap-2">
           <CardTitle>Model</CardTitle>
-          {saved?.configured && <Badge>Configured</Badge>}
+          {saved?.configured && <Badge className="bg-success/15 text-success">Configured</Badge>}
         </div>
         <CardDescription>The model that reviews your pull requests, and the key Diffy uses to reach it.</CardDescription>
       </CardHeader>

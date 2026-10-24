@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { timeAgo } from './time';
+import { formatDuration, timeAgo } from './time';
 
 const NOW = Date.parse('2026-10-24T12:00:00.000Z');
 const ago = (seconds: number) => new Date(NOW - seconds * 1000).toISOString();
@@ -33,5 +33,31 @@ describe('timeAgo', () => {
   it('returns an empty string for something that is not a date', () => {
     expect(timeAgo('not a date', NOW)).toBe('');
     expect(timeAgo('', NOW)).toBe('');
+  });
+});
+
+describe('formatDuration', () => {
+  const start = '2026-10-24T12:00:00.000Z';
+  const after = (seconds: number) => new Date(Date.parse(start) + seconds * 1000).toISOString();
+
+  it.each([
+    [0, '0 s'],
+    [42, '42 s'],
+    [59, '59 s'],
+    [60, '1 min'],
+    [185, '3 min 5 s'],
+    [3600, '1 h'],
+    [3840, '1 h 4 min'],
+  ])('%i seconds -> %s', (seconds, expected) => {
+    expect(formatDuration(start, after(seconds))).toBe(expected);
+  });
+
+  it('is empty while the work has not finished', () => {
+    expect(formatDuration(start, null)).toBe('');
+  });
+
+  it('is empty when the end is before the start or not a date', () => {
+    expect(formatDuration(start, after(-5))).toBe('');
+    expect(formatDuration(start, 'nope')).toBe('');
   });
 });

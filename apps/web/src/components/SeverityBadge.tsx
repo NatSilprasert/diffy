@@ -1,7 +1,6 @@
 import { Badge } from '@/components/ui/badge';
+import type { Severity } from '@/lib/findings';
 import { cn } from '@/lib/utils';
-
-export type Severity = 'critical' | 'high' | 'medium' | 'low';
 
 const SEVERITY: Record<Severity, { label: string; className: string }> = {
   critical: { label: 'Critical', className: 'border-red-500/30 bg-red-500/15 text-red-600 dark:text-red-400' },
@@ -9,8 +8,6 @@ const SEVERITY: Record<Severity, { label: string; className: string }> = {
   medium: { label: 'Medium', className: 'border-yellow-500/30 bg-yellow-500/15 text-yellow-700 dark:text-yellow-400' },
   low: { label: 'Low', className: 'border-sky-500/30 bg-sky-500/15 text-sky-600 dark:text-sky-400' },
 };
-
-export const SEVERITIES: readonly Severity[] = ['critical', 'high', 'medium', 'low'];
 
 // The colour carries the severity but not alone: the word is always there.
 export function SeverityBadge({ severity, count }: { severity: Severity; count?: number }) {

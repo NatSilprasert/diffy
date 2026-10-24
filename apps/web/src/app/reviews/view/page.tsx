@@ -1,25 +1,15 @@
 import { Suspense } from 'react';
-import { ComingSoon } from '@/components/ComingSoon';
 import { PageHeader } from '@/components/PageHeader';
-import { ReviewIdFromUrl } from './_components/ReviewIdFromUrl';
+import { ReviewDetail } from './_components/ReviewDetail';
 
-// One review is addressed as /reviews/view/?id=... rather than /reviews/<id>, because a static export
-// cannot serve ids that are not known at build time.
+// useSearchParams needs a Suspense boundary in a static export.
 export default function ReviewPage() {
   return (
     <>
       <PageHeader title="Review" description="A single review and everything it found." />
       <Suspense fallback={null}>
-        <ReviewIdFromUrl />
+        <ReviewDetail />
       </Suspense>
-      <ComingSoon
-        step="F6"
-        items={[
-          'The pull request, commit, model, token usage and a link to the review on GitHub',
-          'The summary, then findings grouped by severity, each with a copyable fix prompt',
-          'The error and a retry button if the review failed',
-        ]}
-      />
     </>
   );
 }

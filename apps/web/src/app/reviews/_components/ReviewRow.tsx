@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import type { ListReviewsResponseDtoReviewsItem } from '@/api/generated/model';
 import { ReviewStatusBadge } from '@/components/ReviewStatusBadge';
-import { SEVERITIES, SeverityBadge } from '@/components/SeverityBadge';
+import { SeverityBadge } from '@/components/SeverityBadge';
 import { TableCell, TableRow } from '@/components/ui/table';
+import { SEVERITY_ORDER } from '@/lib/findings';
 import { timeAgo } from '@/lib/time';
 
 export function ReviewRow({ review }: { review: ListReviewsResponseDtoReviewsItem }) {
-  const found = SEVERITIES.filter((severity) => review.findingCounts[severity] > 0);
+  const found = SEVERITY_ORDER.filter((severity) => review.findingCounts[severity] > 0);
 
   return (
     <TableRow>

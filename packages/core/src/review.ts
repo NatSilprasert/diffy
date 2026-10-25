@@ -2,7 +2,8 @@ import type { Finding } from '@diffy/shared';
 import type { Octokit } from 'octokit';
 import { buildPromptDiff, DEFAULT_MAX_DIFF_CHARS, type SkippedFile } from './annotate.js';
 import { buildCommentableIndex } from './diff.js';
-import { listChangedFiles, type PullRequestInfo } from './github.js';
+import { parseGeneratedAttributes } from './gitattributes.js';
+import { getGitattributes, listChangedFiles, type PullRequestInfo } from './github.js';
 import { generateReview, type LlmConfig, type LlmUsage } from './llm.js';
 import { placeFindings } from './placement.js';
 import { postReview } from './post.js';
@@ -34,8 +35,11 @@ export type ReviewResult = {
 export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<ReviewResult> {
   const { octokit, pr, llm, post = true, maxDiffChars = DEFAULT_MAX_DIFF_CHARS } = input;
 
-  const files = await listChangedFiles(octokit, pr.owner, pr.repo, pr.number);
-  const diff = buildPromptDiff(files, maxDiffChars);
+  const [files, gitattributes] = await Promise.all([
+    listChangedFiles(octokit, pr.owner, pr.repo, pr.number),
+    getGitattributes(octokit, pr.owner, pr.repo, pr.headSha),
+  ]);
+  const diff = buildPromptDiff(files, maxDiffChars, parseGeneratedAttributes(gitattributes));
 
   // Lockfile-only or binary-only PRs: nothing to say, and a noise review helps nobody.
   if (diff.included.length === 0) {

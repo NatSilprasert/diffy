@@ -21,6 +21,9 @@ export const EnvSchema = z.object({
   // No auth in v1, so listen on localhost only unless the user opts out.
   HOST: z.string().min(1).default('127.0.0.1'),
   POLL_INTERVAL_SECONDS: z.coerce.number().int().positive().default(60),
+  // How much diff (in characters, about 4 per token) one review may send to the model. Bigger pull requests
+  // are reviewed in part: code first, then tests, then the rest. Same default as DEFAULT_MAX_DIFF_CHARS in core.
+  MAX_DIFF_CHARS: z.coerce.number().int().min(10_000).default(150_000),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

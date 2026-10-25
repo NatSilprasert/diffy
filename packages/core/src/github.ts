@@ -106,6 +106,18 @@ export async function listChangedFiles(
   }));
 }
 
+// The repository's .gitattributes at a commit, or undefined when it has none (or it cannot be read).
+// Used only to learn which files are marked generated, so any failure just means "none are".
+export async function getGitattributes(octokit: Octokit, owner: string, repo: string, ref: string): Promise<string | undefined> {
+  try {
+    const { data } = await octokit.rest.repos.getContent({ owner, repo, path: '.gitattributes', ref });
+    if (Array.isArray(data) || data.type !== 'file' || !('content' in data)) return undefined;
+    return Buffer.from(data.content, 'base64').toString('utf8');
+  } catch {
+    return undefined;
+  }
+}
+
 // Repositories the token can see. Archived and disabled ones are left out: GitHub does not
 // allow reviews on them.
 export async function listAccessibleRepos(octokit: Octokit): Promise<AccessibleRepo[]> {

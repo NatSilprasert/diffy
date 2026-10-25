@@ -1,5 +1,7 @@
 import { createGithubClient, getPullRequest, reviewPullRequest } from '@diffy/core';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ENV } from '../../../infra/config/config.module';
+import type { Env } from '../../../infra/config/env';
 import { redactSecrets } from '../../../infra/security/redact';
 import { SettingsService } from '../../settings/settings.service';
 import { ReviewsRepository } from '../reviews.repository';
@@ -15,6 +17,7 @@ export class RunReviewService {
   constructor(
     private readonly reviewsRepository: ReviewsRepository,
     private readonly settingsService: SettingsService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   async run(reviewId: string): Promise<void> {
@@ -50,7 +53,7 @@ export class RunReviewService {
         return;
       }
 
-      const result = await reviewPullRequest({ octokit, pr, llm, post: true });
+      const result = await reviewPullRequest({ octokit, pr, llm, post: true, maxDiffChars: this.env.MAX_DIFF_CHARS });
       const reviewed = result.outcome === 'posted';
 
       await this.reviewsRepository.saveResult(reviewId, {

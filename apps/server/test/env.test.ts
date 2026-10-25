@@ -12,7 +12,13 @@ describe('parseEnv', () => {
       PORT: 3000,
       HOST: '127.0.0.1',
       POLL_INTERVAL_SECONDS: 60,
+      MAX_DIFF_CHARS: 150_000,
     });
+  });
+
+  it('reads the diff budget and refuses one too small to review anything', () => {
+    expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, MAX_DIFF_CHARS: '300000' }).MAX_DIFF_CHARS).toBe(300_000);
+    expect(() => parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, MAX_DIFF_CHARS: '500' })).toThrow(/MAX_DIFF_CHARS/);
   });
 
   it('coerces numeric strings from the environment', () => {

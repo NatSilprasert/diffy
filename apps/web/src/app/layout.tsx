@@ -25,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Sidebar />
             <main className="min-w-0 flex-1 md:p-2 md:pl-0">
               <div className="min-h-full rounded-xl border border-sidebar-border bg-background px-6 py-8 md:min-h-[calc(100vh-1rem)] md:px-10">
-                <div className="w-full max-w-6xl">{children}</div>
+                <div className="w-full max-w-screen-2xl">{children}</div>
               </div>
             </main>
           </div>

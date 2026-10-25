@@ -20,41 +20,40 @@ export function ReviewHeatmap({ days }: { days: Day[] }) {
 
   return (
     <section aria-label="Reviews per day" className="rounded-xl border bg-card px-5 py-4">
+      <div>
       <h2 className="mb-3 text-sm font-medium">
         {total.toLocaleString()} review{total === 1 ? '' : 's'} in the last year
       </h2>
 
+      {/* A column per week, the weekday names first. The weeks share the card's width, so the squares grow with it
+          (no empty strip when the sidebar is collapsed) and never get smaller than 10px; a narrow screen scrolls
+          sideways instead. A week that starts a month gets a little extra room on its left, so the months read as
+          groups. The weekday column stretches to the height of the weeks, so its names stay level with the rows. */}
       <div className="overflow-x-auto pb-1">
-        <div className="inline-flex gap-2">
-          <div className="grid shrink-0 grid-rows-[1rem_repeat(7,0.875rem)] gap-1 pr-1 text-xs text-muted-foreground" aria-hidden>
+        <div className="flex gap-1">
+          <div className="grid shrink-0 grid-rows-[1rem_repeat(7,minmax(0,1fr))] gap-1 pr-1 text-xs text-muted-foreground" aria-hidden>
             <span />
             {WEEKDAY_LABELS.map((label, i) => (
-              <span key={i} className="leading-[0.875rem]">
+              <span key={i} className="flex items-center leading-none">
                 {label}
               </span>
             ))}
           </div>
 
-          <div className="flex gap-1">
-            {weeks.map((week, w) => (
-              <div key={w} className="grid grid-rows-[1rem_repeat(7,0.875rem)] gap-1">
-                <span className="overflow-visible text-xs leading-4 whitespace-nowrap text-muted-foreground" aria-hidden>
-                  {monthLabels[w]}
-                </span>
-                {week.map((day, i) =>
-                  day === null ? (
-                    <span key={i} />
-                  ) : (
-                    <span
-                      key={day.date}
-                      title={describe(day)}
-                      className={cn('size-3.5 rounded-[3px]', LEVEL_CLASS[heatLevel(day.count, max)])}
-                    />
-                  ),
-                )}
-              </div>
-            ))}
-          </div>
+          {weeks.map((week, w) => (
+            <div key={w} className={cn('grid min-w-2.5 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[1rem_repeat(7,auto)] gap-1', w > 0 && monthLabels[w] && 'ml-1.5')}>
+              <span className="text-xs leading-4 whitespace-nowrap text-muted-foreground" aria-hidden>
+                {monthLabels[w]}
+              </span>
+              {week.map((day, i) =>
+                day === null ? (
+                  <span key={i} className="aspect-square w-full" />
+                ) : (
+                  <span key={day.date} title={describe(day)} className={cn('aspect-square w-full rounded-[3px]', LEVEL_CLASS[heatLevel(day.count, max)])} />
+                ),
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
@@ -64,6 +63,7 @@ export function ReviewHeatmap({ days }: { days: Day[] }) {
           <span key={level} className={cn('size-3 rounded-[3px]', level)} />
         ))}
         More
+      </div>
       </div>
     </section>
   );

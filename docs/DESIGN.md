@@ -211,7 +211,7 @@ Queued (peach) and Running (blue) use the stage pastels with dark text. Posted u
 
 ## Layout
 
-A left **sidebar** holds the wordmark, the main links with icons (Dashboard, Reviews, Repositories) and, pinned to the bottom, Settings. The sidebar sits on `surface-1` and the page is an inset panel one step lighter: a 12px-rounded surface with a hairline border and 40px padding, content left-aligned up to 1152px. The active link is a `sidebar-accent` pill. There is a 32px gap between the wordmark and the first link.
+A left **sidebar** holds the wordmark, the main links with icons (Dashboard, Reviews, Repositories) and, pinned to the bottom, Settings. The sidebar sits on `surface-1` and the page is an inset panel one step lighter: a 12px-rounded surface with a hairline border and 40px padding, content left-aligned and filling the panel up to 1536px, so collapsing the sidebar gives the page the extra room. The active link is a `sidebar-accent` pill. There is a 32px gap between the wordmark and the first link.
 
 The sidebar **collapses** from 240px to a 64px icon rail in 200ms (width only; the icons never move, the labels and wordmark slide shut and fade). The choice is saved in the browser, and `prefers-reduced-motion` turns the animation off. On a narrow screen the sidebar becomes a bar above the page.
 

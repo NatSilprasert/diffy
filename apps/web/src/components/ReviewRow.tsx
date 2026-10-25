@@ -31,13 +31,14 @@ export function ReviewRow({ review }: { review: ListReviewsResponseDtoReviewsIte
         {timeAgo(review.createdAt)}
       </TableCell>
       <TableCell className="px-4 py-3.5 align-top text-sm">{review.repoFullName}</TableCell>
-      <TableCell className="max-w-xs px-4 py-3.5 align-top">
+      <TableCell className="max-w-xs px-4 py-3.5 align-top whitespace-normal">
         <a
           href={review.prUrl}
           target="_blank"
           rel="noreferrer"
           onClick={stop}
-          className="text-sm font-medium underline-offset-2 hover:underline"
+          className="line-clamp-2 text-sm font-medium break-words underline-offset-2 hover:underline"
+          title={review.prTitle}
         >
           #{review.prNumber} {review.prTitle}
         </a>

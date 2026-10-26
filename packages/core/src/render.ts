@@ -110,7 +110,7 @@ export function renderSummary(input: SummaryInput): string {
     );
   }
 
-  const context = [...(input.usedProfile ? ['the project profile'] : []), ...(input.contextFiles ?? []).map((path) => `\`${path}\``)];
+  const context = [...(input.usedProfile ? ['the project brief'] : []), ...(input.contextFiles ?? []).map((path) => `\`${path}\``)];
   if (context.length > 0) parts.push(`<sub>Read for context: ${context.join(', ')}</sub>`);
 
   parts.push(`<sub>Reviewed \`${input.headSha.slice(0, 7)}\` with ${input.model}</sub>`);

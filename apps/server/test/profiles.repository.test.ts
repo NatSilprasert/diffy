@@ -73,3 +73,11 @@ describe('ProfilesRepository results', () => {
     expect(findMany).toHaveBeenCalledWith({ where: { status: 'building' }, select: { repositoryId: true }, orderBy: { createdAt: 'asc' } });
   });
 });
+
+describe('ProfilesRepository.listStatuses', () => {
+  it('reads the status of every profile and leaves out the content', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    await repoWith({ findMany }).listStatuses();
+    expect(findMany).toHaveBeenCalledWith({ select: { repositoryId: true, status: true, builtAt: true } });
+  });
+});

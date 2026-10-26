@@ -42,9 +42,9 @@ describe('renderInlineComment', () => {
 });
 
 describe('renderSummary context files and profile', () => {
-  it('names the project profile among what was read', () => {
-    expect(renderSummary({ ...base, findings: [], usedProfile: true })).toContain('<sub>Read for context: the project profile</sub>');
-    expect(renderSummary({ ...base, findings: [], usedProfile: true, contextFiles: ['README.md'] })).toContain('Read for context: the project profile, `README.md`');
+  it('names the project brief among what was read', () => {
+    expect(renderSummary({ ...base, findings: [], usedProfile: true })).toContain('<sub>Read for context: the project brief</sub>');
+    expect(renderSummary({ ...base, findings: [], usedProfile: true, contextFiles: ['README.md'] })).toContain('Read for context: the project brief, `README.md`');
   });
 
   it('says which documents of the project were read', () => {

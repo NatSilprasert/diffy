@@ -2,17 +2,20 @@
 
 import { FolderPlus, Plus, Search } from 'lucide-react';
 import { useState } from 'react';
-import { useListRepos } from '@/api/generated/diffy';
+import { useListProfiles, useListRepos } from '@/api/generated/diffy';
+import type { ListReposResponseDtoReposItem } from '@/api/generated/model';
 import { DataTable } from '@/components/DataTable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AddRepoSheet } from './AddRepoSheet';
+import { RepoProfileSheet } from './RepoProfileSheet';
 import { WatchedRepoRow } from './WatchedRepoRow';
 
 const COLUMNS = [
   { label: 'Repository' },
   { label: 'Status' },
   { label: 'Last checked' },
+  { label: 'Brief' },
   { label: 'Watch' },
   { label: 'Actions', srOnly: true },
 ];
@@ -22,6 +25,12 @@ export function ReposManager() {
   const repos = useListRepos({ query: { refetchInterval: 15_000 } });
   const [search, setSearch] = useState('');
   const [adding, setAdding] = useState(false);
+  const [profileOf, setProfileOf] = useState<ListReposResponseDtoReposItem | null>(null);
+  // The profile of every repository, looked at often while one is being built and now and then otherwise.
+  const profiles = useListProfiles({
+    query: { refetchInterval: (query) => (query.state.data?.profiles.some((p) => p.status === 'building') ? 3_000 : 20_000) },
+  });
+  const profileStatus = new Map(profiles.data?.profiles.map((p) => [p.repositoryId, p.status]));
 
   const list = repos.data?.repos ?? [];
   const loaded = repos.data !== undefined;
@@ -77,13 +86,14 @@ export function ReposManager() {
         {shown.length > 0 && (
           <DataTable columns={COLUMNS}>
             {shown.map((repo) => (
-              <WatchedRepoRow key={repo.id} repo={repo} />
+              <WatchedRepoRow key={repo.id} repo={repo} profileStatus={profileStatus.get(repo.id)} onOpenProfile={() => setProfileOf(repo)} />
             ))}
           </DataTable>
         )}
       </div>
 
       <AddRepoSheet open={adding} onOpenChange={setAdding} />
+      <RepoProfileSheet repo={profileOf} onClose={() => setProfileOf(null)} />
     </div>
   );
 }

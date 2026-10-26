@@ -210,7 +210,7 @@ describe('reviewPullRequest', () => {
       expect(system).toContain('<project_profile>');
       // The notes follow the instructions of .diffy.yaml inside the same maintainers block.
       expect(system).toContain('<project_instructions>\nFrom the file.\n\nMoney is in satang.\n</project_instructions>');
-      expect(createReview.mock.calls[0]![0].body).toContain('Read for context: the project profile');
+      expect(createReview.mock.calls[0]![0].body).toContain('Read for context: the project brief');
     });
 
     it('uses neither when there is none', async () => {

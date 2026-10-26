@@ -5,6 +5,7 @@ import { ProfilesController } from './profiles.controller';
 import { ProfilesRepository } from './profiles.repository';
 import { ProfilesService } from './profiles.service';
 import { GetProfileUsecase } from './usecase/get-profile.usecase';
+import { ListProfilesUsecase } from './usecase/list-profiles.usecase';
 import { RebuildProfileUsecase } from './usecase/rebuild-profile.usecase';
 import { UpdateProfileNotesUsecase } from './usecase/update-profile-notes.usecase';
 import { ProfileBuilderWorker } from './worker/profile-builder.worker';
@@ -16,6 +17,7 @@ import { ProfileBuilderWorker } from './worker/profile-builder.worker';
     ProfilesRepository,
     ProfileBuilderWorker,
     ProfilesService,
+    ListProfilesUsecase,
     GetProfileUsecase,
     UpdateProfileNotesUsecase,
     RebuildProfileUsecase,

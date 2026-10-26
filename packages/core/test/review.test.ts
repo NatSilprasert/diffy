@@ -230,6 +230,30 @@ describe('reviewPullRequest', () => {
     });
   });
 
+  describe('with failed checks', () => {
+    it('gives the model the checks that failed on the commit and names them in the review', async () => {
+      vi.mocked(generateReview).mockResolvedValue({ review: { summary: 's', findings: [], walkthrough: [] }, usage: { inputTokens: 1, outputTokens: 1 } });
+      const { octokit, createReview } = fakeOctokit([file('src/auth.ts', authPatch)]);
+      const listForRef = vi.fn().mockResolvedValue({ data: { check_runs: [{ id: 1, name: 'lint', conclusion: 'failure', output: { title: '1 error', summary: null } }] } });
+      const listAnnotations = vi.fn().mockResolvedValue({ data: [{ path: 'src/auth.ts', start_line: 11, message: 'no-unused-vars' }] });
+      (octokit.rest as unknown as { checks: unknown }).checks = { listForRef, listAnnotations };
+
+      await reviewPullRequest({ octokit, pr, llm });
+
+      const [, system, user] = vi.mocked(generateReview).mock.calls[0]!;
+      expect(user).toContain('<check name="lint">\n1 error\n- src/auth.ts:11: no-unused-vars');
+      expect(system).toContain('<failed_checks>');
+      expect(createReview.mock.calls[0]![0].body).toContain('failed check `lint`');
+    });
+
+    it('reviews as before when the checks cannot be read', async () => {
+      vi.mocked(generateReview).mockResolvedValue({ review: { summary: 's', findings: [], walkthrough: [] }, usage: { inputTokens: 1, outputTokens: 1 } });
+      const { octokit } = fakeOctokit([file('src/auth.ts', authPatch)]);
+      await reviewPullRequest({ octokit, pr, llm });
+      expect(vi.mocked(generateReview).mock.calls[0]![2]).not.toContain('failed_checks');
+    });
+  });
+
   describe('with linked issues', () => {
     it('gives the issue a pull request closes to the model and names it in the review', async () => {
       vi.mocked(generateReview).mockResolvedValue({ review: { summary: 's', findings: [] }, usage: { inputTokens: 1, outputTokens: 1 } });

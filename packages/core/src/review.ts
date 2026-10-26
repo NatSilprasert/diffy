@@ -7,6 +7,7 @@ import { parseGeneratedAttributes } from './gitattributes.js';
 import { getFileText, getGitattributes, listChangedFiles, type PullRequestInfo } from './github.js';
 import { generateReview, type LlmConfig, type LlmUsage } from './llm.js';
 import { ignoreMatcher, loadRepoConfig } from './repo-config.js';
+import { loadFailedChecks } from './ci-checks.js';
 import { loadLinkedIssues } from './linked-issues.js';
 import { DEFAULT_MAX_CONTEXT_CHARS, loadRepoContext } from './repo-context.js';
 import { placeFindings } from './placement.js';
@@ -104,15 +105,15 @@ export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<
     ? await loadRepoContext(octokit, pr.owner, pr.repo, branch, { contextFiles: config.contextFiles, maxChars: maxContextChars })
     : { docs: [], warnings: [] };
   configNotes.push(...context.warnings);
-  const issues = await loadLinkedIssues(octokit, pr);
+  const [issues, failedChecks] = await Promise.all([loadLinkedIssues(octokit, pr), loadFailedChecks(octokit, pr)]);
   const contextFiles = context.docs.map((doc) => doc.path);
 
   // The notes written in the web app count like the instructions of .diffy.yaml: both are the maintainers' own.
   const instructions = [config.instructions, maintainerNotes?.trim()].filter(Boolean).join('\n\n') || undefined;
   const { review, usage: reviewUsage } = await generateReview(
     llm,
-    buildSystemPrompt({ ...config, instructions }, { hasDocs: context.docs.length > 0, hasProfile: Boolean(projectProfile), hasIssues: issues.length > 0 }),
-    buildUserPrompt(pr, diff, config.pathInstructions, context.docs, projectProfile, issues),
+    buildSystemPrompt({ ...config, instructions }, { hasDocs: context.docs.length > 0, hasProfile: Boolean(projectProfile), hasIssues: issues.length > 0, hasFailedChecks: failedChecks.length > 0 }),
+    buildUserPrompt(pr, diff, config.pathInstructions, context.docs, projectProfile, issues, failedChecks),
   );
   // The first pass is eager; a second one tries to prove each finding wrong. Its tokens count toward the review.
   const checked = verify && review.findings.length > 0 ? await verifyFindings(llm, diff, review.findings) : undefined;
@@ -136,6 +137,7 @@ export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<
     contextFiles,
     usedProfile: Boolean(projectProfile),
     linkedIssues: issues.map((issue) => issue.number),
+    failedChecks: failedChecks.map((check) => check.name),
     droppedFindings,
     walkthrough,
   });

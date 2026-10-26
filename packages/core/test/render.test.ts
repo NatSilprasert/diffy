@@ -72,6 +72,10 @@ describe('renderSummary context files and profile', () => {
     expect(renderSummary({ ...base, findings: [], contextFiles: ['README.md'], linkedIssues: [12, 14] })).toContain('Read for context: `README.md`, issue #12, issue #14');
   });
 
+  it('names the failed checks that were read', () => {
+    expect(renderSummary({ ...base, findings: [], failedChecks: ['lint'] })).toContain('Read for context: failed check `lint`');
+  });
+
   it('says nothing when none were read', () => {
     expect(renderSummary({ ...base, findings: [], contextFiles: [] })).not.toContain('Read for context');
   });

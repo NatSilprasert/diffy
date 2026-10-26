@@ -55,6 +55,8 @@ export type SummaryInput = {
   usedProfile?: boolean;
   // Numbers of the issues the pull request closes that were read for the review.
   linkedIssues?: number[];
+  // Names of the failed checks that were read for the review.
+  failedChecks?: string[];
   // Findings the second check refuted and diffy left out.
   droppedFindings?: number;
   // The pull request in groups of related files, riskiest first. Empty for a small change.
@@ -122,6 +124,7 @@ export function renderSummary(input: SummaryInput): string {
     ...(input.usedProfile ? ['the project brief'] : []),
     ...(input.contextFiles ?? []).map((path) => `\`${path}\``),
     ...(input.linkedIssues ?? []).map((number) => `issue #${number}`),
+    ...(input.failedChecks ?? []).map((name) => `failed check \`${name}\``),
   ];
   if (context.length > 0) parts.push(`<sub>Read for context: ${context.join(', ')}</sub>`);
 

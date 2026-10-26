@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Octokit } from 'octokit';
 
-vi.mock('../src/llm.js', () => ({ generateReview: vi.fn() }));
+vi.mock('../src/llm.js', () => ({ generateReview: vi.fn(), generateStructured: vi.fn() }));
 
-import { generateReview } from '../src/llm.js';
+import { generateReview, generateStructured } from '../src/llm.js';
 import type { PullRequestInfo } from '../src/github.js';
 import { reviewPullRequest } from '../src/review.js';
 
@@ -56,9 +56,43 @@ function fakeOctokit(files: ReturnType<typeof file>[], repoFiles: Record<string,
 beforeEach(() => {
   // Braces matter: a function returned from beforeEach is run by vitest as teardown.
   vi.mocked(generateReview).mockReset();
+  vi.mocked(generateStructured).mockReset();
 });
 
 describe('reviewPullRequest', () => {
+  it('drops the findings the second check refutes, counts its tokens, and says so in the review', async () => {
+    vi.mocked(generateReview).mockResolvedValue({
+      review: { summary: 'Adds login.', findings: [llmFinding(11), { ...llmFinding(12), title: 'wrong one' }], walkthrough: [] },
+      usage: { inputTokens: 100, outputTokens: 20 },
+    });
+    vi.mocked(generateStructured).mockResolvedValue({
+      output: { verdicts: [{ index: 0, real: true, confidence: 90, reason: 'r' }, { index: 1, real: false, confidence: 95, reason: 'handled' }] },
+      usage: { inputTokens: 40, outputTokens: 6 },
+    });
+    const { octokit, createReview } = fakeOctokit([file('src/auth.ts', authPatch)]);
+
+    const result = await reviewPullRequest({ octokit, pr, llm });
+
+    expect(result.findings.map((f) => f.title)).toEqual(['t']);
+    expect(result.droppedFindings).toBe(1);
+    expect(result.usage).toEqual({ inputTokens: 140, outputTokens: 26 });
+    expect(createReview.mock.calls[0]![0].body).toContain('1 finding dropped after a second check');
+  });
+
+  it('does not check anything when verify is false or there are no findings', async () => {
+    vi.mocked(generateReview).mockResolvedValue({
+      review: { summary: 's', findings: [llmFinding(11)], walkthrough: [] },
+      usage: { inputTokens: 1, outputTokens: 1 },
+    });
+    const { octokit } = fakeOctokit([file('src/auth.ts', authPatch)]);
+    await reviewPullRequest({ octokit, pr, llm, verify: false });
+
+    vi.mocked(generateReview).mockResolvedValue({ review: { summary: 's', findings: [], walkthrough: [] }, usage: { inputTokens: 1, outputTokens: 1 } });
+    await reviewPullRequest({ octokit, pr, llm });
+
+    expect(generateStructured).not.toHaveBeenCalled();
+  });
+
   it('runs the pipeline and posts one review with placed findings', async () => {
     vi.mocked(generateReview).mockResolvedValue({
       review: { summary: 'Adds login.', findings: [llmFinding(11), llmFinding(500)] },

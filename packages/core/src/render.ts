@@ -53,6 +53,8 @@ export type SummaryInput = {
   contextFiles?: string[];
   // The project profile (what diffy learned about the repository) was given to the model.
   usedProfile?: boolean;
+  // Findings the second check refuted and diffy left out.
+  droppedFindings?: number;
   // The pull request in groups of related files, riskiest first. Empty for a small change.
   walkthrough?: WalkthroughGroup[];
 };
@@ -117,6 +119,8 @@ export function renderSummary(input: SummaryInput): string {
   const context = [...(input.usedProfile ? ['the project brief'] : []), ...(input.contextFiles ?? []).map((path) => `\`${path}\``)];
   if (context.length > 0) parts.push(`<sub>Read for context: ${context.join(', ')}</sub>`);
 
-  parts.push(`<sub>Reviewed \`${input.headSha.slice(0, 7)}\` with ${input.model}</sub>`);
+  const dropped = input.droppedFindings ?? 0;
+  const droppedNote = dropped > 0 ? ` · ${dropped} finding${dropped === 1 ? '' : 's'} dropped after a second check` : '';
+  parts.push(`<sub>Reviewed \`${input.headSha.slice(0, 7)}\` with ${input.model}${droppedNote}</sub>`);
   return truncate(parts.join('\n\n'));
 }

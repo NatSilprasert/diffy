@@ -24,7 +24,7 @@ const getReviewContext = vi.fn();
 const service = new RunReviewWorker(
   { findForRun, claim, saveResult, markFailed } as unknown as ReviewsRepository,
   { getGithubToken, getLlmConfig } as unknown as SettingsService,
-  { MAX_DIFF_CHARS: 123_456, MAX_CONTEXT_CHARS: 7_000, EXPAND_DIFF_CONTEXT: false } as Env,
+  { MAX_DIFF_CHARS: 123_456, MAX_CONTEXT_CHARS: 7_000, EXPAND_DIFF_CONTEXT: false, VERIFY_FINDINGS: false } as Env,
   { getReviewContext } as unknown as ProfilesService,
 );
 
@@ -68,7 +68,7 @@ describe('RunReviewWorker.run', () => {
     await service.run('v1');
 
     expect(vi.mocked(getPullRequest).mock.calls[0]!.slice(1)).toEqual(['acme', 'api', 7]);
-    expect(vi.mocked(reviewPullRequest).mock.calls[0]![0]).toMatchObject({ llm, post: true, maxDiffChars: 123_456, maxContextChars: 7_000, expandContext: false });
+    expect(vi.mocked(reviewPullRequest).mock.calls[0]![0]).toMatchObject({ llm, post: true, maxDiffChars: 123_456, maxContextChars: 7_000, expandContext: false, verify: false });
     expect(saveResult).toHaveBeenCalledWith('v1', {
       status: 'posted',
       summary: 'Adds login.',

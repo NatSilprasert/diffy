@@ -62,6 +62,7 @@ export class RunReviewWorker {
         maxDiffChars: this.env.MAX_DIFF_CHARS,
         maxContextChars: this.env.MAX_CONTEXT_CHARS,
         expandContext: this.env.EXPAND_DIFF_CONTEXT,
+        verify: this.env.VERIFY_FINDINGS,
         projectProfile: context?.profile,
         maintainerNotes: context?.notes,
       });

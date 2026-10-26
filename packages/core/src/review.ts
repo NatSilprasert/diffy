@@ -11,6 +11,7 @@ import { DEFAULT_MAX_CONTEXT_CHARS, loadRepoContext } from './repo-context.js';
 import { placeFindings } from './placement.js';
 import { postReview } from './post.js';
 import { buildSystemPrompt, buildUserPrompt } from './prompt.js';
+import { verifyFindings } from './verify.js';
 import { verifyWalkthrough, type WalkthroughGroup } from './walkthrough.js';
 
 export type ReviewPullRequestInput = {
@@ -24,6 +25,8 @@ export type ReviewPullRequestInput = {
   maxContextChars?: number;
   // Show the model the function around each change, and small files whole, instead of three lines (default true).
   expandContext?: boolean;
+  // Ask the model to try to refute each finding before posting, and drop the ones it cannot defend (default true).
+  verify?: boolean;
   // What diffy learned about the repository (markdown), and the notes the maintainers wrote in the web app.
   projectProfile?: string;
   maintainerNotes?: string;
@@ -42,15 +45,23 @@ export type ReviewResult = {
   contextFiles: string[];
   // The pull request in groups of related files, riskiest first (empty for a small change).
   walkthrough: WalkthroughGroup[];
+  // Findings the second check refuted and left out.
+  droppedFindings: number;
   usage: LlmUsage | undefined;
   githubReviewUrl: string | undefined;
   fellBackToSummary: boolean;
 };
 
+const sum = (a: number | undefined, b: number | undefined) => (a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0));
+
+function addUsage(a: LlmUsage, b: LlmUsage | undefined): LlmUsage {
+  return b ? { inputTokens: sum(a.inputTokens, b.inputTokens), outputTokens: sum(a.outputTokens, b.outputTokens) } : a;
+}
+
 // The whole pipeline: fetch files -> build the diff -> ask the LLM -> check lines -> post.
 // No database and no framework: the server wraps this and stores what it returns.
 export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<ReviewResult> {
-  const { octokit, pr, llm, post = true, maxDiffChars = DEFAULT_MAX_DIFF_CHARS, maxContextChars = DEFAULT_MAX_CONTEXT_CHARS, projectProfile, maintainerNotes, expandContext = true } = input;
+  const { octokit, pr, llm, post = true, maxDiffChars = DEFAULT_MAX_DIFF_CHARS, maxContextChars = DEFAULT_MAX_CONTEXT_CHARS, projectProfile, maintainerNotes, expandContext = true, verify = true } = input;
 
   const [files, gitattributes, { config, warnings: configNotes, branch }] = await Promise.all([
     listChangedFiles(octokit, pr.owner, pr.repo, pr.number),
@@ -72,6 +83,7 @@ export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<
       configNotes,
       contextFiles: [],
       walkthrough: [],
+      droppedFindings: 0,
       usage: undefined,
       githubReviewUrl: undefined,
       fellBackToSummary: false,
@@ -95,14 +107,18 @@ export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<
 
   // The notes written in the web app count like the instructions of .diffy.yaml: both are the maintainers' own.
   const instructions = [config.instructions, maintainerNotes?.trim()].filter(Boolean).join('\n\n') || undefined;
-  const { review, usage } = await generateReview(
+  const { review, usage: reviewUsage } = await generateReview(
     llm,
     buildSystemPrompt({ ...config, instructions }, { hasDocs: context.docs.length > 0, hasProfile: Boolean(projectProfile) }),
     buildUserPrompt(pr, diff, config.pathInstructions, context.docs, projectProfile),
   );
-  const findings = placeFindings(review.findings, buildCommentableIndex(files));
+  // The first pass is eager; a second one tries to prove each finding wrong. Its tokens count toward the review.
+  const checked = verify && review.findings.length > 0 ? await verifyFindings(llm, diff, review.findings) : undefined;
+  const usage = addUsage(reviewUsage, checked?.usage);
+  const findings = placeFindings(checked?.findings ?? review.findings, buildCommentableIndex(files));
+  const droppedFindings = checked?.dropped ?? 0;
   const walkthrough = verifyWalkthrough(review.walkthrough ?? [], diff.included);
-  const base = { summary: review.summary, skipped: diff.skipped, configNotes, contextFiles, walkthrough, usage };
+  const base = { summary: review.summary, skipped: diff.skipped, configNotes, contextFiles, walkthrough, droppedFindings, usage };
 
   if (!post) {
     return { ...base, outcome: 'not-posted', findings, githubReviewUrl: undefined, fellBackToSummary: false };
@@ -117,6 +133,7 @@ export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<
     configNotes,
     contextFiles,
     usedProfile: Boolean(projectProfile),
+    droppedFindings,
     walkthrough,
   });
   return {

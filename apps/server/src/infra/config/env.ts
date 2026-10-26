@@ -27,6 +27,9 @@ export const EnvSchema = z.object({
   // Show the model the function around each change (and small files whole) instead of three lines. It uses the same
   // MAX_DIFF_CHARS budget, so it cannot make a review bigger than that. false sends the plain patches.
   EXPAND_DIFF_CONTEXT: z.stringbool().default(true),
+  // Before posting, ask the model to try to prove each finding wrong and drop the ones it cannot defend. Fewer false
+  // alarms, at the cost of a second call (the code of the files with findings, read again). false posts every finding.
+  VERIFY_FINDINGS: z.stringbool().default(true),
   // How much of the project's own documents (README, AGENTS.md, CLAUDE.md, CONTRIBUTING.md...) is added to every
   // review, in characters. 0 turns it off. Same default as DEFAULT_MAX_CONTEXT_CHARS in core.
   MAX_CONTEXT_CHARS: z.coerce.number().int().min(0).default(30_000),

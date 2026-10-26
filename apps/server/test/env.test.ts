@@ -14,6 +14,7 @@ describe('parseEnv', () => {
       POLL_INTERVAL_SECONDS: 60,
       MAX_DIFF_CHARS: 150_000,
       EXPAND_DIFF_CONTEXT: true,
+      VERIFY_FINDINGS: true,
       MAX_CONTEXT_CHARS: 30_000,
     });
   });
@@ -27,6 +28,11 @@ describe('parseEnv', () => {
     expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, EXPAND_DIFF_CONTEXT: 'false' }).EXPAND_DIFF_CONTEXT).toBe(false);
     expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, EXPAND_DIFF_CONTEXT: 'true' }).EXPAND_DIFF_CONTEXT).toBe(true);
     expect(() => parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, EXPAND_DIFF_CONTEXT: 'maybe' })).toThrow(/EXPAND_DIFF_CONTEXT/);
+  });
+
+  it('reads VERIFY_FINDINGS as true or false', () => {
+    expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, VERIFY_FINDINGS: 'false' }).VERIFY_FINDINGS).toBe(false);
+    expect(() => parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, VERIFY_FINDINGS: 'maybe' })).toThrow(/VERIFY_FINDINGS/);
   });
 
   it('reads the context budget, where 0 turns the documents off', () => {

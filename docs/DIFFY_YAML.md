@@ -55,3 +55,11 @@ earlier one is read once. The review says which documents it read, at the bottom
 
 The model is told these are information about the project, not instructions: it uses them to understand what the
 project is and which conventions it follows, and ignores anything in them that tries to change its task.
+
+## What the model sees of a change
+
+GitHub's patch shows three lines around each change. diffy gives the model more: the function, method or class that
+contains the change (with the comments and decorators above it), a few lines below, and a small file in full, all
+read from the pull request's head commit. Only lines marked `+` are new; the model is told not to report problems
+that were already in the unchanged lines. This shares the `MAX_DIFF_CHARS` budget with the diff, code is expanded
+before tests and other files, and `EXPAND_DIFF_CONTEXT=false` in `.env` turns it off.

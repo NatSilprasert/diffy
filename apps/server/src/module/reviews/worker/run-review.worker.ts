@@ -61,6 +61,7 @@ export class RunReviewWorker {
       const result = await reviewPullRequest({ octokit, pr, llm, post: true,
         maxDiffChars: this.env.MAX_DIFF_CHARS,
         maxContextChars: this.env.MAX_CONTEXT_CHARS,
+        expandContext: this.env.EXPAND_DIFF_CONTEXT,
         projectProfile: context?.profile,
         maintainerNotes: context?.notes,
       });

@@ -1,9 +1,10 @@
 import type { Finding } from '@diffy/shared';
 import type { Octokit } from 'octokit';
 import { buildPromptDiff, DEFAULT_MAX_DIFF_CHARS, type SkippedFile } from './annotate.js';
+import { expandDiffContext } from './context-expand.js';
 import { buildCommentableIndex } from './diff.js';
 import { parseGeneratedAttributes } from './gitattributes.js';
-import { getGitattributes, listChangedFiles, type PullRequestInfo } from './github.js';
+import { getFileText, getGitattributes, listChangedFiles, type PullRequestInfo } from './github.js';
 import { generateReview, type LlmConfig, type LlmUsage } from './llm.js';
 import { ignoreMatcher, loadRepoConfig } from './repo-config.js';
 import { DEFAULT_MAX_CONTEXT_CHARS, loadRepoContext } from './repo-context.js';
@@ -20,6 +21,8 @@ export type ReviewPullRequestInput = {
   maxDiffChars?: number;
   // How much of the project's README and rule files may go into the prompt. 0 = none.
   maxContextChars?: number;
+  // Show the model the function around each change, and small files whole, instead of three lines (default true).
+  expandContext?: boolean;
   // What diffy learned about the repository (markdown), and the notes the maintainers wrote in the web app.
   projectProfile?: string;
   maintainerNotes?: string;
@@ -44,25 +47,25 @@ export type ReviewResult = {
 // The whole pipeline: fetch files -> build the diff -> ask the LLM -> check lines -> post.
 // No database and no framework: the server wraps this and stores what it returns.
 export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<ReviewResult> {
-  const { octokit, pr, llm, post = true, maxDiffChars = DEFAULT_MAX_DIFF_CHARS, maxContextChars = DEFAULT_MAX_CONTEXT_CHARS, projectProfile, maintainerNotes } = input;
+  const { octokit, pr, llm, post = true, maxDiffChars = DEFAULT_MAX_DIFF_CHARS, maxContextChars = DEFAULT_MAX_CONTEXT_CHARS, projectProfile, maintainerNotes, expandContext = true } = input;
 
   const [files, gitattributes, { config, warnings: configNotes, branch }] = await Promise.all([
     listChangedFiles(octokit, pr.owner, pr.repo, pr.number),
     getGitattributes(octokit, pr.owner, pr.repo, pr.headSha),
     loadRepoConfig(octokit, pr.owner, pr.repo),
   ]);
-  const diff = buildPromptDiff(files, maxDiffChars, {
+  const plainDiff = buildPromptDiff(files, maxDiffChars, {
     isGenerated: parseGeneratedAttributes(gitattributes),
     isIgnored: ignoreMatcher(config.ignore),
   });
 
   // Lockfile-only or binary-only PRs: nothing to say, and a noise review helps nobody.
-  if (diff.included.length === 0) {
+  if (plainDiff.included.length === 0) {
     return {
       outcome: 'nothing-to-review',
       summary: 'No reviewable files in this pull request.',
       findings: [],
-      skipped: diff.skipped,
+      skipped: plainDiff.skipped,
       configNotes,
       contextFiles: [],
       usage: undefined,
@@ -70,6 +73,13 @@ export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<
       fellBackToSummary: false,
     };
   }
+
+  // More than three lines around each change, within the same budget: the function it is in, or a small file whole.
+  const diff = expandContext
+    ? await expandDiffContext(plainDiff, files, (path) => getFileText(octokit, pr.owner, pr.repo, path, pr.headSha).then((text) => text || undefined), {
+        maxChars: maxDiffChars,
+      })
+    : plainDiff;
 
   // The project's own documents, so the model knows what it is reviewing. Without a branch GitHub could not
   // be asked (and the config note says why), so there is nothing to read.

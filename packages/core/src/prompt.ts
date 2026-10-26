@@ -21,6 +21,11 @@ Severity:
 - medium: bug in an edge case, or a likely future bug
 - low: minor correctness or robustness issue worth fixing
 
+Context:
+- A file may show more than the changed lines: the function around a change, or a small file whole. Only lines
+  marked "+" are new in this pull request; lines marked " " are unchanged and give you context. Report problems
+  the change causes or exposes. Do not report a problem that was already there in unchanged lines.
+
 Line numbers:
 - Each diff line is prefixed with its line number in the NEW file. Use these numbers.
 - Lines starting with "-" (deleted) have no number and cannot be referenced.

@@ -223,4 +223,43 @@ describe('reviewPullRequest', () => {
       expect(user).not.toContain('<project_profile>');
     });
   });
+
+  describe('with more context around the changes', () => {
+    const source = ['import a from "a";', '', 'export function login(token: string) {', '  const user = lookup(token);', '  return user;', '}'].join('\n');
+    const patch = ['@@ -3,3 +3,3 @@', ' export function login(token: string) {', '-  const user = lookup(token, true);', '+  const user = lookup(token);', '   return user;'].join('\n');
+    const resolved = () => vi.mocked(generateReview).mockResolvedValue({ review: { summary: 's', findings: [] }, usage: { inputTokens: 1, outputTokens: 1 } });
+
+    it('shows the model the whole file at the head commit, not only the patch', async () => {
+      resolved();
+      const { octokit } = fakeOctokit([file('src/auth.ts', patch)], { 'src/auth.ts': source });
+      await reviewPullRequest({ octokit, pr, llm });
+      const user = vi.mocked(generateReview).mock.calls[0]![2];
+      expect(user).toContain('    1   import a from "a";');
+      expect(user).toContain('    4 +   const user = lookup(token);');
+      expect(vi.mocked(octokit.rest.repos.getContent)).toHaveBeenCalledWith(expect.objectContaining({ path: 'src/auth.ts', ref: pr.headSha }));
+    });
+
+    it('tells the model what the unmarked lines are', async () => {
+      resolved();
+      await reviewPullRequest({ octokit: fakeOctokit([file('src/auth.ts', patch)], { 'src/auth.ts': source }).octokit, pr, llm });
+      expect(vi.mocked(generateReview).mock.calls[0]![1]).toContain('Do not report a problem that was already there in unchanged lines');
+    });
+
+    it('can be switched off, and then reads no file', async () => {
+      resolved();
+      const { octokit } = fakeOctokit([file('src/auth.ts', patch)], { 'src/auth.ts': source });
+      await reviewPullRequest({ octokit, pr, llm, expandContext: false });
+      const user = vi.mocked(generateReview).mock.calls[0]![2];
+      expect(user).not.toContain('import a from "a"');
+      expect(vi.mocked(octokit.rest.repos.getContent).mock.calls.some(([args]) => (args as { path: string }).path === 'src/auth.ts')).toBe(false);
+    });
+
+    it('still reviews with the plain patch when the file cannot be read', async () => {
+      resolved();
+      const { octokit } = fakeOctokit([file('src/auth.ts', patch)]);
+      const result = await reviewPullRequest({ octokit, pr, llm });
+      expect(result.outcome).toBe('posted');
+      expect(vi.mocked(generateReview).mock.calls[0]![2]).toContain('   3   export function login(token: string) {');
+    });
+  });
 });

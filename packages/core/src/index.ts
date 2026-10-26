@@ -1,6 +1,7 @@
 export * from './github.js';
 export * from './diff.js';
 export * from './annotate.js';
+export * from './context-expand.js';
 export * from './gitattributes.js';
 export * from './repo-config.js';
 export * from './repo-context.js';

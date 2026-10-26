@@ -12,6 +12,9 @@ export type PromptDiff = {
   text: string;
   included: string[];
   skipped: SkippedFile[];
+  // The block of each included file, in the pull request's order. `text` is these joined, and a later step can
+  // swap a block for a fuller one (see expandDiffContext).
+  parts: Array<{ path: string; block: string }>;
 };
 
 const LOCKFILES = new Set([
@@ -105,6 +108,7 @@ export function buildPromptDiff(
   return {
     text: inOrder.map((candidate) => candidate.block).join('\n\n'),
     included: inOrder.map((candidate) => files[candidate.index]!.path),
+    parts: inOrder.map((candidate) => ({ path: files[candidate.index]!.path, block: candidate.block })),
     skipped: [...skippedAt.entries()].sort(([a], [b]) => a - b).map(([, skipped]) => skipped),
   };
 }

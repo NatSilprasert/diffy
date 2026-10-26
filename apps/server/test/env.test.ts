@@ -13,6 +13,7 @@ describe('parseEnv', () => {
       HOST: '127.0.0.1',
       POLL_INTERVAL_SECONDS: 60,
       MAX_DIFF_CHARS: 150_000,
+      EXPAND_DIFF_CONTEXT: true,
       MAX_CONTEXT_CHARS: 30_000,
     });
   });
@@ -20,6 +21,12 @@ describe('parseEnv', () => {
   it('reads the diff budget and refuses one too small to review anything', () => {
     expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, MAX_DIFF_CHARS: '300000' }).MAX_DIFF_CHARS).toBe(300_000);
     expect(() => parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, MAX_DIFF_CHARS: '500' })).toThrow(/MAX_DIFF_CHARS/);
+  });
+
+  it('reads EXPAND_DIFF_CONTEXT as true or false', () => {
+    expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, EXPAND_DIFF_CONTEXT: 'false' }).EXPAND_DIFF_CONTEXT).toBe(false);
+    expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, EXPAND_DIFF_CONTEXT: 'true' }).EXPAND_DIFF_CONTEXT).toBe(true);
+    expect(() => parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, EXPAND_DIFF_CONTEXT: 'maybe' })).toThrow(/EXPAND_DIFF_CONTEXT/);
   });
 
   it('reads the context budget, where 0 turns the documents off', () => {

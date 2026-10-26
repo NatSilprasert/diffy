@@ -46,6 +46,8 @@ export type SummaryInput = {
   skipped: SkippedFile[];
   model: string;
   headSha: string;
+  // Problems found in the repository's .diffy.yaml. Shown so the maintainers can fix the file.
+  configNotes?: string[];
 };
 
 function truncate(body: string): string {
@@ -95,6 +97,12 @@ export function renderSummary(input: SummaryInput): string {
         ...skipped.map((s) => `- \`${s.path}\` (${s.reason})`),
         '\n</details>',
       ].join('\n'),
+    );
+  }
+
+  if (input.configNotes && input.configNotes.length > 0) {
+    parts.push(
+      [`<details>\n<summary>${input.configNotes.length} problem(s) with the diffy settings of this repository</summary>\n`, ...input.configNotes.map((n) => `- ${n}`), '\n</details>'].join('\n'),
     );
   }
 

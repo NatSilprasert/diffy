@@ -10,6 +10,7 @@ export type PostReviewInput = {
   findings: Finding[];
   skipped: SkippedFile[];
   model: string;
+  configNotes?: string[];
 };
 
 export type PostedReview = {
@@ -58,6 +59,7 @@ async function createReview(octokit: Octokit, input: PostReviewInput, findings: 
       skipped: input.skipped,
       model: input.model,
       headSha: input.pr.headSha,
+      configNotes: input.configNotes,
     }),
     comments: comments.length > 0 ? comments : undefined,
   });

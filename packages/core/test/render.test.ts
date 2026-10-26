@@ -41,6 +41,19 @@ describe('renderInlineComment', () => {
   });
 });
 
+describe('renderSummary config notes', () => {
+  it('lists the problems with the repository settings, collapsed', () => {
+    const body = renderSummary({ ...base, findings: [], configNotes: ['.diffy.yaml: language must be "en" or "th", not "fr". Using "en".'] });
+    expect(body).toContain('<summary>1 problem(s) with the diffy settings of this repository</summary>');
+    expect(body).toContain('- .diffy.yaml: language must be');
+  });
+
+  it('has no such section without notes', () => {
+    expect(renderSummary({ ...base, findings: [], configNotes: [] })).not.toContain('settings of this repository');
+    expect(renderSummary({ ...base, findings: [] })).not.toContain('settings of this repository');
+  });
+});
+
 describe('renderSummary', () => {
   it('says so when there are no findings', () => {
     const body = renderSummary({ ...base, findings: [] });

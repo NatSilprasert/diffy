@@ -106,13 +106,29 @@ export async function listChangedFiles(
   }));
 }
 
+// A text file of the repository at a branch or commit. undefined when it does not exist (or is a folder).
+// Any other failure (rate limit, no access) is thrown, so the caller can decide whether that matters.
+export async function getFileText(octokit: Octokit, owner: string, repo: string, path: string, ref: string): Promise<string | undefined> {
+  try {
+    const { data } = await octokit.rest.repos.getContent({ owner, repo, path, ref });
+    if (Array.isArray(data) || data.type !== 'file' || !('content' in data)) return undefined;
+    return Buffer.from(data.content, 'base64').toString('utf8');
+  } catch (err) {
+    if ((err as { status?: number }).status === 404) return undefined;
+    throw err;
+  }
+}
+
+export async function getDefaultBranch(octokit: Octokit, owner: string, repo: string): Promise<string> {
+  const { data } = await octokit.rest.repos.get({ owner, repo });
+  return data.default_branch;
+}
+
 // The repository's .gitattributes at a commit, or undefined when it has none (or it cannot be read).
 // Used only to learn which files are marked generated, so any failure just means "none are".
 export async function getGitattributes(octokit: Octokit, owner: string, repo: string, ref: string): Promise<string | undefined> {
   try {
-    const { data } = await octokit.rest.repos.getContent({ owner, repo, path: '.gitattributes', ref });
-    if (Array.isArray(data) || data.type !== 'file' || !('content' in data)) return undefined;
-    return Buffer.from(data.content, 'base64').toString('utf8');
+    return await getFileText(octokit, owner, repo, '.gitattributes', ref);
   } catch {
     return undefined;
   }

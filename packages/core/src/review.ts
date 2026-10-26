@@ -5,9 +5,10 @@ import { buildCommentableIndex } from './diff.js';
 import { parseGeneratedAttributes } from './gitattributes.js';
 import { getGitattributes, listChangedFiles, type PullRequestInfo } from './github.js';
 import { generateReview, type LlmConfig, type LlmUsage } from './llm.js';
+import { ignoreMatcher, loadRepoConfig } from './repo-config.js';
 import { placeFindings } from './placement.js';
 import { postReview } from './post.js';
-import { buildUserPrompt, SYSTEM_PROMPT } from './prompt.js';
+import { buildSystemPrompt, buildUserPrompt } from './prompt.js';
 
 export type ReviewPullRequestInput = {
   octokit: Octokit;
@@ -25,6 +26,8 @@ export type ReviewResult = {
   summary: string;
   findings: Finding[];
   skipped: SkippedFile[];
+  // Problems in the repository's .diffy.yaml (empty when there is none or it is fine).
+  configNotes: string[];
   usage: LlmUsage | undefined;
   githubReviewUrl: string | undefined;
   fellBackToSummary: boolean;
@@ -35,11 +38,15 @@ export type ReviewResult = {
 export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<ReviewResult> {
   const { octokit, pr, llm, post = true, maxDiffChars = DEFAULT_MAX_DIFF_CHARS } = input;
 
-  const [files, gitattributes] = await Promise.all([
+  const [files, gitattributes, { config, warnings: configNotes }] = await Promise.all([
     listChangedFiles(octokit, pr.owner, pr.repo, pr.number),
     getGitattributes(octokit, pr.owner, pr.repo, pr.headSha),
+    loadRepoConfig(octokit, pr.owner, pr.repo),
   ]);
-  const diff = buildPromptDiff(files, maxDiffChars, parseGeneratedAttributes(gitattributes));
+  const diff = buildPromptDiff(files, maxDiffChars, {
+    isGenerated: parseGeneratedAttributes(gitattributes),
+    isIgnored: ignoreMatcher(config.ignore),
+  });
 
   // Lockfile-only or binary-only PRs: nothing to say, and a noise review helps nobody.
   if (diff.included.length === 0) {
@@ -48,15 +55,16 @@ export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<
       summary: 'No reviewable files in this pull request.',
       findings: [],
       skipped: diff.skipped,
+      configNotes,
       usage: undefined,
       githubReviewUrl: undefined,
       fellBackToSummary: false,
     };
   }
 
-  const { review, usage } = await generateReview(llm, SYSTEM_PROMPT, buildUserPrompt(pr, diff));
+  const { review, usage } = await generateReview(llm, buildSystemPrompt(config), buildUserPrompt(pr, diff, config.pathInstructions));
   const findings = placeFindings(review.findings, buildCommentableIndex(files));
-  const base = { summary: review.summary, skipped: diff.skipped, usage };
+  const base = { summary: review.summary, skipped: diff.skipped, configNotes, usage };
 
   if (!post) {
     return { ...base, outcome: 'not-posted', findings, githubReviewUrl: undefined, fellBackToSummary: false };
@@ -68,6 +76,7 @@ export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<
     findings,
     skipped: diff.skipped,
     model: `${llm.provider}/${llm.model}`,
+    configNotes,
   });
   return {
     ...base,

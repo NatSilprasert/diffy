@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { annotateFile, buildPromptDiff, filePriority, skipReason } from '../src/annotate.js';
 import { parseGeneratedAttributes } from '../src/gitattributes.js';
+import { ignoreMatcher } from '../src/repo-config.js';
 import type { ChangedFile } from '../src/github.js';
 
 const file = (path: string, patch: string | undefined, status = 'modified'): ChangedFile => ({
@@ -126,5 +127,20 @@ describe('buildPromptDiff choosing what fits', () => {
     expect(result.included).toEqual(['z.md', 'a.ts', 'm.ts']);
     expect(result.text.indexOf('### z.md')).toBeLessThan(result.text.indexOf('### a.ts'));
     expect(result.skipped.map((s) => s.path)).toEqual(['pnpm-lock.yaml']);
+  });
+});
+
+describe('ignore patterns of .diffy.yaml', () => {
+  it('skips matching files, even ones that would otherwise be reviewed', () => {
+    const isIgnored = ignoreMatcher(['docs/**', '*.svg']);
+    expect(skipReason(file('docs/guide.md', patch), undefined, isIgnored)).toBe('ignored by .diffy.yaml');
+    expect(skipReason(file('src/logo.svg', patch), undefined, isIgnored)).toBe('ignored by .diffy.yaml');
+    expect(skipReason(file('src/app.ts', patch), undefined, isIgnored)).toBeUndefined();
+  });
+
+  it('keeps ignored files out of the prompt and lists them as skipped', () => {
+    const result = buildPromptDiff([file('docs/guide.md', patch), file('src/app.ts', patch)], 10_000, { isIgnored: ignoreMatcher(['docs/**']) });
+    expect(result.included).toEqual(['src/app.ts']);
+    expect(result.skipped).toEqual([{ path: 'docs/guide.md', reason: 'ignored by .diffy.yaml' }]);
   });
 });

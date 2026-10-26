@@ -36,11 +36,19 @@ const llmFinding = (line: number) => ({
   suggestion: null,
 });
 
-function fakeOctokit(files: ReturnType<typeof file>[]) {
+// `repoFiles` are files of the repository's default branch (.diffy.yaml, instructions files...).
+function fakeOctokit(files: ReturnType<typeof file>[], repoFiles: Record<string, string> = {}) {
   const createReview = vi.fn().mockResolvedValue({ data: { html_url: 'https://github.com/review/1' } });
+  const getContent = vi.fn(async ({ path }: { path: string }) => {
+    if (!(path in repoFiles)) throw Object.assign(new Error('Not Found'), { status: 404 });
+    return { data: { type: 'file', content: Buffer.from(repoFiles[path]!).toString('base64') } };
+  });
   const octokit = {
     paginate: vi.fn().mockResolvedValue(files),
-    rest: { pulls: { listFiles: vi.fn(), createReview } },
+    rest: {
+      pulls: { listFiles: vi.fn(), createReview },
+      repos: { get: vi.fn().mockResolvedValue({ data: { default_branch: 'main' } }), getContent },
+    },
   } as unknown as Octokit;
   return { octokit, createReview };
 }
@@ -101,5 +109,56 @@ describe('reviewPullRequest', () => {
 
     await expect(reviewPullRequest({ octokit, pr, llm })).rejects.toThrow('bad key');
     expect(createReview).not.toHaveBeenCalled();
+  });
+
+  describe('with a .diffy.yaml on the default branch', () => {
+    const posted = vi.fn();
+    const run = async (config: string, files = [file('src/auth.ts', authPatch), file('public/logo.svg', authPatch)]) => {
+      vi.mocked(generateReview).mockResolvedValue({
+        review: { summary: 's', findings: [] },
+        usage: { inputTokens: 1, outputTokens: 1 },
+      });
+      const { octokit, createReview } = fakeOctokit(files, { '.diffy.yaml': config });
+      const result = await reviewPullRequest({ octokit, pr, llm });
+      posted(createReview.mock.calls[0]?.[0].body);
+      return result;
+    };
+
+    it('writes the prompts the repository asked for: language, profile, instructions, path rules', async () => {
+      await run(
+        'language: th\nprofile: assertive\ninstructions: Never write raw SQL.\npath_instructions:\n  - path: "src/**"\n    instructions: Check permissions.',
+      );
+      const [, system, user] = vi.mocked(generateReview).mock.calls[0]!;
+      expect(system).toContain('in Thai');
+      expect(system).toContain('Review profile: assertive');
+      expect(system).toContain('Never write raw SQL.');
+      expect(user).toContain('- src/**: Check permissions.');
+    });
+
+    it('does not review the files the config ignores, and says why', async () => {
+      const result = await run('ignore:\n  - "public/**"');
+      expect(result.skipped).toEqual([{ path: 'public/logo.svg', reason: 'ignored by .diffy.yaml' }]);
+      const [, , user] = vi.mocked(generateReview).mock.calls[0]!;
+      expect(user).not.toContain('public/logo.svg');
+    });
+
+    it('tells the maintainers in the posted review what is wrong with their file', async () => {
+      const result = await run('language: fr');
+      expect(result.configNotes).toEqual(['.diffy.yaml: language must be "en" or "th", not "fr". Using "en".']);
+      expect(posted.mock.calls.at(-1)![0]).toContain('1 problem(s) with the diffy settings of this repository');
+      expect(posted.mock.calls.at(-1)![0]).toContain('language must be');
+    });
+  });
+
+  it('has no notes and the English defaults for a repository without a config file', async () => {
+    vi.mocked(generateReview).mockResolvedValue({
+      review: { summary: 's', findings: [] },
+      usage: { inputTokens: 1, outputTokens: 1 },
+    });
+    const { octokit, createReview } = fakeOctokit([file('src/auth.ts', authPatch)]);
+    const result = await reviewPullRequest({ octokit, pr, llm });
+    expect(result.configNotes).toEqual([]);
+    expect(vi.mocked(generateReview).mock.calls[0]![1]).toContain('in English');
+    expect(createReview.mock.calls[0]![0].body).not.toContain('problem(s) with the diffy settings');
   });
 });

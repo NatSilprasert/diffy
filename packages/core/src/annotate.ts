@@ -30,8 +30,13 @@ const LOCKFILES = new Set([
 const GENERATED_PATH = /(^|\/)(dist|vendor|node_modules|__snapshots__|__generated__|drizzle\/meta)\//;
 const GENERATED_FILE = /(\.(min\.(js|css)|snap|map)|_snapshot\.json|\.generated\.[a-z0-9]+|\.pb\.go|_pb2(_grpc)?\.py|\.g\.dart)$/;
 
-export function skipReason(file: Pick<ChangedFile, 'path' | 'patch'>, isGenerated: IsGenerated = NOTHING_GENERATED): string | undefined {
+export function skipReason(
+  file: Pick<ChangedFile, 'path' | 'patch'>,
+  isGenerated: IsGenerated = NOTHING_GENERATED,
+  isIgnored: IsGenerated = NOTHING_GENERATED,
+): string | undefined {
   const name = file.path.split('/').pop() ?? file.path;
+  if (isIgnored(file.path)) return 'ignored by .diffy.yaml';
   if (file.patch === undefined) return 'binary or too large (no patch)';
   if (LOCKFILES.has(name)) return 'lockfile';
   if (GENERATED_PATH.test(file.path) || GENERATED_FILE.test(file.path)) return 'generated file';
@@ -72,13 +77,14 @@ export function annotateFile(file: ChangedFile): string {
 export function buildPromptDiff(
   files: ChangedFile[],
   maxChars: number = DEFAULT_MAX_DIFF_CHARS,
-  isGenerated: IsGenerated = NOTHING_GENERATED,
+  // isGenerated: files marked generated in .gitattributes. isIgnored: the `ignore` patterns of .diffy.yaml.
+  { isGenerated = NOTHING_GENERATED, isIgnored = NOTHING_GENERATED }: { isGenerated?: IsGenerated; isIgnored?: IsGenerated } = {},
 ): PromptDiff {
   const skippedAt = new Map<number, SkippedFile>();
   const candidates: Array<{ index: number; block: string; priority: number }> = [];
 
   files.forEach((file, index) => {
-    const reason = skipReason(file, isGenerated);
+    const reason = skipReason(file, isGenerated, isIgnored);
     if (reason) skippedAt.set(index, { path: file.path, reason });
     else candidates.push({ index, block: annotateFile(file), priority: filePriority(file.path) });
   });

@@ -32,7 +32,7 @@ AI รีวิว pull request แบบ open source ที่ผู้ใช�
 | E | Reviews API และ worker (E1–E7) | เสร็จ |
 | F | หน้าเว็บ (Next.js) F1–F7 | **F1–F7 เสร็จ** (เว็บครบ) |
 | G | รวมเป็น process เดียวและเอกสาร G1–G2 | ยังไม่เริ่ม |
-| R | ทำให้รีวิวละเอียดขึ้น R1–R7 (หัวข้อ 9, Phase R) | **R1–R2 เสร็จ** |
+| R | ทำให้รีวิวละเอียดขึ้น R1–R7 (หัวข้อ 9, Phase R) | **R1–R2 เสร็จ, R2b กำลังทำ (ขั้นย่อย 1/4)** |
 
 จำนวน test ที่ผ่าน ณ วันที่เขียน: `shared` 8, `core` 74, `server` 227, `web` 29
 
@@ -272,7 +272,11 @@ Migration ที่มี: `init`, `add_repository_removed_at`, `lowercase_enums
 **ขั้นตอน (ทำทีละขั้น ทดสอบแล้วค่อยไปต่อ)**
 - ~~**R1 `.diffy.yaml`**~~ **เสร็จแล้ว** ต่อ repo: `language` (th/en), `profile` (chill/assertive), `instructions`, `instructions_file`, `path_instructions` (path + instructions), `ignore` (glob) ตรวจด้วย Zod ค่าที่ผิดไม่ทำให้รีวิวล้ม แต่รายงานในสรุปของรีวิว
 - ~~**R2 README และไฟล์กฎ**~~ **เสร็จแล้ว** (ตั้งงบด้วย `MAX_CONTEXT_CHARS` ค่าเริ่มต้น 30,000 ตัวอักษร 0 = ปิด ไฟล์ละไม่เกิน 10,000 เรียง: `context_files` > `AGENTS.md`/`CLAUDE.md`/`.cursorrules`/`copilot-instructions.md` > README > CONTRIBUTING ไฟล์ที่เนื้อหาซ้ำกันอ่านครั้งเดียว รีวิวบอกท้ายสรุปว่าอ่านไฟล์ไหน) อ่าน `README.md` ทุกครั้ง บวกไฟล์กฎที่ตรวจเจอเอง (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.github/copilot-instructions.md`, `CONTRIBUTING.md`) และ `context_files` ใน `.diffy.yaml` ใช้งบแยกจากงบ diff
-- **R2b project profile** ตอนเพิ่ม repo ให้ LLM อ่านแบบเลือก (โครงสร้างโฟลเดอร์, README/docs/ไฟล์กฎ, config ที่บอกกฎ, ไฟล์ตัวอย่างที่ถูก import บ่อย, PR ที่ merge ล่าสุด 10–20 อัน ประมาณ 150–300k token ครั้งเดียว) สรุปเป็นเอกสารสั้น 2–4k token ต่อ repo (สถาปัตยกรรม, convention, กฎ, จุดที่มักพัง ทุกกฎต้องอ้างไฟล์หลักฐาน) เก็บใน DB แสดงและแก้ในหน้าเว็บ แนบทุกครั้งที่รีวิว **ไม่อ่านทั้ง repo** เพราะแพง ($3–10 ต่อครั้ง) และไม่ได้คุณภาพเพิ่มตาม
+- **R2b project profile** ตอนเพิ่ม repo ให้ LLM อ่านแบบเลือก (**ไม่อ่านทั้ง repo** เพราะแพงและไม่ได้คุณภาพเพิ่มตาม) แล้วสรุปเป็นเอกสารสั้น (ไม่เกิน 6,000 ตัวอักษร: ภาพรวม, สถาปัตยกรรม, convention, จุดที่มักพัง) เก็บใน DB ต่อ repo แนบทุกครั้งที่รีวิว แบ่งเป็น 4 ขั้นย่อย:
+  - ~~**R2b-1 ตัวสร้าง profile ใน `packages/core`**~~ **เสร็จแล้ว** (`profile-files.ts` เลือกไฟล์: โครงโฟลเดอร์, README/ไฟล์กฎ/ARCHITECTURE, config (package.json, tsconfig, eslint, workflow, prisma/drizzle...), ไฟล์ตัวอย่างโค้ดไฟล์ละโฟลเดอร์ (ไฟล์ขนาดกลาง ไม่ใช่ใหญ่สุด) 12 โฟลเดอร์ที่คึกคักที่สุด, test ตัวอย่าง 3 ไฟล์, PR ที่ merge ล่าสุด 15 อัน; `profile.ts` เรียก LLM ครั้งเดียวแบบ structured output ทุก convention/pitfall ต้องระบุไฟล์หลักฐาน แล้วตรวจว่าไฟล์มีจริง กฎที่อ้างไฟล์ที่ไม่มีถูกทิ้ง) ทดสอบกับ `cuatclub-web` (385 ไฟล์): อ่าน 30 ไฟล์ ราว 63,000 ตัวอักษร (~16k token) ต่ำกว่าที่ประเมินไว้เดิม 150–300k token มาก
+  - **R2b-2 DB และ server**: ตาราง `RepoProfile` (สถานะ building/ready/failed, เนื้อหา, notes ที่คนเขียน, commit ที่ใช้สร้าง, token ที่ใช้), poller เริ่มสร้างให้ repo ที่ยังไม่มี profile (ไม่ให้ ReposModule กับ ProfilesModule อ้างกันเป็นวงกลม), endpoint ดู/แก้ notes/Rebuild, แนบ profile และ notes ในรีวิว (notes ของคนมีน้ำหนักเท่า instructions, profile ของ LLM เป็นข้อมูลที่อาจผิด)
+  - **R2b-3 หน้าเว็บ**: แสดงสถานะ ดู profile แก้ notes ปุ่ม Rebuild ในหน้า Repositories
+  - **R2b-4 ทดสอบจริง** กับ `diffy-sandbox` ผ่านแอป
 - **R2c อัปเดต profile** เมื่อ branch หลักเปลี่ยนสำคัญ (ไฟล์กฎ/เอกสาร/config เปลี่ยน, โฟลเดอร์หลักเปลี่ยน, หรือสะสมเกินเกณฑ์) แก้เฉพาะส่วนที่เปลี่ยน ไม่เกินวันละครั้ง มีปุ่ม Rebuild และช่อง Notes ที่คนเขียนเองซึ่งไม่ถูกเขียนทับ
 - **R3 context ทั้งฟังก์ชัน** ดึงไฟล์เต็ม ณ commit นั้น ไฟล์เล็กส่งทั้งไฟล์ ไฟล์ใหญ่ขยาย hunk ไปจนเจอฟังก์ชัน/คลาสที่ครอบ (แบบ dynamic context ของ PR-Agent) ต่อไปค่อยตาม import ไปดู signature
 - **R4 walkthrough** ตารางสรุปการเปลี่ยนแปลงทีละกลุ่มไฟล์ ความเสี่ยง และไฟล์ที่ควรดูก่อน

@@ -4,6 +4,8 @@ export * from './annotate.js';
 export * from './gitattributes.js';
 export * from './repo-config.js';
 export * from './repo-context.js';
+export * from './profile-files.js';
+export * from './profile.js';
 export * from './prompt.js';
 export * from './llm.js';
 export * from './placement.js';

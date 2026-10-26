@@ -36,7 +36,7 @@ export function createModel({ provider, model, apiKey }: LlmConfig): LanguageMod
 }
 
 // One place for the timeout and the error wrapping, whatever the schema.
-async function generateStructured<T>(
+export async function generateStructured<T>(
   config: LlmConfig,
   schema: z.ZodType<T>,
   system: string | undefined,

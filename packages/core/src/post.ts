@@ -14,6 +14,7 @@ export type PostReviewInput = {
   configNotes?: string[];
   contextFiles?: string[];
   usedProfile?: boolean;
+  linkedIssues?: number[];
   droppedFindings?: number;
   walkthrough?: WalkthroughGroup[];
 };
@@ -67,6 +68,7 @@ async function createReview(octokit: Octokit, input: PostReviewInput, findings: 
       configNotes: input.configNotes,
       contextFiles: input.contextFiles,
       usedProfile: input.usedProfile,
+      linkedIssues: input.linkedIssues,
       droppedFindings: input.droppedFindings,
       walkthrough: input.walkthrough,
     }),

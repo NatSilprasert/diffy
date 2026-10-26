@@ -230,6 +230,22 @@ describe('reviewPullRequest', () => {
     });
   });
 
+  describe('with linked issues', () => {
+    it('gives the issue a pull request closes to the model and names it in the review', async () => {
+      vi.mocked(generateReview).mockResolvedValue({ review: { summary: 's', findings: [] }, usage: { inputTokens: 1, outputTokens: 1 } });
+      const { octokit, createReview } = fakeOctokit([file('src/auth.ts', authPatch)]);
+      const get = vi.fn().mockResolvedValue({ data: { title: 'Login fails', body: 'Users cannot sign in.' } });
+      (octokit.rest as unknown as { issues: unknown }).issues = { get };
+
+      await reviewPullRequest({ octokit, pr: { ...pr, body: 'Closes #12' }, llm });
+
+      const [, system, user] = vi.mocked(generateReview).mock.calls[0]!;
+      expect(user).toContain('<issue number="12">\nLogin fails');
+      expect(system).toContain('<linked_issues>');
+      expect(createReview.mock.calls[0]![0].body).toContain('issue #12');
+    });
+  });
+
   describe('with a project profile and maintainer notes', () => {
     const resolved = () => vi.mocked(generateReview).mockResolvedValue({ review: { summary: 's', findings: [] }, usage: { inputTokens: 1, outputTokens: 1 } });
 

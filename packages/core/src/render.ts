@@ -53,6 +53,8 @@ export type SummaryInput = {
   contextFiles?: string[];
   // The project profile (what diffy learned about the repository) was given to the model.
   usedProfile?: boolean;
+  // Numbers of the issues the pull request closes that were read for the review.
+  linkedIssues?: number[];
   // Findings the second check refuted and diffy left out.
   droppedFindings?: number;
   // The pull request in groups of related files, riskiest first. Empty for a small change.
@@ -116,7 +118,11 @@ export function renderSummary(input: SummaryInput): string {
     );
   }
 
-  const context = [...(input.usedProfile ? ['the project brief'] : []), ...(input.contextFiles ?? []).map((path) => `\`${path}\``)];
+  const context = [
+    ...(input.usedProfile ? ['the project brief'] : []),
+    ...(input.contextFiles ?? []).map((path) => `\`${path}\``),
+    ...(input.linkedIssues ?? []).map((number) => `issue #${number}`),
+  ];
   if (context.length > 0) parts.push(`<sub>Read for context: ${context.join(', ')}</sub>`);
 
   const dropped = input.droppedFindings ?? 0;

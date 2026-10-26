@@ -68,6 +68,10 @@ describe('renderSummary context files and profile', () => {
     expect(body).toContain('<sub>Read for context: `AGENTS.md`, `README.md`</sub>');
   });
 
+  it('names the issues the pull request closes', () => {
+    expect(renderSummary({ ...base, findings: [], contextFiles: ['README.md'], linkedIssues: [12, 14] })).toContain('Read for context: `README.md`, issue #12, issue #14');
+  });
+
   it('says nothing when none were read', () => {
     expect(renderSummary({ ...base, findings: [], contextFiles: [] })).not.toContain('Read for context');
   });

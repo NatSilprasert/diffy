@@ -12,6 +12,12 @@ export class SettingsService {
     private readonly crypto: CryptoService,
   ) {}
 
+  // Whether GitHub and the model are both set up, without decrypting anything. For work that should wait until then.
+  async isConfigured(): Promise<boolean> {
+    const settings = await this.settingsRepository.findSingleton();
+    return Boolean(settings?.githubTokenEnc && settings.llmProvider && settings.llmModel && settings.llmApiKeyEnc);
+  }
+
   // The saved GitHub token in plain text, for calling GitHub.
   async getGithubToken(): Promise<string> {
     const settings = await this.settingsRepository.findSingleton();

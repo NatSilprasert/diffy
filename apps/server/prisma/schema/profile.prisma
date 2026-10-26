@@ -1,0 +1,26 @@
+// What diffy has learned about a repository by reading it (see packages/core profile.ts), and the notes the
+// maintainers add by hand. One row per repository, created the first time a profile is built.
+model RepoProfile {
+  id           String        @id @default(cuid())
+  repositoryId String        @unique
+  repository   Repository    @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  status       ProfileStatus @default(building)
+  // The markdown profile written by the model. Null until the first build has succeeded; a failed rebuild
+  // keeps the previous one.
+  content      String?
+  // Written by people in the web app. Never touched by a rebuild.
+  notes        String        @default("")
+  // Why the last build failed. Null when it did not.
+  error        String?
+  // The default branch and its head commit at the time the profile was built.
+  branch       String?
+  builtCommit  String?
+  builtAt      DateTime?
+  // What the last successful build used.
+  provider     LlmProvider?
+  model        String?
+  inputTokens  Int?
+  outputTokens Int?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}

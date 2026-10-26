@@ -50,6 +50,8 @@ export type SummaryInput = {
   configNotes?: string[];
   // The documents of the project that were read for this review (README, rule files...).
   contextFiles?: string[];
+  // The project profile (what diffy learned about the repository) was given to the model.
+  usedProfile?: boolean;
 };
 
 function truncate(body: string): string {
@@ -108,9 +110,8 @@ export function renderSummary(input: SummaryInput): string {
     );
   }
 
-  if (input.contextFiles && input.contextFiles.length > 0) {
-    parts.push(`<sub>Read for context: ${input.contextFiles.map((path) => `\`${path}\``).join(', ')}</sub>`);
-  }
+  const context = [...(input.usedProfile ? ['the project profile'] : []), ...(input.contextFiles ?? []).map((path) => `\`${path}\``)];
+  if (context.length > 0) parts.push(`<sub>Read for context: ${context.join(', ')}</sub>`);
 
   parts.push(`<sub>Reviewed \`${input.headSha.slice(0, 7)}\` with ${input.model}</sub>`);
   return truncate(parts.join('\n\n'));

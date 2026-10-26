@@ -20,6 +20,9 @@ export type ReviewPullRequestInput = {
   maxDiffChars?: number;
   // How much of the project's README and rule files may go into the prompt. 0 = none.
   maxContextChars?: number;
+  // What diffy learned about the repository (markdown), and the notes the maintainers wrote in the web app.
+  projectProfile?: string;
+  maintainerNotes?: string;
 };
 
 export type ReviewOutcome = 'posted' | 'not-posted' | 'nothing-to-review';
@@ -41,7 +44,7 @@ export type ReviewResult = {
 // The whole pipeline: fetch files -> build the diff -> ask the LLM -> check lines -> post.
 // No database and no framework: the server wraps this and stores what it returns.
 export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<ReviewResult> {
-  const { octokit, pr, llm, post = true, maxDiffChars = DEFAULT_MAX_DIFF_CHARS, maxContextChars = DEFAULT_MAX_CONTEXT_CHARS } = input;
+  const { octokit, pr, llm, post = true, maxDiffChars = DEFAULT_MAX_DIFF_CHARS, maxContextChars = DEFAULT_MAX_CONTEXT_CHARS, projectProfile, maintainerNotes } = input;
 
   const [files, gitattributes, { config, warnings: configNotes, branch }] = await Promise.all([
     listChangedFiles(octokit, pr.owner, pr.repo, pr.number),
@@ -76,10 +79,12 @@ export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<
   configNotes.push(...context.warnings);
   const contextFiles = context.docs.map((doc) => doc.path);
 
+  // The notes written in the web app count like the instructions of .diffy.yaml: both are the maintainers' own.
+  const instructions = [config.instructions, maintainerNotes?.trim()].filter(Boolean).join('\n\n') || undefined;
   const { review, usage } = await generateReview(
     llm,
-    buildSystemPrompt(config, { hasDocs: context.docs.length > 0 }),
-    buildUserPrompt(pr, diff, config.pathInstructions, context.docs),
+    buildSystemPrompt({ ...config, instructions }, { hasDocs: context.docs.length > 0, hasProfile: Boolean(projectProfile) }),
+    buildUserPrompt(pr, diff, config.pathInstructions, context.docs, projectProfile),
   );
   const findings = placeFindings(review.findings, buildCommentableIndex(files));
   const base = { summary: review.summary, skipped: diff.skipped, configNotes, contextFiles, usage };
@@ -96,6 +101,7 @@ export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<
     model: `${llm.provider}/${llm.model}`,
     configNotes,
     contextFiles,
+    usedProfile: Boolean(projectProfile),
   });
   return {
     ...base,

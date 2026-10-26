@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ProfilesModule } from '../profiles/profiles.module';
 import { ReposModule } from '../repos/repos.module';
 import { SettingsModule } from '../settings/settings.module';
 import { ReviewsController } from './reviews.controller';
@@ -16,7 +17,7 @@ import { ReviewQueueService } from './worker/review-queue.service';
 import { RunReviewService } from './worker/run-review.service';
 
 @Module({
-  imports: [ReposModule, SettingsModule],
+  imports: [ReposModule, SettingsModule, ProfilesModule],
   controllers: [ReviewsController],
   providers: [
     ReviewsRepository,

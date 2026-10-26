@@ -195,4 +195,32 @@ describe('reviewPullRequest', () => {
       expect(vi.mocked(octokit.rest.repos.getContent).mock.calls.some(([args]) => (args as { path: string }).path === 'README.md')).toBe(false);
     });
   });
+
+  describe('with a project profile and maintainer notes', () => {
+    const resolved = () => vi.mocked(generateReview).mockResolvedValue({ review: { summary: 's', findings: [] }, usage: { inputTokens: 1, outputTokens: 1 } });
+
+    it('gives the profile to the model as information and the notes as maintainer instructions', async () => {
+      resolved();
+      const { octokit, createReview } = fakeOctokit([file('src/auth.ts', authPatch)], { '.diffy.yaml': 'instructions: From the file.' });
+
+      await reviewPullRequest({ octokit, pr, llm, projectProfile: '## Overview\n\nA shop.', maintainerNotes: 'Money is in satang.' });
+
+      const [, system, user] = vi.mocked(generateReview).mock.calls[0]!;
+      expect(user).toContain('<project_profile>\n## Overview\n\nA shop.\n</project_profile>');
+      expect(system).toContain('<project_profile>');
+      // The notes follow the instructions of .diffy.yaml inside the same maintainers block.
+      expect(system).toContain('<project_instructions>\nFrom the file.\n\nMoney is in satang.\n</project_instructions>');
+      expect(createReview.mock.calls[0]![0].body).toContain('Read for context: the project profile');
+    });
+
+    it('uses neither when there is none', async () => {
+      resolved();
+      const { octokit } = fakeOctokit([file('src/auth.ts', authPatch)]);
+      await reviewPullRequest({ octokit, pr, llm, maintainerNotes: '   ' });
+      const [, system, user] = vi.mocked(generateReview).mock.calls[0]!;
+      expect(system).not.toContain('<project_instructions>');
+      expect(system).not.toContain('<project_profile>');
+      expect(user).not.toContain('<project_profile>');
+    });
+  });
 });

@@ -2,6 +2,7 @@ import { createGithubClient, listOpenPullRequests } from '@diffy/core';
 import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnModuleDestroy } from '@nestjs/common';
 import { ENV } from '../../../infra/config/config.module';
 import type { Env } from '../../../infra/config/env';
+import { ProfilesService } from '../../profiles/profiles.service';
 import { ReposService } from '../../repos/repos.service';
 import { SettingsService } from '../../settings/settings.service';
 import { ReviewsRepository } from '../reviews.repository';
@@ -44,6 +45,7 @@ export class PollerService implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly settingsService: SettingsService,
     private readonly reviewsRepository: ReviewsRepository,
     private readonly reviewQueue: ReviewQueueService,
+    private readonly profilesService: ProfilesService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -77,7 +79,9 @@ export class PollerService implements OnApplicationBootstrap, OnModuleDestroy {
     if (this.polling) return;
     this.polling = true;
     try {
-      for (const repo of await this.reposService.listPollableRepos()) {
+      const repos = await this.reposService.listPollableRepos();
+      await this.startMissingProfiles(repos.map((repo) => repo.id));
+      for (const repo of repos) {
         try {
           await this.pollRepo(repo);
         } catch (err) {
@@ -89,6 +93,15 @@ export class PollerService implements OnApplicationBootstrap, OnModuleDestroy {
     } finally {
       this.polling = false;
       this.lastRunAt = new Date();
+    }
+  }
+
+  // A watched repository that has no project profile yet gets one built in the background. It must never stop the poll.
+  private async startMissingProfiles(repositoryIds: string[]): Promise<void> {
+    try {
+      await this.profilesService.startMissing(repositoryIds);
+    } catch (err) {
+      this.logger.error(`Could not start the project profiles: ${errorMessage(err)}`);
     }
   }
 

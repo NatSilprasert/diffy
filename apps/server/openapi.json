@@ -296,6 +296,124 @@
         ]
       }
     },
+    "/api/repos/{repositoryId}/profile": {
+      "get": {
+        "operationId": "getProfile",
+        "parameters": [
+          {
+            "name": "repositoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetProfileResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such repository, or it has no profile yet"
+          }
+        },
+        "tags": [
+          "Profiles"
+        ]
+      }
+    },
+    "/api/repos/{repositoryId}/profile/notes": {
+      "put": {
+        "operationId": "updateProfileNotes",
+        "parameters": [
+          {
+            "name": "repositoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileNotesRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateProfileNotesResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such repository"
+          },
+          "409": {
+            "description": "The repository has no profile yet"
+          }
+        },
+        "tags": [
+          "Profiles"
+        ]
+      }
+    },
+    "/api/repos/{repositoryId}/profile/rebuild": {
+      "post": {
+        "operationId": "rebuildProfile",
+        "parameters": [
+          {
+            "name": "repositoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RebuildProfileResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such repository"
+          },
+          "409": {
+            "description": "The profile is already being built"
+          }
+        },
+        "tags": [
+          "Profiles"
+        ]
+      }
+    },
     "/api/reviews": {
       "post": {
         "operationId": "createReview",
@@ -1043,6 +1161,438 @@
           "lastPolledAt",
           "lastError",
           "createdAt"
+        ]
+      },
+      "GetProfileResponseDto": {
+        "type": "object",
+        "properties": {
+          "repositoryId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "building",
+              "ready",
+              "failed"
+            ]
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The profile the model wrote, as markdown; null before the first successful build"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Why the last build failed; null when it did not"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The default branch the profile was built from"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "builtCommit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The head commit of that branch when the profile was built"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "builtAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "openai",
+                  "anthropic",
+                  "google",
+                  "openrouter"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The model that wrote the profile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inputTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outputTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "repositoryId",
+          "status",
+          "content",
+          "notes",
+          "error",
+          "branch",
+          "builtCommit",
+          "builtAt",
+          "provider",
+          "model",
+          "inputTokens",
+          "outputTokens"
+        ]
+      },
+      "UpdateProfileNotesRequestDto": {
+        "type": "object",
+        "properties": {
+          "notes": {
+            "type": "string",
+            "maxLength": 10000
+          }
+        },
+        "required": [
+          "notes"
+        ]
+      },
+      "UpdateProfileNotesResponseDto": {
+        "type": "object",
+        "properties": {
+          "repositoryId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "building",
+              "ready",
+              "failed"
+            ]
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The profile the model wrote, as markdown; null before the first successful build"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Why the last build failed; null when it did not"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The default branch the profile was built from"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "builtCommit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The head commit of that branch when the profile was built"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "builtAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "openai",
+                  "anthropic",
+                  "google",
+                  "openrouter"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The model that wrote the profile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inputTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outputTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "repositoryId",
+          "status",
+          "content",
+          "notes",
+          "error",
+          "branch",
+          "builtCommit",
+          "builtAt",
+          "provider",
+          "model",
+          "inputTokens",
+          "outputTokens"
+        ]
+      },
+      "RebuildProfileResponseDto": {
+        "type": "object",
+        "properties": {
+          "repositoryId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "building",
+              "ready",
+              "failed"
+            ]
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The profile the model wrote, as markdown; null before the first successful build"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Why the last build failed; null when it did not"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The default branch the profile was built from"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "builtCommit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The head commit of that branch when the profile was built"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "builtAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "openai",
+                  "anthropic",
+                  "google",
+                  "openrouter"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The model that wrote the profile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inputTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outputTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "repositoryId",
+          "status",
+          "content",
+          "notes",
+          "error",
+          "branch",
+          "builtCommit",
+          "builtAt",
+          "provider",
+          "model",
+          "inputTokens",
+          "outputTokens"
         ]
       },
       "CreateReviewRequestDto": {

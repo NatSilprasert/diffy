@@ -4,6 +4,7 @@ vi.mock('@diffy/core', () => ({ createGithubClient: vi.fn(() => ({ client: true 
 
 import { createGithubClient, listOpenPullRequests } from '@diffy/core';
 import type { Env } from '../src/infra/config/env';
+import type { ProfilesService } from '../src/module/profiles/profiles.service';
 import type { ReposService } from '../src/module/repos/repos.service';
 import type { ReviewsRepository } from '../src/module/reviews/reviews.repository';
 import { PollerService } from '../src/module/reviews/worker/poller.service';
@@ -15,6 +16,7 @@ const recordPoll = vi.fn();
 const getGithubToken = vi.fn();
 const createQueued = vi.fn();
 const enqueue = vi.fn();
+const startMissing = vi.fn();
 
 const poller = () =>
   new PollerService(
@@ -23,6 +25,7 @@ const poller = () =>
     { getGithubToken } as unknown as SettingsService,
     { createQueued } as unknown as ReviewsRepository,
     { enqueue } as unknown as ReviewQueueService,
+    { startMissing } as unknown as ProfilesService,
   );
 
 const repo = { id: 'r1', owner: 'acme', name: 'api', baselineShas: [] as string[] };
@@ -41,7 +44,8 @@ const pr = (number: number, over: Record<string, unknown> = {}) => ({
 });
 
 beforeEach(() => {
-  for (const fn of [listPollableRepos, recordPoll, getGithubToken, createQueued, enqueue]) fn.mockReset();
+  for (const fn of [listPollableRepos, recordPoll, getGithubToken, createQueued, enqueue, startMissing]) fn.mockReset();
+  startMissing.mockResolvedValue(undefined);
   vi.mocked(listOpenPullRequests).mockReset().mockResolvedValue([]);
   vi.mocked(createGithubClient).mockClear();
   getGithubToken.mockResolvedValue('github_pat_x');
@@ -289,5 +293,23 @@ describe('PollerService.getState', () => {
     await vi.advanceTimersByTimeAsync(0);
     p.onModuleDestroy();
     expect(p.getState().nextRunAt).toBeNull();
+  });
+
+  describe('project profiles', () => {
+    it('asks for a profile for every pollable repository before polling them', async () => {
+      listPollableRepos.mockResolvedValue([repo, { ...repo, id: 'r2', name: 'web' }]);
+      getGithubToken.mockResolvedValue('t');
+      await poller().pollAll();
+      expect(startMissing).toHaveBeenCalledWith(['r1', 'r2']);
+      expect(recordPoll).toHaveBeenCalledTimes(2);
+    });
+
+    it('never lets a failure to start profiles stop the poll', async () => {
+      listPollableRepos.mockResolvedValue([repo]);
+      getGithubToken.mockResolvedValue('t');
+      startMissing.mockRejectedValue(new Error('database is down'));
+      await poller().pollAll();
+      expect(recordPoll).toHaveBeenCalledWith('r1', null);
+    });
   });
 });

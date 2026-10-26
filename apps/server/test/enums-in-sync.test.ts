@@ -1,4 +1,4 @@
-import { LlmProvider, Placement, ReviewStatus, Severity } from '@diffy/shared';
+import { LlmProvider, Placement, ProfileStatus, ReviewStatus, Severity } from '@diffy/shared';
 import { describe, expect, it } from 'vitest';
 import * as db from '../src/generated/prisma/enums';
 
@@ -13,6 +13,7 @@ describe('database enums match @diffy/shared', () => {
     ['ReviewStatus', db.ReviewStatus, ReviewStatus.options],
     ['Severity', db.Severity, Severity.options],
     ['Placement', db.Placement, Placement.options],
+    ['ProfileStatus', db.ProfileStatus, ProfileStatus.options],
   ])('%s', (_name, prismaEnum, sharedOptions) => {
     expect(sorted(Object.values(prismaEnum))).toEqual(sorted(sharedOptions));
   });

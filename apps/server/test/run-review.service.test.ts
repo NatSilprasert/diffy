@@ -8,6 +8,7 @@ vi.mock('@diffy/core', () => ({
 
 import { getPullRequest, reviewPullRequest } from '@diffy/core';
 import type { Env } from '../src/infra/config/env';
+import type { ProfilesService } from '../src/module/profiles/profiles.service';
 import type { ReviewsRepository } from '../src/module/reviews/reviews.repository';
 import { RunReviewService } from '../src/module/reviews/worker/run-review.service';
 import type { SettingsService } from '../src/module/settings/settings.service';
@@ -18,11 +19,13 @@ const saveResult = vi.fn();
 const markFailed = vi.fn();
 const getGithubToken = vi.fn();
 const getLlmConfig = vi.fn();
+const getReviewContext = vi.fn();
 
 const service = new RunReviewService(
   { findForRun, claim, saveResult, markFailed } as unknown as ReviewsRepository,
   { getGithubToken, getLlmConfig } as unknown as SettingsService,
   { MAX_DIFF_CHARS: 123_456, MAX_CONTEXT_CHARS: 7_000 } as Env,
+  { getReviewContext } as unknown as ProfilesService,
 );
 
 const queuedReview = { id: 'v1', prNumber: 7, headSha: 'abc1234', repository: { owner: 'acme', name: 'api' } };
@@ -40,13 +43,14 @@ const finding = {
 };
 
 beforeEach(() => {
-  for (const fn of [findForRun, claim, saveResult, markFailed, getGithubToken, getLlmConfig]) fn.mockReset();
+  for (const fn of [findForRun, claim, saveResult, markFailed, getGithubToken, getLlmConfig, getReviewContext]) fn.mockReset();
   vi.mocked(getPullRequest).mockReset().mockResolvedValue({ headSha: 'abc1234' } as never);
   vi.mocked(reviewPullRequest).mockReset();
-  findForRun.mockResolvedValue(queuedReview);
+  findForRun.mockResolvedValue({ ...queuedReview, repositoryId: 'r1' });
   claim.mockResolvedValue(true);
   getGithubToken.mockResolvedValue('github_pat_REALTOKEN');
   getLlmConfig.mockResolvedValue(llm);
+  getReviewContext.mockResolvedValue({ profile: undefined, notes: undefined });
 });
 
 describe('RunReviewService.run', () => {
@@ -153,5 +157,38 @@ describe('RunReviewService.run', () => {
     expect(getGithubToken).not.toHaveBeenCalled();
     expect(saveResult).not.toHaveBeenCalled();
     expect(markFailed).not.toHaveBeenCalled();
+  });
+
+  describe('what is known about the repository', () => {
+    const posted = {
+      outcome: 'posted',
+      summary: 's',
+      findings: [],
+      skipped: [],
+      usage: undefined,
+      githubReviewUrl: null,
+      fellBackToSummary: false,
+    };
+
+    it('hands the profile and the notes of the repository to the review', async () => {
+      getReviewContext.mockResolvedValue({ profile: '## Overview', notes: 'Money is in satang.' });
+      vi.mocked(reviewPullRequest).mockResolvedValue(posted as never);
+
+      await service.run('v1');
+
+      expect(getReviewContext).toHaveBeenCalledWith('r1');
+      expect(vi.mocked(reviewPullRequest).mock.calls[0]![0]).toMatchObject({ projectProfile: '## Overview', maintainerNotes: 'Money is in satang.' });
+    });
+
+    it('still reviews when the profile cannot be read', async () => {
+      getReviewContext.mockRejectedValue(new Error('database hiccup'));
+      vi.mocked(reviewPullRequest).mockResolvedValue(posted as never);
+
+      await service.run('v1');
+
+      expect(markFailed).not.toHaveBeenCalled();
+      expect(vi.mocked(reviewPullRequest).mock.calls[0]![0].projectProfile).toBeUndefined();
+      expect(saveResult).toHaveBeenCalled();
+    });
   });
 });

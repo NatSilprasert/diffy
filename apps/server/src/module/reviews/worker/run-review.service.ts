@@ -1,5 +1,6 @@
 import { createGithubClient, getPullRequest, reviewPullRequest } from '@diffy/core';
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ProfilesService } from '../../profiles/profiles.service';
 import { ENV } from '../../../infra/config/config.module';
 import type { Env } from '../../../infra/config/env';
 import { redactSecrets } from '../../../infra/security/redact';
@@ -18,6 +19,7 @@ export class RunReviewService {
     private readonly reviewsRepository: ReviewsRepository,
     private readonly settingsService: SettingsService,
     @Inject(ENV) private readonly env: Env,
+    private readonly profilesService: ProfilesService,
   ) {}
 
   async run(reviewId: string): Promise<void> {
@@ -53,9 +55,14 @@ export class RunReviewService {
         return;
       }
 
+      // What diffy learned about this repository and what its maintainers noted. Reading it must never fail a review.
+      const context = await this.profilesService.getReviewContext(review.repositoryId).catch(() => undefined);
+
       const result = await reviewPullRequest({ octokit, pr, llm, post: true,
         maxDiffChars: this.env.MAX_DIFF_CHARS,
         maxContextChars: this.env.MAX_CONTEXT_CHARS,
+        projectProfile: context?.profile,
+        maintainerNotes: context?.notes,
       });
       const reviewed = result.outcome === 'posted';
 

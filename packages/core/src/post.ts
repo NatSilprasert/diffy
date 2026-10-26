@@ -12,6 +12,7 @@ export type PostReviewInput = {
   model: string;
   configNotes?: string[];
   contextFiles?: string[];
+  usedProfile?: boolean;
 };
 
 export type PostedReview = {
@@ -62,6 +63,7 @@ async function createReview(octokit: Octokit, input: PostReviewInput, findings: 
       headSha: input.pr.headSha,
       configNotes: input.configNotes,
       contextFiles: input.contextFiles,
+      usedProfile: input.usedProfile,
     }),
     comments: comments.length > 0 ? comments : undefined,
   });

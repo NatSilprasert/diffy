@@ -27,3 +27,10 @@ enum Placement {
   inline
   summary
 }
+
+// Where the profile of a repository is in its life. A profile that is `ready` can be used by reviews.
+enum ProfileStatus {
+  building
+  ready
+  failed
+}

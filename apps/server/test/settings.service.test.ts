@@ -56,3 +56,26 @@ describe('SettingsService.getLlmConfig', () => {
     await expect(broken.getLlmConfig()).rejects.toThrow(/ENCRYPTION_KEY/);
   });
 });
+
+describe('SettingsService.isConfigured', () => {
+  const configured = (row: Record<string, unknown> | null) =>
+    new SettingsService(
+      { findSingleton: vi.fn().mockResolvedValue(row) } as unknown as SettingsRepository,
+      { decrypt: vi.fn() } as unknown as CryptoService,
+    ).isConfigured();
+  const full = { githubTokenEnc: 'v1:g', llmProvider: 'google', llmModel: 'gemini-x', llmApiKeyEnc: 'v1:k' };
+
+  it('is true only when GitHub and the model are both saved', async () => {
+    expect(await configured(full)).toBe(true);
+    expect(await configured({ ...full, githubTokenEnc: null })).toBe(false);
+    expect(await configured({ ...full, llmApiKeyEnc: null })).toBe(false);
+    expect(await configured({ ...full, llmModel: null })).toBe(false);
+    expect(await configured(null)).toBe(false);
+  });
+
+  it('does not decrypt anything', async () => {
+    const decrypt = vi.fn();
+    await new SettingsService({ findSingleton: vi.fn().mockResolvedValue(full) } as unknown as SettingsRepository, { decrypt } as unknown as CryptoService).isConfigured();
+    expect(decrypt).not.toHaveBeenCalled();
+  });
+});

@@ -18,6 +18,8 @@ export type RepoConfig = {
   pathInstructions: PathInstruction[];
   // Globs of files that are never reviewed.
   ignore: string[];
+  // Paths of documents (on the default branch) to read before every review, besides the README and the rule files.
+  contextFiles: string[];
 };
 
 export const DEFAULT_REPO_CONFIG: RepoConfig = {
@@ -26,6 +28,7 @@ export const DEFAULT_REPO_CONFIG: RepoConfig = {
   instructions: undefined,
   pathInstructions: [],
   ignore: [],
+  contextFiles: [],
 };
 
 export const CONFIG_FILES = ['.diffy.yaml', '.diffy.yml'];
@@ -33,6 +36,7 @@ export const MAX_INSTRUCTIONS_CHARS = 20_000;
 export const MAX_PATH_INSTRUCTIONS = 50;
 export const MAX_PATH_INSTRUCTION_CHARS = 5_000;
 export const MAX_IGNORE_PATTERNS = 100;
+export const MAX_CONTEXT_FILES = 10;
 
 const Language = z.enum(['en', 'th']);
 const Profile = z.enum(['chill', 'assertive']);
@@ -45,10 +49,11 @@ export type ParsedConfig = {
   instructionsFile: string | undefined;
   pathInstructions: PathInstruction[];
   ignore: string[];
+  contextFiles: string[];
   warnings: string[];
 };
 
-const KNOWN_KEYS = ['language', 'profile', 'instructions', 'instructions_file', 'path_instructions', 'ignore'];
+const KNOWN_KEYS = ['language', 'profile', 'instructions', 'instructions_file', 'path_instructions', 'ignore', 'context_files'];
 
 const describeValue = (value: unknown) => (typeof value === 'string' ? `"${value}"` : JSON.stringify(value));
 
@@ -62,6 +67,7 @@ export function parseRepoConfig(text: string): ParsedConfig {
     instructionsFile: undefined,
     pathInstructions: [],
     ignore: [],
+    contextFiles: [],
     warnings: [],
   };
 
@@ -140,6 +146,18 @@ export function parseRepoConfig(text: string): ParsedConfig {
     }
   }
 
+  if ('context_files' in config) {
+    if (!Array.isArray(config.context_files) || !config.context_files.every((path) => typeof path === 'string' && path.trim() !== '')) {
+      result.warnings.push('context_files must be a list of paths in the repository (text). It was ignored.');
+    } else {
+      result.contextFiles = config.context_files.map((path: string) => path.trim());
+      if (result.contextFiles.length > MAX_CONTEXT_FILES) {
+        result.warnings.push(`Only the first ${MAX_CONTEXT_FILES} context_files are used.`);
+        result.contextFiles = result.contextFiles.slice(0, MAX_CONTEXT_FILES);
+      }
+    }
+  }
+
   return result;
 }
 
@@ -148,7 +166,8 @@ export function isSafeRepoPath(path: string): boolean {
   return path !== '' && !path.startsWith('/') && !path.includes('\\') && !path.split('/').includes('..');
 }
 
-export type LoadedRepoConfig = { config: RepoConfig; warnings: string[] };
+// `branch` is the default branch the settings were read from; undefined when GitHub could not be asked.
+export type LoadedRepoConfig = { config: RepoConfig; warnings: string[]; branch: string | undefined };
 
 // The matcher for the `ignore` patterns of a config, using the same pattern syntax as .gitattributes.
 export function ignoreMatcher(patterns: string[]): (path: string) => boolean {
@@ -172,7 +191,7 @@ export async function loadRepoConfig(octokit: Octokit, owner: string, repo: stri
         break;
       }
     }
-    if (!file) return { config: DEFAULT_REPO_CONFIG, warnings };
+    if (!file) return { config: DEFAULT_REPO_CONFIG, warnings, branch };
 
     const parsed = parseRepoConfig(file.text);
     warnings.push(...parsed.warnings.map((warning) => `${file.name}: ${warning}`));
@@ -201,11 +220,13 @@ export async function loadRepoConfig(octokit: Octokit, owner: string, repo: stri
         instructions,
         pathInstructions: parsed.pathInstructions,
         ignore: parsed.ignore,
+        contextFiles: parsed.contextFiles,
       },
       warnings,
+      branch,
     };
   } catch (err) {
     warnings.push(`Could not read the repository's diffy settings (${(err as Error).message.split('\n')[0]}). Defaults were used.`);
-    return { config: DEFAULT_REPO_CONFIG, warnings };
+    return { config: DEFAULT_REPO_CONFIG, warnings, branch: undefined };
   }
 }

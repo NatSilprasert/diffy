@@ -24,6 +24,9 @@ export const EnvSchema = z.object({
   // How much diff (in characters, about 4 per token) one review may send to the model. Bigger pull requests
   // are reviewed in part: code first, then tests, then the rest. Same default as DEFAULT_MAX_DIFF_CHARS in core.
   MAX_DIFF_CHARS: z.coerce.number().int().min(10_000).default(150_000),
+  // How much of the project's own documents (README, AGENTS.md, CLAUDE.md, CONTRIBUTING.md...) is added to every
+  // review, in characters. 0 turns it off. Same default as DEFAULT_MAX_CONTEXT_CHARS in core.
+  MAX_CONTEXT_CHARS: z.coerce.number().int().min(0).default(30_000),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

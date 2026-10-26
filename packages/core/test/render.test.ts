@@ -41,6 +41,17 @@ describe('renderInlineComment', () => {
   });
 });
 
+describe('renderSummary context files', () => {
+  it('says which documents of the project were read', () => {
+    const body = renderSummary({ ...base, findings: [], contextFiles: ['AGENTS.md', 'README.md'] });
+    expect(body).toContain('<sub>Read for context: `AGENTS.md`, `README.md`</sub>');
+  });
+
+  it('says nothing when none were read', () => {
+    expect(renderSummary({ ...base, findings: [], contextFiles: [] })).not.toContain('Read for context');
+  });
+});
+
 describe('renderSummary config notes', () => {
   it('lists the problems with the repository settings, collapsed', () => {
     const body = renderSummary({ ...base, findings: [], configNotes: ['.diffy.yaml: language must be "en" or "th", not "fr". Using "en".'] });

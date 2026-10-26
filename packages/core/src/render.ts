@@ -48,6 +48,8 @@ export type SummaryInput = {
   headSha: string;
   // Problems found in the repository's .diffy.yaml. Shown so the maintainers can fix the file.
   configNotes?: string[];
+  // The documents of the project that were read for this review (README, rule files...).
+  contextFiles?: string[];
 };
 
 function truncate(body: string): string {
@@ -104,6 +106,10 @@ export function renderSummary(input: SummaryInput): string {
     parts.push(
       [`<details>\n<summary>${input.configNotes.length} problem(s) with the diffy settings of this repository</summary>\n`, ...input.configNotes.map((n) => `- ${n}`), '\n</details>'].join('\n'),
     );
+  }
+
+  if (input.contextFiles && input.contextFiles.length > 0) {
+    parts.push(`<sub>Read for context: ${input.contextFiles.map((path) => `\`${path}\``).join(', ')}</sub>`);
   }
 
   parts.push(`<sub>Reviewed \`${input.headSha.slice(0, 7)}\` with ${input.model}</sub>`);

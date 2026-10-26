@@ -32,7 +32,7 @@ AI รีวิว pull request แบบ open source ที่ผู้ใช�
 | E | Reviews API และ worker (E1–E7) | เสร็จ |
 | F | หน้าเว็บ (Next.js) F1–F7 | **F1–F7 เสร็จ** (เว็บครบ) |
 | G | รวมเป็น process เดียวและเอกสาร G1–G2 | ยังไม่เริ่ม |
-| R | ทำให้รีวิวละเอียดขึ้น R1–R7 (หัวข้อ 9, Phase R) | **R1 กำลังทำ** |
+| R | ทำให้รีวิวละเอียดขึ้น R1–R7 (หัวข้อ 9, Phase R) | **R1–R2 เสร็จ** |
 
 จำนวน test ที่ผ่าน ณ วันที่เขียน: `shared` 8, `core` 74, `server` 227, `web` 29
 
@@ -270,8 +270,8 @@ Migration ที่มี: `init`, `add_repository_removed_at`, `lowercase_enums
 - เอกสารจาก repo ถูกห่อเป็นข้อมูล ไม่ใช่คำสั่ง (กัน prompt injection) ยกเว้น instructions ใน `.diffy.yaml` ซึ่งมาจากผู้ดูแลบน branch หลัก
 
 **ขั้นตอน (ทำทีละขั้น ทดสอบแล้วค่อยไปต่อ)**
-- **R1 `.diffy.yaml`** ต่อ repo: `language` (th/en), `profile` (chill/assertive), `instructions`, `instructions_file`, `path_instructions` (path + instructions), `ignore` (glob) ตรวจด้วย Zod ค่าที่ผิดไม่ทำให้รีวิวล้ม แต่รายงานในสรุปของรีวิว
-- **R2 README และไฟล์กฎ** อ่าน `README.md` ทุกครั้ง บวกไฟล์กฎที่ตรวจเจอเอง (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.github/copilot-instructions.md`, `CONTRIBUTING.md`) และ `context_files` ใน `.diffy.yaml` ใช้งบแยกจากงบ diff
+- ~~**R1 `.diffy.yaml`**~~ **เสร็จแล้ว** ต่อ repo: `language` (th/en), `profile` (chill/assertive), `instructions`, `instructions_file`, `path_instructions` (path + instructions), `ignore` (glob) ตรวจด้วย Zod ค่าที่ผิดไม่ทำให้รีวิวล้ม แต่รายงานในสรุปของรีวิว
+- ~~**R2 README และไฟล์กฎ**~~ **เสร็จแล้ว** (ตั้งงบด้วย `MAX_CONTEXT_CHARS` ค่าเริ่มต้น 30,000 ตัวอักษร 0 = ปิด ไฟล์ละไม่เกิน 10,000 เรียง: `context_files` > `AGENTS.md`/`CLAUDE.md`/`.cursorrules`/`copilot-instructions.md` > README > CONTRIBUTING ไฟล์ที่เนื้อหาซ้ำกันอ่านครั้งเดียว รีวิวบอกท้ายสรุปว่าอ่านไฟล์ไหน) อ่าน `README.md` ทุกครั้ง บวกไฟล์กฎที่ตรวจเจอเอง (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.github/copilot-instructions.md`, `CONTRIBUTING.md`) และ `context_files` ใน `.diffy.yaml` ใช้งบแยกจากงบ diff
 - **R2b project profile** ตอนเพิ่ม repo ให้ LLM อ่านแบบเลือก (โครงสร้างโฟลเดอร์, README/docs/ไฟล์กฎ, config ที่บอกกฎ, ไฟล์ตัวอย่างที่ถูก import บ่อย, PR ที่ merge ล่าสุด 10–20 อัน ประมาณ 150–300k token ครั้งเดียว) สรุปเป็นเอกสารสั้น 2–4k token ต่อ repo (สถาปัตยกรรม, convention, กฎ, จุดที่มักพัง ทุกกฎต้องอ้างไฟล์หลักฐาน) เก็บใน DB แสดงและแก้ในหน้าเว็บ แนบทุกครั้งที่รีวิว **ไม่อ่านทั้ง repo** เพราะแพง ($3–10 ต่อครั้ง) และไม่ได้คุณภาพเพิ่มตาม
 - **R2c อัปเดต profile** เมื่อ branch หลักเปลี่ยนสำคัญ (ไฟล์กฎ/เอกสาร/config เปลี่ยน, โฟลเดอร์หลักเปลี่ยน, หรือสะสมเกินเกณฑ์) แก้เฉพาะส่วนที่เปลี่ยน ไม่เกินวันละครั้ง มีปุ่ม Rebuild และช่อง Notes ที่คนเขียนเองซึ่งไม่ถูกเขียนทับ
 - **R3 context ทั้งฟังก์ชัน** ดึงไฟล์เต็ม ณ commit นั้น ไฟล์เล็กส่งทั้งไฟล์ ไฟล์ใหญ่ขยาย hunk ไปจนเจอฟังก์ชัน/คลาสที่ครอบ (แบบ dynamic context ของ PR-Agent) ต่อไปค่อยตาม import ไปดู signature

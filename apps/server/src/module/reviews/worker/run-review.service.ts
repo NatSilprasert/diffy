@@ -53,7 +53,10 @@ export class RunReviewService {
         return;
       }
 
-      const result = await reviewPullRequest({ octokit, pr, llm, post: true, maxDiffChars: this.env.MAX_DIFF_CHARS });
+      const result = await reviewPullRequest({ octokit, pr, llm, post: true,
+        maxDiffChars: this.env.MAX_DIFF_CHARS,
+        maxContextChars: this.env.MAX_CONTEXT_CHARS,
+      });
       const reviewed = result.outcome === 'posted';
 
       await this.reviewsRepository.saveResult(reviewId, {

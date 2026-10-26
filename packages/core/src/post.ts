@@ -11,6 +11,7 @@ export type PostReviewInput = {
   skipped: SkippedFile[];
   model: string;
   configNotes?: string[];
+  contextFiles?: string[];
 };
 
 export type PostedReview = {
@@ -60,6 +61,7 @@ async function createReview(octokit: Octokit, input: PostReviewInput, findings: 
       model: input.model,
       headSha: input.pr.headSha,
       configNotes: input.configNotes,
+      contextFiles: input.contextFiles,
     }),
     comments: comments.length > 0 ? comments : undefined,
   });

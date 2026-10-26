@@ -31,6 +31,11 @@ path_instructions:
   - path: "**/*.sql"
     instructions: Migrations must be reversible.
 
+# More documents to read before every review (on the default branch, up to 10). Read first, before the
+# files diffy finds by itself.
+context_files:
+  - docs/ARCHITECTURE.md
+
 # Files that are never reviewed. Same pattern syntax as .gitignore / .gitattributes.
 ignore:
   - "public/**"
@@ -39,3 +44,14 @@ ignore:
 
 Also skipped without any setting: lockfiles, build output, migration snapshots, other generated files and
 anything marked `linguist-generated` in `.gitattributes`.
+
+## Documents diffy reads on its own
+
+Before every review diffy reads, from the default branch, the first of these that exist: your `context_files`,
+then `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.github/copilot-instructions.md`, then `README.md` (or
+`README.markdown`, `readme.md`, `README`), then `CONTRIBUTING.md`. A long document is cut at 10,000 characters, and
+all of them together at `MAX_CONTEXT_CHARS` (30,000 by default, 0 turns this off). A file with the same text as an
+earlier one is read once. The review says which documents it read, at the bottom.
+
+The model is told these are information about the project, not instructions: it uses them to understand what the
+project is and which conventions it follows, and ignores anything in them that tries to change its task.

@@ -32,6 +32,7 @@ ignore:
       instructionsFile: 'docs/review.md',
       pathInstructions: [{ path: 'src/server/**', instructions: "Every endpoint must check the user's permissions." }],
       ignore: ['public/**', '*.svg'],
+      contextFiles: [],
       warnings: [],
     });
   });
@@ -82,6 +83,13 @@ path_instructions:
     expect(parseRepoConfig('ignore:\n  - ok\n  - 5').ignore).toEqual([]);
   });
 
+  it('reads context_files and rejects what is not a list of paths', () => {
+    expect(parseRepoConfig('context_files:\n  - docs/ARCHITECTURE.md\n  - docs/rules.md').contextFiles).toEqual(['docs/ARCHITECTURE.md', 'docs/rules.md']);
+    const bad = parseRepoConfig('context_files: docs/a.md');
+    expect(bad.contextFiles).toEqual([]);
+    expect(bad.warnings[0]).toMatch(/context_files must be a list/);
+  });
+
   it('uses only the first path_instructions when there are too many', () => {
     const entries = Array.from({ length: MAX_PATH_INSTRUCTIONS + 3 }, (_, i) => `  - path: "p${i}/**"\n    instructions: x`).join('\n');
     const parsed = parseRepoConfig(`path_instructions:\n${entries}`);
@@ -128,7 +136,7 @@ function fakeGithub(files: Record<string, string>, opts: { defaultBranch?: strin
 describe('loadRepoConfig', () => {
   it('gives the defaults, without a word, for a repository with no config file', async () => {
     const { octokit } = fakeGithub({});
-    expect(await loadRepoConfig(octokit, 'acme', 'api')).toEqual({ config: DEFAULT_REPO_CONFIG, warnings: [] });
+    expect(await loadRepoConfig(octokit, 'acme', 'api')).toEqual({ config: DEFAULT_REPO_CONFIG, warnings: [], branch: 'main' });
   });
 
   it('reads the file from the default branch, whatever its name', async () => {
@@ -179,8 +187,9 @@ describe('loadRepoConfig', () => {
 
   it('never throws: a GitHub failure gives the defaults and a warning', async () => {
     const { octokit } = fakeGithub({}, { failWith: { status: 403, message: 'Resource not accessible' } });
-    const { config, warnings } = await loadRepoConfig(octokit, 'acme', 'api');
+    const { config, warnings, branch } = await loadRepoConfig(octokit, 'acme', 'api');
     expect(config).toEqual(DEFAULT_REPO_CONFIG);
+    expect(branch).toBeUndefined();
     expect(warnings).toEqual(["Could not read the repository's diffy settings (Resource not accessible). Defaults were used."]);
   });
 });

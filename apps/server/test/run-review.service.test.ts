@@ -22,7 +22,7 @@ const getLlmConfig = vi.fn();
 const service = new RunReviewService(
   { findForRun, claim, saveResult, markFailed } as unknown as ReviewsRepository,
   { getGithubToken, getLlmConfig } as unknown as SettingsService,
-  { MAX_DIFF_CHARS: 123_456 } as Env,
+  { MAX_DIFF_CHARS: 123_456, MAX_CONTEXT_CHARS: 7_000 } as Env,
 );
 
 const queuedReview = { id: 'v1', prNumber: 7, headSha: 'abc1234', repository: { owner: 'acme', name: 'api' } };
@@ -64,7 +64,7 @@ describe('RunReviewService.run', () => {
     await service.run('v1');
 
     expect(vi.mocked(getPullRequest).mock.calls[0]!.slice(1)).toEqual(['acme', 'api', 7]);
-    expect(vi.mocked(reviewPullRequest).mock.calls[0]![0]).toMatchObject({ llm, post: true, maxDiffChars: 123_456 });
+    expect(vi.mocked(reviewPullRequest).mock.calls[0]![0]).toMatchObject({ llm, post: true, maxDiffChars: 123_456, maxContextChars: 7_000 });
     expect(saveResult).toHaveBeenCalledWith('v1', {
       status: 'posted',
       summary: 'Adds login.',

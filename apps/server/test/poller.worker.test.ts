@@ -7,8 +7,8 @@ import type { Env } from '../src/infra/config/env';
 import type { ProfilesService } from '../src/module/profiles/profiles.service';
 import type { ReposService } from '../src/module/repos/repos.service';
 import type { ReviewsRepository } from '../src/module/reviews/reviews.repository';
-import { PollerService } from '../src/module/reviews/worker/poller.service';
-import type { ReviewQueueService } from '../src/module/reviews/worker/review-queue.service';
+import { PollerWorker } from '../src/module/reviews/worker/poller.worker';
+import type { ReviewQueueWorker } from '../src/module/reviews/worker/review-queue.worker';
 import type { SettingsService } from '../src/module/settings/settings.service';
 
 const listPollableRepos = vi.fn();
@@ -19,12 +19,12 @@ const enqueue = vi.fn();
 const startMissing = vi.fn();
 
 const poller = () =>
-  new PollerService(
+  new PollerWorker(
     { POLL_INTERVAL_SECONDS: 60 } as Env,
     { listPollableRepos, recordPoll } as unknown as ReposService,
     { getGithubToken } as unknown as SettingsService,
     { createQueued } as unknown as ReviewsRepository,
-    { enqueue } as unknown as ReviewQueueService,
+    { enqueue } as unknown as ReviewQueueWorker,
     { startMissing } as unknown as ProfilesService,
   );
 
@@ -55,7 +55,7 @@ beforeEach(() => {
 
 afterEach(() => vi.useRealTimers());
 
-describe('PollerService.pollRepo', () => {
+describe('PollerWorker.pollRepo', () => {
   it('queues a review for every new pull request and records a clean poll', async () => {
     vi.mocked(listOpenPullRequests).mockResolvedValue([pr(1), pr(2)] as never);
 
@@ -123,7 +123,7 @@ describe('PollerService.pollRepo', () => {
   });
 });
 
-describe('PollerService baseline (pull requests that were open when the repo was added)', () => {
+describe('PollerWorker baseline (pull requests that were open when the repo was added)', () => {
   it('does not review a pull request whose head commit is in the baseline', async () => {
     vi.mocked(listOpenPullRequests).mockResolvedValue([pr(1), pr(2)] as never);
 
@@ -148,7 +148,7 @@ describe('PollerService baseline (pull requests that were open when the repo was
   });
 });
 
-describe('PollerService.pollAll', () => {
+describe('PollerWorker.pollAll', () => {
   it('polls every pollable repository, and one failing repository does not stop the others', async () => {
     listPollableRepos.mockResolvedValue([repo, { ...repo, id: 'r2', name: 'web' }, { ...repo, id: 'r3', name: 'docs' }]);
     vi.mocked(listOpenPullRequests)
@@ -200,7 +200,7 @@ describe('PollerService.pollAll', () => {
   });
 });
 
-describe('PollerService timer', () => {
+describe('PollerWorker timer', () => {
   it('polls once at startup and then every POLL_INTERVAL_SECONDS, until the module is destroyed', async () => {
     vi.useFakeTimers();
     listPollableRepos.mockResolvedValue([]);
@@ -221,7 +221,7 @@ describe('PollerService timer', () => {
   });
 });
 
-describe('PollerService.getState', () => {
+describe('PollerWorker.getState', () => {
   it('has no times before the timer starts', () => {
     expect(poller().getState()).toEqual({ intervalSeconds: 60, running: false, lastRunAt: null, nextRunAt: null });
   });

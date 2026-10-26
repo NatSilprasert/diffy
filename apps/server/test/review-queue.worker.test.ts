@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ReviewsRepository } from '../src/module/reviews/reviews.repository';
-import type { RunReviewService } from '../src/module/reviews/worker/run-review.service';
-import { ReviewQueueService } from '../src/module/reviews/worker/review-queue.service';
+import type { RunReviewWorker } from '../src/module/reviews/worker/run-review.worker';
+import { ReviewQueueWorker } from '../src/module/reviews/worker/review-queue.worker';
 
 // A run() whose completion the test controls, so overlapping behaviour can be observed.
 function controllableRun() {
@@ -28,10 +28,10 @@ const noRepo = {} as unknown as ReviewsRepository; // only used by recovery, whi
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
-describe('ReviewQueueService', () => {
+describe('ReviewQueueWorker', () => {
   it('runs reviews one at a time, in the order they were queued', async () => {
     const c = controllableRun();
-    const queue = new ReviewQueueService({ run: c.run } as unknown as RunReviewService, noRepo);
+    const queue = new ReviewQueueWorker({ run: c.run } as unknown as RunReviewWorker, noRepo);
 
     queue.enqueue('a');
     queue.enqueue('b');
@@ -56,7 +56,7 @@ describe('ReviewQueueService', () => {
 
   it('ignores an id that is already waiting or running', async () => {
     const c = controllableRun();
-    const queue = new ReviewQueueService({ run: c.run } as unknown as RunReviewService, noRepo);
+    const queue = new ReviewQueueWorker({ run: c.run } as unknown as RunReviewWorker, noRepo);
 
     queue.enqueue('a');
     queue.enqueue('a'); // running
@@ -77,7 +77,7 @@ describe('ReviewQueueService', () => {
       .fn()
       .mockRejectedValueOnce(new Error('database is down'))
       .mockResolvedValueOnce(undefined);
-    const queue = new ReviewQueueService({ run } as unknown as RunReviewService, noRepo);
+    const queue = new ReviewQueueWorker({ run } as unknown as RunReviewWorker, noRepo);
 
     queue.enqueue('a');
     queue.enqueue('b');
@@ -89,7 +89,7 @@ describe('ReviewQueueService', () => {
 
   it('can be used again after it has gone idle', async () => {
     const run = vi.fn().mockResolvedValue(undefined);
-    const queue = new ReviewQueueService({ run } as unknown as RunReviewService, noRepo);
+    const queue = new ReviewQueueWorker({ run } as unknown as RunReviewWorker, noRepo);
 
     queue.enqueue('a');
     await queue.idle();
@@ -101,7 +101,7 @@ describe('ReviewQueueService', () => {
 
   it('picks up an id queued while another review is running', async () => {
     const c = controllableRun();
-    const queue = new ReviewQueueService({ run: c.run } as unknown as RunReviewService, noRepo);
+    const queue = new ReviewQueueWorker({ run: c.run } as unknown as RunReviewWorker, noRepo);
 
     queue.enqueue('a');
     await tick();
@@ -115,15 +115,15 @@ describe('ReviewQueueService', () => {
   });
 
   it('idle() resolves immediately when nothing was queued', async () => {
-    await expect(new ReviewQueueService({ run: vi.fn() } as unknown as RunReviewService, noRepo).idle()).resolves.toBeUndefined();
+    await expect(new ReviewQueueWorker({ run: vi.fn() } as unknown as RunReviewWorker, noRepo).idle()).resolves.toBeUndefined();
   });
 });
 
-describe('ReviewQueueService.onApplicationBootstrap (recovery after a restart)', () => {
+describe('ReviewQueueWorker.onApplicationBootstrap (recovery after a restart)', () => {
   it('queues every unfinished review from the database, oldest first', async () => {
     const run = vi.fn().mockResolvedValue(undefined);
     const recoverUnfinished = vi.fn().mockResolvedValue(['old', 'newer', 'newest']);
-    const queue = new ReviewQueueService({ run } as unknown as RunReviewService, { recoverUnfinished } as unknown as ReviewsRepository);
+    const queue = new ReviewQueueWorker({ run } as unknown as RunReviewWorker, { recoverUnfinished } as unknown as ReviewsRepository);
 
     await queue.onApplicationBootstrap();
     await queue.idle();
@@ -134,7 +134,7 @@ describe('ReviewQueueService.onApplicationBootstrap (recovery after a restart)',
 
   it('does nothing when no review was left unfinished', async () => {
     const run = vi.fn();
-    const queue = new ReviewQueueService({ run } as unknown as RunReviewService, {
+    const queue = new ReviewQueueWorker({ run } as unknown as RunReviewWorker, {
       recoverUnfinished: vi.fn().mockResolvedValue([]),
     } as unknown as ReviewsRepository);
 
@@ -145,7 +145,7 @@ describe('ReviewQueueService.onApplicationBootstrap (recovery after a restart)',
   });
 
   it('does not stop the server from starting if recovery fails', async () => {
-    const queue = new ReviewQueueService({ run: vi.fn() } as unknown as RunReviewService, {
+    const queue = new ReviewQueueWorker({ run: vi.fn() } as unknown as RunReviewWorker, {
       recoverUnfinished: vi.fn().mockRejectedValue(new Error('database is down')),
     } as unknown as ReviewsRepository);
 

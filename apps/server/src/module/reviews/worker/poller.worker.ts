@@ -6,7 +6,7 @@ import { ProfilesService } from '../../profiles/profiles.service';
 import { ReposService } from '../../repos/repos.service';
 import { SettingsService } from '../../settings/settings.service';
 import { ReviewsRepository } from '../reviews.repository';
-import { ReviewQueueService } from './review-queue.service';
+import { ReviewQueueWorker } from './review-queue.worker';
 
 const MAX_ERROR_CHARS = 500;
 
@@ -32,8 +32,8 @@ export type PollResult = {
 // Looks for new pull requests (and new commits on old ones) in every watched repository, on a timer,
 // and queues a review for each commit that has none yet. No webhooks: a plain poll is enough.
 @Injectable()
-export class PollerService implements OnApplicationBootstrap, OnModuleDestroy {
-  private readonly logger = new Logger(PollerService.name);
+export class PollerWorker implements OnApplicationBootstrap, OnModuleDestroy {
+  private readonly logger = new Logger(PollerWorker.name);
   private timer: NodeJS.Timeout | undefined;
   private polling = false;
   private lastTickAt: Date | null = null;
@@ -44,7 +44,7 @@ export class PollerService implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly reposService: ReposService,
     private readonly settingsService: SettingsService,
     private readonly reviewsRepository: ReviewsRepository,
-    private readonly reviewQueue: ReviewQueueService,
+    private readonly reviewQueue: ReviewQueueWorker,
     private readonly profilesService: ProfilesService,
   ) {}
 

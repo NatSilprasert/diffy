@@ -3,14 +3,14 @@ import { ReposService } from '../../repos/repos.service';
 import type { RebuildProfileParamsDto, RebuildProfileResponseDto } from '../dto/rebuild-profile.dto';
 import { toProfileItem } from '../profiles.mapper';
 import { ProfilesRepository } from '../profiles.repository';
-import { ProfileBuilderService } from '../worker/profile-builder.service';
+import { ProfileBuilderWorker } from '../worker/profile-builder.worker';
 
 @Injectable()
 export class RebuildProfileUsecase {
   constructor(
     private readonly profilesRepository: ProfilesRepository,
     private readonly reposService: ReposService,
-    private readonly builder: ProfileBuilderService,
+    private readonly builder: ProfileBuilderWorker,
   ) {}
 
   async execute(params: RebuildProfileParamsDto): Promise<RebuildProfileResponseDto> {

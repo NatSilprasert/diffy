@@ -6,7 +6,7 @@ import { SettingsService } from '../../settings/settings.service';
 import type { CreateReviewRequestDto, CreateReviewResponseDto } from '../dto/create-review.dto';
 import { toReviewItem } from '../reviews.mapper';
 import { ReviewsRepository } from '../reviews.repository';
-import { ReviewQueueService } from '../worker/review-queue.service';
+import { ReviewQueueWorker } from '../worker/review-queue.worker';
 
 @Injectable()
 export class CreateReviewUsecase {
@@ -14,7 +14,7 @@ export class CreateReviewUsecase {
     private readonly reviewsRepository: ReviewsRepository,
     private readonly reposService: ReposService,
     private readonly settingsService: SettingsService,
-    private readonly reviewQueue: ReviewQueueService,
+    private readonly reviewQueue: ReviewQueueWorker,
   ) {}
 
   async execute(input: CreateReviewRequestDto): Promise<CreateReviewResponseDto> {

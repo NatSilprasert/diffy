@@ -1,18 +1,18 @@
 import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 import { ReviewsRepository } from '../reviews.repository';
-import { RunReviewService } from './run-review.service';
+import { RunReviewWorker } from './run-review.worker';
 
 // An in-memory queue that runs one review at a time. Nothing is stored here: a queued or running
 // review is a row in the database, so a restart can pick up whatever was left unfinished.
 @Injectable()
-export class ReviewQueueService implements OnApplicationBootstrap {
-  private readonly logger = new Logger(ReviewQueueService.name);
+export class ReviewQueueWorker implements OnApplicationBootstrap {
+  private readonly logger = new Logger(ReviewQueueWorker.name);
   private readonly pending: string[] = [];
   private current: string | null = null;
   private draining: Promise<void> | null = null;
 
   constructor(
-    private readonly runReview: RunReviewService,
+    private readonly runReview: RunReviewWorker,
     private readonly reviewsRepository: ReviewsRepository,
   ) {}
 

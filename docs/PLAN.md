@@ -55,7 +55,7 @@ diffy/
 │  │  ├─ prisma/schema/*.prisma schema แยกไฟล์ + prisma/migrations/
 │  │  └─ src/
 │  │     ├─ infra/              config, prisma, crypto, github errors, security (redact)
-│  │     └─ module/             health, settings, repos, reviews
+│  │     └─ module/             health, settings, repos, reviews, profiles
 │  └─ web/                      Next.js 16 (static export), Tailwind 4, shadcn/ui (หน้าเปล่าทุกหน้าแล้ว)
 └─ packages/
    ├─ shared/                   Zod schema ของโดเมน: Finding, Severity, LlmProvider, ReviewStatus
@@ -71,9 +71,9 @@ POST /api/reviews                        (ผู้ใช้กด)  หรื�
    │ อ่าน head SHA จาก GitHub แล้วสร้างแถว Review (queued)
    │ unique(repository, PR, SHA) กันรีวิว commit เดียวซ้ำ   ← ฐานข้อมูลเป็นผู้ตัดสิน
    ▼
-ReviewQueueService   คิวใน memory เก็บแค่ id รันทีละรีวิว
+ReviewQueueWorker   คิวใน memory เก็บแค่ id รันทีละรีวิว
    ▼
-RunReviewService     claim (queued→running) → โหลด token/LLM → ดึง PR
+RunReviewWorker     claim (queued→running) → โหลด token/LLM → ดึง PR
    │                 ถ้า PR ขยับไป commit ใหม่แล้ว → skipped
    ▼
 core.reviewPullRequest
@@ -106,7 +106,7 @@ GitHub จะปฏิเสธรีวิวทั้งก้อนถ้า�
 - **ทุก endpoint** = เมธอดใน controller + `usecase/<ชื่อ>.usecase.ts` 1 ไฟล์ + `dto/<ชื่อ>.dto.ts` 1 ไฟล์ + repository ของโมดูล controller ไม่มีตรรกะ มีแต่ repository ที่แตะ Prisma
 - ตรรกะที่ **โมดูลอื่นต้องใช้** อยู่ใน `<ชื่อ>.service.ts` ไฟล์เดียวที่ root ของโมดูล (เช่น `SettingsService.getGithubToken()`) โมดูล export เฉพาะ service นั้น โมดูลอื่น inject service ตรง ๆ **ห้าม** export หรือ inject repository ของโมดูลอื่น
   - usecase = ทางเข้า HTTP ที่ controller เรียก ส่วน service = ความสามารถที่โค้ดอื่นเรียก controller ไม่เรียก service ตรง ๆ
-  - ส่วนที่ไม่ใช่ทั้งสองอย่าง (คิว และตัวรัน) อยู่ใน `worker/` ของโมดูล reviews
+  - ส่วนที่ไม่ใช่ทั้งสองอย่างคือ **worker**: ตื่นเอง (ตัวจับเวลา คิว หรือตอน server บูต ไม่ได้เริ่มจาก request ของผู้ใช้) และถือสถานะข้ามหลาย request อยู่ใน `worker/` ของโมดูล ชื่อไฟล์ลงท้าย `.worker.ts` และชื่อคลาสลงท้าย `Worker` (`PollerWorker`, `ReviewQueueWorker`, `RunReviewWorker` ในโมดูล reviews และ `ProfileBuilderWorker` ในโมดูล profiles) worker เก็บสถานะในหน่วยความจำ จึงใช้ได้กับ server ตัวเดียว (ดูหัวข้อ v2)
 - mapper (แปลงแถว DB เป็นรูปแบบ API เช่น `Date` เป็น ISO string) ใช้ไฟล์เดียว `<ชื่อโมดูล>.mapper.ts`
 - ค่า enum ของ Prisma เป็น **ตัวพิมพ์เล็ก** (`openai`, `queued`, `critical`, `inline`) จึงเหมือนกันทุกที่: ฐานข้อมูล, Prisma client, API และ `@diffy/shared` ไม่ต้องมีตัวแปลง มี test (`enums-in-sync.test.ts`) คอยตรวจว่าสองฝั่งตรงกัน
 - ความปลอดภัยของ type ตั้งแต่ต้นจนปลาย: Zod DTO (nestjs-zod) → `openapi.json` → Orval สร้าง client และ hook ให้เว็บ
@@ -222,7 +222,7 @@ Migration ที่มี: `init`, `add_repository_removed_at`, `lowercase_enums
 
 ### Phase E (ต่อ)
 - ~~**E4 retry และกู้งานค้าง**~~ **เสร็จแล้ว**: `POST /reviews/:id/retry` (failed → queued แล้วเข้าคิว; ใช้ conditional update จึงยิงพร้อมกัน 25 คำขอชนะ 1) และตอนเริ่ม server เปลี่ยนแถว `running` ที่ค้างกลับเป็น `queued` แล้วเข้าคิวทั้งหมดของ `queued` เรียงเก่าก่อน ทดสอบโดยตั้ง DB ให้เหมือน server ดับกลางคัน แล้วเปิดใหม่: ทั้งสามรีวิวที่ค้างถูกหยิบไปทำ ส่วนรีวิวที่ `failed`/`posted` อยู่แล้วไม่ถูกแตะ
-- ~~**E5 poller**~~ **เสร็จแล้ว**: `PollerService` poll ทันทีตอนเริ่ม แล้วทุก `POLL_INTERVAL_SECONDS` วนทุก repo ที่ `removedAt = null AND enabled = true` ดึง PR ที่เปิดอยู่ ข้าม draft และบอท สร้างแถว `queued` ให้ commit ที่ยังไม่มีรีวิว (ซ้ำถูกกันด้วย unique constraint) และบันทึก `lastPolledAt`/`lastError` ต่อ repo repo ที่พังไม่ทำให้ repo อื่นหยุด ทดสอบกับ GitHub จริง: repo ปกติ, repo ที่ไม่มีอยู่ (บันทึก error), repo ที่หยุด/ลบ (ไม่ถูกแตะ) และรอบที่สองไม่สร้างรีวิวซ้ำ
+- ~~**E5 poller**~~ **เสร็จแล้ว**: `PollerWorker` poll ทันทีตอนเริ่ม แล้วทุก `POLL_INTERVAL_SECONDS` วนทุก repo ที่ `removedAt = null AND enabled = true` ดึง PR ที่เปิดอยู่ ข้าม draft และบอท สร้างแถว `queued` ให้ commit ที่ยังไม่มีรีวิว (ซ้ำถูกกันด้วย unique constraint) และบันทึก `lastPolledAt`/`lastError` ต่อ repo repo ที่พังไม่ทำให้ repo อื่นหยุด ทดสอบกับ GitHub จริง: repo ปกติ, repo ที่ไม่มีอยู่ (บันทึก error), repo ที่หยุด/ลบ (ไม่ถูกแตะ) และรอบที่สองไม่สร้างรีวิวซ้ำ
 - ~~**E6 poll ทันที และ baseline**~~ **เสร็จแล้ว**: `POST /reviews/poll` (ส่ง `repositoryId` ใน body; วางใน `ReviewsController` เพราะ reviews พึ่ง repos อยู่แล้ว ถ้าวางใน repos จะเป็นวงกลม) และเมื่อเพิ่ม repo (รวมถึงฟื้น repo ที่เคยลบ) จะอ่าน PR ที่เปิดอยู่แล้วจด head commit เป็น baseline ก่อนบันทึก ถ้าอ่านไม่ได้จะ **ไม่เพิ่ม repo** (ไม่งั้นจะรีวิวทุก PR พร้อมกัน) ต้องทำตอนเพิ่ม ไม่ใช่ตอน poll รอบแรก เพราะผู้ใช้ที่เพิ่ม repo แล้วเปิด PR ทดสอบทันทีจะถูกข้ามเงียบ ๆ ทดสอบกับ GitHub จริง: เพิ่ม repo ที่มี PR #1 เปิดอยู่ → poll แล้วไม่มีรีวิว; เมื่อ PR มี commit ใหม่ (จำลอง) → ถูกรีวิว 1 ครั้ง
 - ~~**E7 สถานะ**~~ **เสร็จแล้ว**: `GET /reviews/status` เป็นสถานะสดในหน่วยความจำของ process นี้ จึงมีความหมายเมื่อรัน instance เดียว
 
@@ -274,7 +274,7 @@ Migration ที่มี: `init`, `add_repository_removed_at`, `lowercase_enums
 - ~~**R2 README และไฟล์กฎ**~~ **เสร็จแล้ว** (ตั้งงบด้วย `MAX_CONTEXT_CHARS` ค่าเริ่มต้น 30,000 ตัวอักษร 0 = ปิด ไฟล์ละไม่เกิน 10,000 เรียง: `context_files` > `AGENTS.md`/`CLAUDE.md`/`.cursorrules`/`copilot-instructions.md` > README > CONTRIBUTING ไฟล์ที่เนื้อหาซ้ำกันอ่านครั้งเดียว รีวิวบอกท้ายสรุปว่าอ่านไฟล์ไหน) อ่าน `README.md` ทุกครั้ง บวกไฟล์กฎที่ตรวจเจอเอง (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.github/copilot-instructions.md`, `CONTRIBUTING.md`) และ `context_files` ใน `.diffy.yaml` ใช้งบแยกจากงบ diff
 - **R2b project profile** ตอนเพิ่ม repo ให้ LLM อ่านแบบเลือก (**ไม่อ่านทั้ง repo** เพราะแพงและไม่ได้คุณภาพเพิ่มตาม) แล้วสรุปเป็นเอกสารสั้น (ไม่เกิน 6,000 ตัวอักษร: ภาพรวม, สถาปัตยกรรม, convention, จุดที่มักพัง) เก็บใน DB ต่อ repo แนบทุกครั้งที่รีวิว แบ่งเป็น 4 ขั้นย่อย:
   - ~~**R2b-1 ตัวสร้าง profile ใน `packages/core`**~~ **เสร็จแล้ว** (`profile-files.ts` เลือกไฟล์: โครงโฟลเดอร์, README/ไฟล์กฎ/ARCHITECTURE, config (package.json, tsconfig, eslint, workflow, prisma/drizzle...), ไฟล์ตัวอย่างโค้ดไฟล์ละโฟลเดอร์ (ไฟล์ขนาดกลาง ไม่ใช่ใหญ่สุด) 12 โฟลเดอร์ที่คึกคักที่สุด, test ตัวอย่าง 3 ไฟล์, PR ที่ merge ล่าสุด 15 อัน; `profile.ts` เรียก LLM ครั้งเดียวแบบ structured output ทุก convention/pitfall ต้องระบุไฟล์หลักฐาน แล้วตรวจว่าไฟล์มีจริง กฎที่อ้างไฟล์ที่ไม่มีถูกทิ้ง) ทดสอบกับ `cuatclub-web` (385 ไฟล์): อ่าน 30 ไฟล์ ราว 63,000 ตัวอักษร (~16k token) ต่ำกว่าที่ประเมินไว้เดิม 150–300k token มาก
-  - ~~**R2b-2 DB และ server**~~ **เสร็จแล้ว** ตาราง `RepoProfile` (migration `20261026000000_add_repo_profile`, enum `ProfileStatus` อยู่ใน `@diffy/shared` ด้วย) โมดูล `profiles` (`ProfilesService` เป็น API สาธารณะ, `ProfileBuilderService` สร้างทีละ repo ในหน่วยความจำ เริ่มใหม่ตอนบูตถ้าค้างอยู่) **poller เริ่มสร้าง profile ให้ repo ที่ยังไม่มี** (รอจน GitHub กับโมเดลตั้งค่าครบ ไม่สร้างซ้ำอัตโนมัติถ้าล้ม เพราะอาจเสียค่าโมเดล ต้องกด Rebuild) endpoint: `GET /repos/:id/profile` (404 ถ้ายังไม่มี), `PUT /repos/:id/profile/notes` (ไม่เกิน 10,000 ตัวอักษร), `POST /repos/:id/profile/rebuild` (409 ถ้ากำลังสร้าง) Rebuild ไม่แตะ notes และ profile เดิมคงอยู่จนอันใหม่เสร็จ (ล้มก็ไม่หาย) รีวิวแนบ profile (เฉพาะเมื่อมีเนื้อหา) และ notes (ถือเป็น instructions ของผู้ดูแลต่อท้าย `.diffy.yaml`) ท้ายรีวิวบน GitHub บอก "Read for context: the project profile, ..." **ทดสอบจริงแล้ว** ด้วย repo ทั้ง 4 ของผู้ใช้: ทุกอันสร้างเสร็จภายใน ~20 วินาที (12–23k token เข้า, ~1k ออก, `gemini-3.5-flash-lite`) profile ของ `cuatclub-web` ตรงกับ `AGENTS.md` และรีวิวซ้ำบน `diffy-sandbox` PR #3 ใช้ profile จริง
+  - ~~**R2b-2 DB และ server**~~ **เสร็จแล้ว** ตาราง `RepoProfile` (migration `20261026000000_add_repo_profile`, enum `ProfileStatus` อยู่ใน `@diffy/shared` ด้วย) โมดูล `profiles` (`ProfilesService` เป็น API สาธารณะ, `ProfileBuilderWorker` สร้างทีละ repo ในหน่วยความจำ เริ่มใหม่ตอนบูตถ้าค้างอยู่) **poller เริ่มสร้าง profile ให้ repo ที่ยังไม่มี** (รอจน GitHub กับโมเดลตั้งค่าครบ ไม่สร้างซ้ำอัตโนมัติถ้าล้ม เพราะอาจเสียค่าโมเดล ต้องกด Rebuild) endpoint: `GET /repos/:id/profile` (404 ถ้ายังไม่มี), `PUT /repos/:id/profile/notes` (ไม่เกิน 10,000 ตัวอักษร), `POST /repos/:id/profile/rebuild` (409 ถ้ากำลังสร้าง) Rebuild ไม่แตะ notes และ profile เดิมคงอยู่จนอันใหม่เสร็จ (ล้มก็ไม่หาย) รีวิวแนบ profile (เฉพาะเมื่อมีเนื้อหา) และ notes (ถือเป็น instructions ของผู้ดูแลต่อท้าย `.diffy.yaml`) ท้ายรีวิวบน GitHub บอก "Read for context: the project profile, ..." **ทดสอบจริงแล้ว** ด้วย repo ทั้ง 4 ของผู้ใช้: ทุกอันสร้างเสร็จภายใน ~20 วินาที (12–23k token เข้า, ~1k ออก, `gemini-3.5-flash-lite`) profile ของ `cuatclub-web` ตรงกับ `AGENTS.md` และรีวิวซ้ำบน `diffy-sandbox` PR #3 ใช้ profile จริง
   - **R2b-3 หน้าเว็บ**: แสดงสถานะ ดู profile แก้ notes ปุ่ม Rebuild ในหน้า Repositories
   - **R2b-4 ทดสอบจริง** กับ `diffy-sandbox` ผ่านแอป
 - **R2c อัปเดต profile** เมื่อ branch หลักเปลี่ยนสำคัญ (ไฟล์กฎ/เอกสาร/config เปลี่ยน, โฟลเดอร์หลักเปลี่ยน, หรือสะสมเกินเกณฑ์) แก้เฉพาะส่วนที่เปลี่ยน ไม่เกินวันละครั้ง มีปุ่ม Rebuild และช่อง Notes ที่คนเขียนเองซึ่งไม่ถูกเขียนทับ

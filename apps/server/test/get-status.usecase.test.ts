@@ -2,16 +2,16 @@ import { describe, expect, it, vi } from 'vitest';
 import { GetStatusResponseSchema } from '../src/module/reviews/dto/get-status.dto';
 import type { ReviewsRepository } from '../src/module/reviews/reviews.repository';
 import { GetStatusUsecase } from '../src/module/reviews/usecase/get-status.usecase';
-import type { PollerService } from '../src/module/reviews/worker/poller.service';
-import type { ReviewQueueService } from '../src/module/reviews/worker/review-queue.service';
+import type { PollerWorker } from '../src/module/reviews/worker/poller.worker';
+import type { ReviewQueueWorker } from '../src/module/reviews/worker/review-queue.worker';
 
 const idlePoller = { intervalSeconds: 60, running: false, lastRunAt: null, nextRunAt: null };
 
 function setup(queue: { queued: number; current: string | null }, poller = idlePoller, review: unknown = null) {
   const findForRun = vi.fn().mockResolvedValue(review);
   const usecase = new GetStatusUsecase(
-    { getState: () => queue } as unknown as ReviewQueueService,
-    { getState: () => poller } as unknown as PollerService,
+    { getState: () => queue } as unknown as ReviewQueueWorker,
+    { getState: () => poller } as unknown as PollerWorker,
     { findForRun } as unknown as ReviewsRepository,
   );
   return { usecase, findForRun };

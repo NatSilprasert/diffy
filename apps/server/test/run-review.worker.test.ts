@@ -10,7 +10,7 @@ import { getPullRequest, reviewPullRequest } from '@diffy/core';
 import type { Env } from '../src/infra/config/env';
 import type { ProfilesService } from '../src/module/profiles/profiles.service';
 import type { ReviewsRepository } from '../src/module/reviews/reviews.repository';
-import { RunReviewService } from '../src/module/reviews/worker/run-review.service';
+import { RunReviewWorker } from '../src/module/reviews/worker/run-review.worker';
 import type { SettingsService } from '../src/module/settings/settings.service';
 
 const findForRun = vi.fn();
@@ -21,7 +21,7 @@ const getGithubToken = vi.fn();
 const getLlmConfig = vi.fn();
 const getReviewContext = vi.fn();
 
-const service = new RunReviewService(
+const service = new RunReviewWorker(
   { findForRun, claim, saveResult, markFailed } as unknown as ReviewsRepository,
   { getGithubToken, getLlmConfig } as unknown as SettingsService,
   { MAX_DIFF_CHARS: 123_456, MAX_CONTEXT_CHARS: 7_000 } as Env,
@@ -53,7 +53,7 @@ beforeEach(() => {
   getReviewContext.mockResolvedValue({ profile: undefined, notes: undefined });
 });
 
-describe('RunReviewService.run', () => {
+describe('RunReviewWorker.run', () => {
   it('reviews the PR and saves the result with the database spellings of the enums', async () => {
     vi.mocked(reviewPullRequest).mockResolvedValue({
       outcome: 'posted',

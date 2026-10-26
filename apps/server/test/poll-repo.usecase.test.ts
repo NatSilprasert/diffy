@@ -3,12 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { PollRepoRequestSchema, PollRepoResponseSchema } from '../src/module/reviews/dto/poll-repo.dto';
 import type { ReposService } from '../src/module/repos/repos.service';
 import { PollRepoUsecase } from '../src/module/reviews/usecase/poll-repo.usecase';
-import type { PollerService } from '../src/module/reviews/worker/poller.service';
+import type { PollerWorker } from '../src/module/reviews/worker/poller.worker';
 
 const repo = { id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'] };
 
 function setup(getActiveRepo: () => Promise<unknown>, pollRepo = vi.fn()) {
-  return { pollRepo, usecase: new PollRepoUsecase({ getActiveRepo } as unknown as ReposService, { pollRepo } as unknown as PollerService) };
+  return { pollRepo, usecase: new PollRepoUsecase({ getActiveRepo } as unknown as ReposService, { pollRepo } as unknown as PollerWorker) };
 }
 
 describe('PollRepoUsecase', () => {

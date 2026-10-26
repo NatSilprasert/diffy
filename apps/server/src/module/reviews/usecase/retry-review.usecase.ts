@@ -2,13 +2,13 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import type { RetryReviewParamsDto, RetryReviewResponseDto } from '../dto/retry-review.dto';
 import { toReviewItem } from '../reviews.mapper';
 import { ReviewsRepository } from '../reviews.repository';
-import { ReviewQueueService } from '../worker/review-queue.service';
+import { ReviewQueueWorker } from '../worker/review-queue.worker';
 
 @Injectable()
 export class RetryReviewUsecase {
   constructor(
     private readonly reviewsRepository: ReviewsRepository,
-    private readonly reviewQueue: ReviewQueueService,
+    private readonly reviewQueue: ReviewQueueWorker,
   ) {}
 
   async execute(params: RetryReviewParamsDto): Promise<RetryReviewResponseDto> {

@@ -2,7 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { ReviewsRepository } from '../src/module/reviews/reviews.repository';
 import { RetryReviewUsecase } from '../src/module/reviews/usecase/retry-review.usecase';
-import type { ReviewQueueService } from '../src/module/reviews/worker/review-queue.service';
+import type { ReviewQueueWorker } from '../src/module/reviews/worker/review-queue.worker';
 
 const row = (over: Record<string, unknown> = {}) => ({
   id: 'v1',
@@ -25,7 +25,7 @@ function setup(found: unknown, requeued: unknown) {
   const enqueue = vi.fn();
   const usecase = new RetryReviewUsecase(
     { findById, requeueIfFinished } as unknown as ReviewsRepository,
-    { enqueue } as unknown as ReviewQueueService,
+    { enqueue } as unknown as ReviewQueueWorker,
   );
   return { usecase, requeueIfFinished, enqueue };
 }

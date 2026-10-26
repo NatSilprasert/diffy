@@ -4,7 +4,7 @@ import type { ProfilesRepository } from '../src/module/profiles/profiles.reposit
 import { GetProfileUsecase } from '../src/module/profiles/usecase/get-profile.usecase';
 import { RebuildProfileUsecase } from '../src/module/profiles/usecase/rebuild-profile.usecase';
 import { UpdateProfileNotesUsecase } from '../src/module/profiles/usecase/update-profile-notes.usecase';
-import type { ProfileBuilderService } from '../src/module/profiles/worker/profile-builder.service';
+import type { ProfileBuilderWorker } from '../src/module/profiles/worker/profile-builder.worker';
 import type { ReposService } from '../src/module/repos/repos.service';
 
 const row = (over: Record<string, unknown> = {}) => ({
@@ -88,7 +88,7 @@ describe('RebuildProfileUsecase', () => {
       findByRepositoryId: vi.fn().mockResolvedValue(row({ status: 'building' })),
     };
     const enqueue = vi.fn();
-    const usecase = new RebuildProfileUsecase(repository as unknown as ProfilesRepository, reposService(over.exists ?? true) as unknown as ReposService, { enqueue } as unknown as ProfileBuilderService);
+    const usecase = new RebuildProfileUsecase(repository as unknown as ProfilesRepository, reposService(over.exists ?? true) as unknown as ReposService, { enqueue } as unknown as ProfileBuilderWorker);
     return { usecase, repository, enqueue };
   };
 

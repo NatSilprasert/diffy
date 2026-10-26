@@ -12,9 +12,9 @@ import { GetStatusUsecase } from './usecase/get-status.usecase';
 import { ListReviewsUsecase } from './usecase/list-reviews.usecase';
 import { PollRepoUsecase } from './usecase/poll-repo.usecase';
 import { RetryReviewUsecase } from './usecase/retry-review.usecase';
-import { PollerService } from './worker/poller.service';
-import { ReviewQueueService } from './worker/review-queue.service';
-import { RunReviewService } from './worker/run-review.service';
+import { PollerWorker } from './worker/poller.worker';
+import { ReviewQueueWorker } from './worker/review-queue.worker';
+import { RunReviewWorker } from './worker/run-review.worker';
 
 @Module({
   imports: [ReposModule, SettingsModule, ProfilesModule],
@@ -29,9 +29,9 @@ import { RunReviewService } from './worker/run-review.service';
     GetStatusUsecase,
     GetReviewStatsUsecase,
     GetUsageUsecase,
-    RunReviewService,
-    ReviewQueueService,
-    PollerService,
+    RunReviewWorker,
+    ReviewQueueWorker,
+    PollerWorker,
   ],
 })
 export class ReviewsModule {}

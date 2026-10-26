@@ -10,8 +10,8 @@ const MAX_ERROR_CHARS = 2_000;
 // Builds the project profiles, one at a time (each one is a few dozen GitHub calls and one model call).
 // Like the review queue it lives in memory; a build that was running when the server stopped starts again on boot.
 @Injectable()
-export class ProfileBuilderService implements OnApplicationBootstrap {
-  private readonly logger = new Logger(ProfileBuilderService.name);
+export class ProfileBuilderWorker implements OnApplicationBootstrap {
+  private readonly logger = new Logger(ProfileBuilderWorker.name);
   private queue: string[] = [];
   private running = false;
 

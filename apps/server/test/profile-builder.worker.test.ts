@@ -4,7 +4,7 @@ vi.mock('@diffy/core', () => ({ createGithubClient: vi.fn(() => ({ client: true 
 
 import { buildProjectProfile } from '@diffy/core';
 import type { ProfilesRepository } from '../src/module/profiles/profiles.repository';
-import { ProfileBuilderService } from '../src/module/profiles/worker/profile-builder.service';
+import { ProfileBuilderWorker } from '../src/module/profiles/worker/profile-builder.worker';
 import type { ReposService } from '../src/module/repos/repos.service';
 import type { SettingsService } from '../src/module/settings/settings.service';
 
@@ -17,7 +17,7 @@ const getGithubToken = vi.fn();
 const getLlmConfig = vi.fn();
 
 const builder = () =>
-  new ProfileBuilderService(
+  new ProfileBuilderWorker(
     { findByRepositoryId, findBuildingRepositoryIds, saveBuilt, markFailed } as unknown as ProfilesRepository,
     { getActiveRepo } as unknown as ReposService,
     { getGithubToken, getLlmConfig } as unknown as SettingsService,
@@ -38,7 +38,7 @@ beforeEach(() => {
   getLlmConfig.mockResolvedValue(llm);
 });
 
-describe('ProfileBuilderService.run', () => {
+describe('ProfileBuilderWorker.run', () => {
   it('builds the profile of the repository and saves it with the model that wrote it', async () => {
     await builder().run('r1');
 
@@ -105,7 +105,7 @@ describe('ProfileBuilderService.run', () => {
   });
 });
 
-describe('ProfileBuilderService queue', () => {
+describe('ProfileBuilderWorker queue', () => {
   const settle = () => new Promise((resolve) => setImmediate(resolve));
 
   it('builds one profile at a time, in the order they were queued', async () => {

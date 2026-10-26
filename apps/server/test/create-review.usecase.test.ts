@@ -9,7 +9,7 @@ import type { ReposService } from '../src/module/repos/repos.service';
 import type { ReviewsRepository } from '../src/module/reviews/reviews.repository';
 import { CreateReviewUsecase } from '../src/module/reviews/usecase/create-review.usecase';
 import type { SettingsService } from '../src/module/settings/settings.service';
-import type { ReviewQueueService } from '../src/module/reviews/worker/review-queue.service';
+import type { ReviewQueueWorker } from '../src/module/reviews/worker/review-queue.worker';
 
 const createQueued = vi.fn();
 const getActiveRepo = vi.fn();
@@ -19,7 +19,7 @@ const usecase = new CreateReviewUsecase(
   { createQueued } as unknown as ReviewsRepository,
   { getActiveRepo } as unknown as ReposService,
   { getGithubToken } as unknown as SettingsService,
-  { enqueue } as unknown as ReviewQueueService,
+  { enqueue } as unknown as ReviewQueueWorker,
 );
 
 const pr = { owner: 'acme', repo: 'api', number: 7, title: 'Add login', url: 'https://github.com/acme/api/pull/7', headSha: 'abc1234' };

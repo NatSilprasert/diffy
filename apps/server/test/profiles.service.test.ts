@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ProfilesRepository } from '../src/module/profiles/profiles.repository';
 import { ProfilesService } from '../src/module/profiles/profiles.service';
-import type { ProfileBuilderService } from '../src/module/profiles/worker/profile-builder.service';
+import type { ProfileBuilderWorker } from '../src/module/profiles/worker/profile-builder.worker';
 import type { SettingsService } from '../src/module/settings/settings.service';
 
 function setup(over: { row?: Record<string, unknown> | null; configured?: boolean; have?: string[]; created?: boolean | boolean[] } = {}) {
@@ -13,7 +13,7 @@ function setup(over: { row?: Record<string, unknown> | null; configured?: boolea
   };
   const enqueue = vi.fn();
   const isConfigured = vi.fn().mockResolvedValue(over.configured ?? true);
-  const service = new ProfilesService(repository as unknown as ProfilesRepository, { enqueue } as unknown as ProfileBuilderService, { isConfigured } as unknown as SettingsService);
+  const service = new ProfilesService(repository as unknown as ProfilesRepository, { enqueue } as unknown as ProfileBuilderWorker, { isConfigured } as unknown as SettingsService);
   return { service, repository, enqueue, isConfigured };
 }
 

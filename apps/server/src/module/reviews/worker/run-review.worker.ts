@@ -12,8 +12,8 @@ const MAX_ERROR_CHARS = 2_000;
 // Runs one queued review from start to finish. It never throws for a review that goes wrong: the
 // failure is written to the review row, so the queue keeps going and the user can see what happened.
 @Injectable()
-export class RunReviewService {
-  private readonly logger = new Logger(RunReviewService.name);
+export class RunReviewWorker {
+  private readonly logger = new Logger(RunReviewWorker.name);
 
   constructor(
     private readonly reviewsRepository: ReviewsRepository,

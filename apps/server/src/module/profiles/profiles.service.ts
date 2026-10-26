@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { SettingsService } from '../settings/settings.service';
 import { ProfilesRepository } from './profiles.repository';
-import { ProfileBuilderService } from './worker/profile-builder.service';
+import { ProfileBuilderWorker } from './worker/profile-builder.worker';
 
 // What a review gets to know about its repository: the profile the model wrote (only once it is ready) and the
 // notes people wrote.
@@ -12,7 +12,7 @@ export type ReviewContext = { profile: string | undefined; notes: string | undef
 export class ProfilesService {
   constructor(
     private readonly profilesRepository: ProfilesRepository,
-    private readonly builder: ProfileBuilderService,
+    private readonly builder: ProfileBuilderWorker,
     private readonly settingsService: SettingsService,
   ) {}
 

@@ -7,14 +7,14 @@ import { ProfilesService } from './profiles.service';
 import { GetProfileUsecase } from './usecase/get-profile.usecase';
 import { RebuildProfileUsecase } from './usecase/rebuild-profile.usecase';
 import { UpdateProfileNotesUsecase } from './usecase/update-profile-notes.usecase';
-import { ProfileBuilderService } from './worker/profile-builder.service';
+import { ProfileBuilderWorker } from './worker/profile-builder.worker';
 
 @Module({
   imports: [ReposModule, SettingsModule],
   controllers: [ProfilesController],
   providers: [
     ProfilesRepository,
-    ProfileBuilderService,
+    ProfileBuilderWorker,
     ProfilesService,
     GetProfileUsecase,
     UpdateProfileNotesUsecase,

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ProfilesRepository } from '../src/module/profiles/profiles.repository';
 import { ProfilesService } from '../src/module/profiles/profiles.service';
 import type { ProfileBuilderWorker } from '../src/module/profiles/worker/profile-builder.worker';
+import type { ProfileFreshnessWorker } from '../src/module/profiles/worker/profile-freshness.worker';
 import type { SettingsService } from '../src/module/settings/settings.service';
 
 function setup(over: { row?: Record<string, unknown> | null; configured?: boolean; have?: string[]; created?: boolean | boolean[] } = {}) {
@@ -13,8 +14,14 @@ function setup(over: { row?: Record<string, unknown> | null; configured?: boolea
   };
   const enqueue = vi.fn();
   const isConfigured = vi.fn().mockResolvedValue(over.configured ?? true);
-  const service = new ProfilesService(repository as unknown as ProfilesRepository, { enqueue } as unknown as ProfileBuilderWorker, { isConfigured } as unknown as SettingsService);
-  return { service, repository, enqueue, isConfigured };
+  const checkAll = vi.fn().mockResolvedValue(undefined);
+  const service = new ProfilesService(
+    repository as unknown as ProfilesRepository,
+    { enqueue } as unknown as ProfileBuilderWorker,
+    { isConfigured } as unknown as SettingsService,
+    { checkAll } as unknown as ProfileFreshnessWorker,
+  );
+  return { service, repository, enqueue, isConfigured, checkAll };
 }
 
 describe('ProfilesService.getReviewContext', () => {
@@ -59,5 +66,22 @@ describe('ProfilesService.startMissing', () => {
     const { service, isConfigured } = setup();
     await service.startMissing([]);
     expect(isConfigured).not.toHaveBeenCalled();
+  });
+});
+
+describe('ProfilesService.refreshStale', () => {
+  it('hands the repositories to the freshness check', async () => {
+    const { service, checkAll } = setup();
+    await service.refreshStale(['r1', 'r2']);
+    expect(checkAll).toHaveBeenCalledWith(['r1', 'r2']);
+  });
+
+  it('does nothing before GitHub and the model are set up, or without repositories', async () => {
+    const notReady = setup({ configured: false });
+    await notReady.service.refreshStale(['r1']);
+    const none = setup();
+    await none.service.refreshStale([]);
+    expect(notReady.checkAll).not.toHaveBeenCalled();
+    expect(none.checkAll).not.toHaveBeenCalled();
   });
 });

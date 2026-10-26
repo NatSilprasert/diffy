@@ -44,6 +44,13 @@ const CONFIG_PATTERNS = [
 const WORKFLOW = /^\.github\/workflows\/[^/]+\.ya?ml$/;
 const DESIGN_DOC = /(^|\/)(architecture|design|conventions?|guidelines?|style[-_ ]?guide|principles)[^/]*\.md$/i;
 
+// A configuration file the profile reads: build, language, lint and container settings, CI workflows.
+export function isProfileConfigPath(path: string): boolean {
+  const name = path.split('/').pop()!;
+  const nearRoot = depth(path) <= 2;
+  return (nearRoot && (CONFIG_NAMES.has(name) || CONFIG_PATTERNS.some((pattern) => pattern.test(path)))) || WORKFLOW.test(path);
+}
+
 export function isNoise(path: string): boolean {
   return BINARY_OR_ASSET.test(path) || NOISE_PATH.test(path) || LOCKFILES.test(path);
 }
@@ -77,15 +84,7 @@ export function selectProfileFiles(tree: TreeFile[]): ProfileSelection {
   const files = tree.filter((file) => !isNoise(file.path));
 
   const configs = files
-    .filter((file) => {
-      const name = file.path.split('/').pop()!;
-      const nearRoot = depth(file.path) <= 2;
-      return (
-        (nearRoot && CONFIG_NAMES.has(name)) ||
-        (nearRoot && CONFIG_PATTERNS.some((pattern) => pattern.test(file.path))) ||
-        WORKFLOW.test(file.path)
-      );
-    })
+    .filter((file) => isProfileConfigPath(file.path))
     .sort((a, b) => depth(a.path) - depth(b.path) || a.path.localeCompare(b.path))
     .slice(0, MAX_CONFIGS)
     .map((file) => file.path);

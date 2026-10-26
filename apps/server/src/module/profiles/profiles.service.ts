@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { SettingsService } from '../settings/settings.service';
 import { ProfilesRepository } from './profiles.repository';
 import { ProfileBuilderWorker } from './worker/profile-builder.worker';
+import { ProfileFreshnessWorker } from './worker/profile-freshness.worker';
 
 // What a review gets to know about its repository: the profile the model wrote (only once it is ready) and the
 // notes people wrote.
@@ -14,6 +15,7 @@ export class ProfilesService {
     private readonly profilesRepository: ProfilesRepository,
     private readonly builder: ProfileBuilderWorker,
     private readonly settingsService: SettingsService,
+    private readonly freshness: ProfileFreshnessWorker,
   ) {}
 
   async getReviewContext(repositoryId: string): Promise<ReviewContext> {
@@ -35,5 +37,12 @@ export class ProfilesService {
       if (have.has(repositoryId)) continue;
       if (await this.profilesRepository.createBuilding(repositoryId)) this.builder.enqueue(repositoryId);
     }
+  }
+
+  // Builds again the profiles of these repositories whose project changed a lot since (at most one look per
+  // repository per day). Does nothing until GitHub and the model are set up.
+  async refreshStale(repositoryIds: string[]): Promise<void> {
+    if (repositoryIds.length === 0 || !(await this.settingsService.isConfigured())) return;
+    await this.freshness.checkAll(repositoryIds);
   }
 }

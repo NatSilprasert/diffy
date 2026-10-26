@@ -9,6 +9,7 @@ export * from './walkthrough.js';
 export * from './verify.js';
 export * from './profile-files.js';
 export * from './profile.js';
+export * from './profile-freshness.js';
 export * from './prompt.js';
 export * from './llm.js';
 export * from './placement.js';

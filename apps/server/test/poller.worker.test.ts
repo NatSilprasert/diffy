@@ -17,6 +17,7 @@ const getGithubToken = vi.fn();
 const createQueued = vi.fn();
 const enqueue = vi.fn();
 const startMissing = vi.fn();
+const refreshStale = vi.fn();
 
 const poller = () =>
   new PollerWorker(
@@ -25,7 +26,7 @@ const poller = () =>
     { getGithubToken } as unknown as SettingsService,
     { createQueued } as unknown as ReviewsRepository,
     { enqueue } as unknown as ReviewQueueWorker,
-    { startMissing } as unknown as ProfilesService,
+    { startMissing, refreshStale } as unknown as ProfilesService,
   );
 
 const repo = { id: 'r1', owner: 'acme', name: 'api', baselineShas: [] as string[] };
@@ -44,8 +45,9 @@ const pr = (number: number, over: Record<string, unknown> = {}) => ({
 });
 
 beforeEach(() => {
-  for (const fn of [listPollableRepos, recordPoll, getGithubToken, createQueued, enqueue, startMissing]) fn.mockReset();
+  for (const fn of [listPollableRepos, recordPoll, getGithubToken, createQueued, enqueue, startMissing, refreshStale]) fn.mockReset();
   startMissing.mockResolvedValue(undefined);
+  refreshStale.mockResolvedValue(undefined);
   vi.mocked(listOpenPullRequests).mockReset().mockResolvedValue([]);
   vi.mocked(createGithubClient).mockClear();
   getGithubToken.mockResolvedValue('github_pat_x');
@@ -301,6 +303,7 @@ describe('PollerWorker.getState', () => {
       getGithubToken.mockResolvedValue('t');
       await poller().pollAll();
       expect(startMissing).toHaveBeenCalledWith(['r1', 'r2']);
+      expect(refreshStale).toHaveBeenCalledWith(['r1', 'r2']);
       expect(recordPoll).toHaveBeenCalledTimes(2);
     });
 

@@ -9,6 +9,7 @@ import { ListProfilesUsecase } from './usecase/list-profiles.usecase';
 import { RebuildProfileUsecase } from './usecase/rebuild-profile.usecase';
 import { UpdateProfileNotesUsecase } from './usecase/update-profile-notes.usecase';
 import { ProfileBuilderWorker } from './worker/profile-builder.worker';
+import { ProfileFreshnessWorker } from './worker/profile-freshness.worker';
 
 @Module({
   imports: [ReposModule, SettingsModule],
@@ -16,6 +17,7 @@ import { ProfileBuilderWorker } from './worker/profile-builder.worker';
   providers: [
     ProfilesRepository,
     ProfileBuilderWorker,
+    ProfileFreshnessWorker,
     ProfilesService,
     ListProfilesUsecase,
     GetProfileUsecase,

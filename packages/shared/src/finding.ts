@@ -29,8 +29,24 @@ export const LlmFinding = z.object({
 });
 export type LlmFinding = z.infer<typeof LlmFinding>;
 
+// How careful a human reviewer should be with a group of changes.
+export const WalkthroughRisk = z.enum(['low', 'medium', 'high']);
+export type WalkthroughRisk = z.infer<typeof WalkthroughRisk>;
+
+// One group of related files in the walkthrough of a pull request.
+export const LlmWalkthroughGroup = z.object({
+  title: z.string().describe('Short name of this group of changes, for example "Student registration flow"'),
+  description: z.string().describe('What changed in this group, 1-2 sentences'),
+  files: z.array(z.string()).describe('Paths from the diff that belong to this group, exactly as in the diff header'),
+  risk: WalkthroughRisk.describe('How careful a human reviewer should be with this group'),
+});
+export type LlmWalkthroughGroup = z.infer<typeof LlmWalkthroughGroup>;
+
 export const LlmReview = z.object({
   summary: z.string().describe('2-5 sentence overview of the PR and its risk'),
+  walkthrough: z
+    .array(LlmWalkthroughGroup)
+    .describe('The pull request as 2 to 8 groups of related files, riskiest first. Empty when it changes 3 files or fewer'),
   findings: z.array(LlmFinding),
 });
 export type LlmReview = z.infer<typeof LlmReview>;

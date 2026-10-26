@@ -5,6 +5,7 @@ export * from './context-expand.js';
 export * from './gitattributes.js';
 export * from './repo-config.js';
 export * from './repo-context.js';
+export * from './walkthrough.js';
 export * from './profile-files.js';
 export * from './profile.js';
 export * from './prompt.js';

@@ -262,4 +262,41 @@ describe('reviewPullRequest', () => {
       expect(vi.mocked(generateReview).mock.calls[0]![2]).toContain('   3   export function login(token: string) {');
     });
   });
+
+  describe('the walkthrough', () => {
+    const three = [file('src/auth.ts', authPatch), file('src/db.ts', authPatch), file('docs/a.md', authPatch)];
+    const answer = (walkthrough: unknown) =>
+      vi.mocked(generateReview).mockResolvedValue({ review: { summary: 's', walkthrough, findings: [] }, usage: { inputTokens: 1, outputTokens: 1 } } as never);
+
+    it('is checked against the files of the review and written into the posted review', async () => {
+      answer([
+        { title: 'Docs', description: 'Words.', files: ['docs/a.md', 'made/up.md'], risk: 'low' },
+        { title: 'Auth', description: 'Reads the token.', files: ['src/auth.ts'], risk: 'high' },
+      ]);
+      const { octokit, createReview } = fakeOctokit(three);
+
+      const result = await reviewPullRequest({ octokit, pr, llm });
+
+      expect(result.walkthrough.map((g) => g.title)).toEqual(['Auth', 'Docs', 'Other files']);
+      expect(result.walkthrough[1]!.files).toEqual(['docs/a.md']);
+      const body = createReview.mock.calls[0]![0].body;
+      expect(body).toContain('### Walkthrough');
+      expect(body).toContain('| High | **Auth**: Reads the token. | `src/auth.ts` |');
+      expect(body).not.toContain('made/up.md');
+    });
+
+    it('is left out for a change of fewer than three files, whatever the model wrote', async () => {
+      answer([{ title: 'Auth', description: 'x', files: ['src/auth.ts'], risk: 'high' }]);
+      const { octokit, createReview } = fakeOctokit([file('src/auth.ts', authPatch)]);
+      const result = await reviewPullRequest({ octokit, pr, llm });
+      expect(result.walkthrough).toEqual([]);
+      expect(createReview.mock.calls[0]![0].body).not.toContain('Walkthrough');
+    });
+
+    it('copes with a model answer without one', async () => {
+      vi.mocked(generateReview).mockResolvedValue({ review: { summary: 's', findings: [] }, usage: { inputTokens: 1, outputTokens: 1 } } as never);
+      const result = await reviewPullRequest({ octokit: fakeOctokit(three).octokit, pr, llm });
+      expect(result.walkthrough).toEqual([]);
+    });
+  });
 });

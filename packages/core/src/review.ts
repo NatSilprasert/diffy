@@ -11,6 +11,7 @@ import { DEFAULT_MAX_CONTEXT_CHARS, loadRepoContext } from './repo-context.js';
 import { placeFindings } from './placement.js';
 import { postReview } from './post.js';
 import { buildSystemPrompt, buildUserPrompt } from './prompt.js';
+import { verifyWalkthrough, type WalkthroughGroup } from './walkthrough.js';
 
 export type ReviewPullRequestInput = {
   octokit: Octokit;
@@ -39,6 +40,8 @@ export type ReviewResult = {
   configNotes: string[];
   // The project documents that were read for this review.
   contextFiles: string[];
+  // The pull request in groups of related files, riskiest first (empty for a small change).
+  walkthrough: WalkthroughGroup[];
   usage: LlmUsage | undefined;
   githubReviewUrl: string | undefined;
   fellBackToSummary: boolean;
@@ -68,6 +71,7 @@ export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<
       skipped: plainDiff.skipped,
       configNotes,
       contextFiles: [],
+      walkthrough: [],
       usage: undefined,
       githubReviewUrl: undefined,
       fellBackToSummary: false,
@@ -97,7 +101,8 @@ export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<
     buildUserPrompt(pr, diff, config.pathInstructions, context.docs, projectProfile),
   );
   const findings = placeFindings(review.findings, buildCommentableIndex(files));
-  const base = { summary: review.summary, skipped: diff.skipped, configNotes, contextFiles, usage };
+  const walkthrough = verifyWalkthrough(review.walkthrough ?? [], diff.included);
+  const base = { summary: review.summary, skipped: diff.skipped, configNotes, contextFiles, walkthrough, usage };
 
   if (!post) {
     return { ...base, outcome: 'not-posted', findings, githubReviewUrl: undefined, fellBackToSummary: false };
@@ -112,6 +117,7 @@ export async function reviewPullRequest(input: ReviewPullRequestInput): Promise<
     configNotes,
     contextFiles,
     usedProfile: Boolean(projectProfile),
+    walkthrough,
   });
   return {
     ...base,

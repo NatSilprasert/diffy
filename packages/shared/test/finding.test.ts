@@ -14,17 +14,18 @@ const validFinding = {
 
 describe('LlmReview', () => {
   it('accepts a valid review', () => {
-    const result = LlmReview.safeParse({ summary: 'Adds session lookup.', findings: [validFinding] });
+    const result = LlmReview.safeParse({ summary: 'Adds session lookup.', walkthrough: [], findings: [validFinding] });
     expect(result.success).toBe(true);
   });
 
   it('accepts an empty findings array', () => {
-    expect(LlmReview.safeParse({ summary: 'Looks good.', findings: [] }).success).toBe(true);
+    expect(LlmReview.safeParse({ summary: 'Looks good.', walkthrough: [], findings: [] }).success).toBe(true);
   });
 
   it('rejects an unknown severity', () => {
     const result = LlmReview.safeParse({
       summary: 'x',
+      walkthrough: [],
       findings: [{ ...validFinding, severity: 'blocker' }],
     });
     expect(result.success).toBe(false);
@@ -32,13 +33,31 @@ describe('LlmReview', () => {
 
   it('rejects a missing nullable key (must be null, not absent)', () => {
     const { suggestion: _omitted, ...withoutSuggestion } = validFinding;
-    const result = LlmReview.safeParse({ summary: 'x', findings: [withoutSuggestion] });
+    const result = LlmReview.safeParse({ summary: 'x', walkthrough: [], findings: [withoutSuggestion] });
     expect(result.success).toBe(false);
   });
 
   it('rejects a non-integer line', () => {
-    const result = LlmReview.safeParse({ summary: 'x', findings: [{ ...validFinding, line: 4.5 }] });
+    const result = LlmReview.safeParse({ summary: 'x', walkthrough: [], findings: [{ ...validFinding, line: 4.5 }] });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('LlmReview walkthrough', () => {
+  const group = { title: 'Login flow', description: 'Adds the form.', files: ['src/login.tsx'], risk: 'medium' };
+
+  it('accepts groups of files with a risk', () => {
+    expect(LlmReview.safeParse({ summary: 'x', walkthrough: [group], findings: [] }).success).toBe(true);
+  });
+
+  it('requires the walkthrough key (empty is fine, absent is not)', () => {
+    expect(LlmReview.safeParse({ summary: 'x', findings: [] }).success).toBe(false);
+  });
+
+  it('rejects an unknown risk and a group without files', () => {
+    expect(LlmReview.safeParse({ summary: 'x', walkthrough: [{ ...group, risk: 'critical' }], findings: [] }).success).toBe(false);
+    const { files: _omitted, ...withoutFiles } = group;
+    expect(LlmReview.safeParse({ summary: 'x', walkthrough: [withoutFiles], findings: [] }).success).toBe(false);
   });
 });
 

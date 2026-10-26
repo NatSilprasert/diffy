@@ -21,6 +21,14 @@ Severity:
 - medium: bug in an edge case, or a likely future bug
 - low: minor correctness or robustness issue worth fixing
 
+Walkthrough:
+- Besides the findings, map the pull request for the person who will read it: group its files into 2 to 8 sets of
+  related changes (a feature, a layer, a migration), each with a short title, what changed in 1-2 sentences, the
+  paths of its files exactly as in the diff header, and how careful a human reviewer should be with it
+  (high: security, money, data, auth or hard to undo; medium: logic with some risk; low: docs, tests, style,
+  plain configuration). Put the riskiest group first. Use only paths you were given. If the pull request changes
+  3 files or fewer, leave the walkthrough empty.
+
 Context:
 - A file may show more than the changed lines: the function around a change, or a small file whole. Only lines
   marked "+" are new in this pull request; lines marked " " are unchanged and give you context. Report problems
@@ -71,7 +79,7 @@ export function buildSystemPrompt(
   const parts = [BASE_SYSTEM_PROMPT];
 
   parts.push(
-    `Language: write the summary, every title and every explanation in ${LANGUAGE_NAME[config.language]}. ` +
+    `Language: write the summary, the walkthrough, every title and every explanation in ${LANGUAGE_NAME[config.language]}. ` +
       'Keep file paths, identifiers and quoted code exactly as they are. ' +
       'Always write fixPrompt in English, whatever the language above, because coding agents work best with it.',
   );

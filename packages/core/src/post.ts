@@ -3,6 +3,7 @@ import type { Octokit } from 'octokit';
 import type { SkippedFile } from './annotate.js';
 import type { PullRequestInfo } from './github.js';
 import { renderInlineComment, renderSummary } from './render.js';
+import type { WalkthroughGroup } from './walkthrough.js';
 
 export type PostReviewInput = {
   pr: PullRequestInfo;
@@ -13,6 +14,7 @@ export type PostReviewInput = {
   configNotes?: string[];
   contextFiles?: string[];
   usedProfile?: boolean;
+  walkthrough?: WalkthroughGroup[];
 };
 
 export type PostedReview = {
@@ -64,6 +66,7 @@ async function createReview(octokit: Octokit, input: PostReviewInput, findings: 
       configNotes: input.configNotes,
       contextFiles: input.contextFiles,
       usedProfile: input.usedProfile,
+      walkthrough: input.walkthrough,
     }),
     comments: comments.length > 0 ? comments : undefined,
   });

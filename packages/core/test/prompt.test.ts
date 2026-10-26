@@ -58,7 +58,7 @@ describe('buildSystemPrompt', () => {
 
   it('is the plain English review prompt for a repository with no settings', () => {
     expect(buildSystemPrompt()).toBe(SYSTEM_PROMPT);
-    expect(SYSTEM_PROMPT).toContain('write the summary, every title and every explanation in English');
+    expect(SYSTEM_PROMPT).toContain('write the summary, the walkthrough, every title and every explanation in English');
     expect(SYSTEM_PROMPT).not.toContain('Review profile: assertive');
     expect(SYSTEM_PROMPT).not.toContain('<project_instructions>');
   });
@@ -160,5 +160,15 @@ describe('the project profile in the prompts', () => {
 
   it('has no such section without a profile', () => {
     expect(buildUserPrompt(pr, prDiff)).not.toContain('project_profile');
+  });
+});
+
+describe('the walkthrough in the system prompt', () => {
+  it('asks for groups of related files with a risk, riskiest first, and none for a small change', () => {
+    const prompt = buildSystemPrompt();
+    expect(prompt).toContain('Walkthrough:');
+    expect(prompt).toContain('group its files into 2 to 8 sets of');
+    expect(prompt).toContain('Put the riskiest group first');
+    expect(prompt).toContain('If the pull request changes\n  3 files or fewer, leave the walkthrough empty');
   });
 });

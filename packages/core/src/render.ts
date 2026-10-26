@@ -1,5 +1,6 @@
 import type { Finding, Severity } from '@diffy/shared';
 import type { SkippedFile } from './annotate.js';
+import { renderWalkthrough, type WalkthroughGroup } from './walkthrough.js';
 
 // GitHub rejects review bodies over 65,536 characters; stay well under it.
 export const MAX_BODY_CHARS = 60_000;
@@ -52,6 +53,8 @@ export type SummaryInput = {
   contextFiles?: string[];
   // The project profile (what diffy learned about the repository) was given to the model.
   usedProfile?: boolean;
+  // The pull request in groups of related files, riskiest first. Empty for a small change.
+  walkthrough?: WalkthroughGroup[];
 };
 
 function truncate(body: string): string {
@@ -66,6 +69,7 @@ export function renderSummary(input: SummaryInput): string {
   const outside = findings.filter((f) => f.placement === 'summary');
 
   const parts = ['## diffy review', input.summary];
+  if (input.walkthrough && input.walkthrough.length > 0) parts.push(renderWalkthrough(input.walkthrough));
 
   if (findings.length === 0) {
     parts.push('No issues found.');

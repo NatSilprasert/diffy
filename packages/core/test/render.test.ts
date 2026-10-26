@@ -41,6 +41,22 @@ describe('renderInlineComment', () => {
   });
 });
 
+describe('renderSummary walkthrough', () => {
+  const walkthrough = [{ title: 'Auth', description: 'Reads the token.', files: ['src/auth.ts'], risk: 'high' as const }];
+
+  it('puts the walkthrough after the summary and before the findings', () => {
+    const body = renderSummary({ ...base, findings: [finding()], walkthrough });
+    expect(body).toContain('### Walkthrough');
+    expect(body.indexOf('Adds login.')).toBeLessThan(body.indexOf('### Walkthrough'));
+    expect(body.indexOf('### Walkthrough')).toBeLessThan(body.indexOf('| Severity | Count |'));
+  });
+
+  it('has none without groups', () => {
+    expect(renderSummary({ ...base, findings: [], walkthrough: [] })).not.toContain('Walkthrough');
+    expect(renderSummary({ ...base, findings: [] })).not.toContain('Walkthrough');
+  });
+});
+
 describe('renderSummary context files and profile', () => {
   it('names the project brief among what was read', () => {
     expect(renderSummary({ ...base, findings: [], usedProfile: true })).toContain('<sub>Read for context: the project brief</sub>');

@@ -549,7 +549,7 @@
             "description": "No such review"
           },
           "409": {
-            "description": "The review is not in the failed state"
+            "description": "The review is queued or running already"
           }
         },
         "tags": [

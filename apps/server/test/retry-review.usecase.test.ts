@@ -21,13 +21,13 @@ const row = (over: Record<string, unknown> = {}) => ({
 
 function setup(found: unknown, requeued: unknown) {
   const findById = vi.fn().mockResolvedValue(found);
-  const requeueIfFailed = vi.fn().mockResolvedValue(requeued);
+  const requeueIfFinished = vi.fn().mockResolvedValue(requeued);
   const enqueue = vi.fn();
   const usecase = new RetryReviewUsecase(
-    { findById, requeueIfFailed } as unknown as ReviewsRepository,
+    { findById, requeueIfFinished } as unknown as ReviewsRepository,
     { enqueue } as unknown as ReviewQueueService,
   );
-  return { usecase, requeueIfFailed, enqueue };
+  return { usecase, requeueIfFinished, enqueue };
 }
 
 describe('RetryReviewUsecase', () => {
@@ -41,20 +41,26 @@ describe('RetryReviewUsecase', () => {
   });
 
   it('returns 404 for an unknown review and touches nothing', async () => {
-    const { usecase, requeueIfFailed, enqueue } = setup(null, null);
+    const { usecase, requeueIfFinished, enqueue } = setup(null, null);
     await expect(usecase.execute({ id: 'nope' })).rejects.toBeInstanceOf(NotFoundException);
-    expect(requeueIfFailed).not.toHaveBeenCalled();
+    expect(requeueIfFinished).not.toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
   });
 
-  it.each(['queued', 'running', 'posted', 'skipped'])('returns 409 for a %s review, naming its status', async (status) => {
+  it.each(['posted', 'skipped'])('runs a %s review again too', async (status) => {
+    const { usecase, enqueue } = setup(row({ status, error: null }), row({ status: 'queued', error: null, finishedAt: null }));
+    await expect(usecase.execute({ id: 'v1' })).resolves.toMatchObject({ status: 'queued' });
+    expect(enqueue).toHaveBeenCalledWith('v1');
+  });
+
+  it.each(['queued', 'running'])('returns 409 for a %s review, naming its status', async (status) => {
     const { usecase, enqueue } = setup(row({ status }), null);
     await expect(usecase.execute({ id: 'v1' })).rejects.toBeInstanceOf(ConflictException);
     await expect(usecase.execute({ id: 'v1' })).rejects.toThrow(`This review is ${status}.`);
     expect(enqueue).not.toHaveBeenCalled();
   });
 
-  it('returns 409 when another retry won the race (it was failed a moment ago)', async () => {
+  it('returns 409 when another request won the race (it was finished a moment ago)', async () => {
     const { usecase, enqueue } = setup(row({ status: 'failed' }), null);
     await expect(usecase.execute({ id: 'v1' })).rejects.toBeInstanceOf(ConflictException);
     expect(enqueue).not.toHaveBeenCalled();

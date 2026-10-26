@@ -210,14 +210,30 @@ export class ReviewsRepository {
     return this.prisma.review.findUnique({ where: { id } });
   }
 
-  // failed -> queued, as one conditional update: of two simultaneous retries only one can win.
-  // Returns the updated row, or null if the review was not failed (any more).
-  async requeueIfFailed(id: string): Promise<Review | null> {
-    const result = await this.prisma.review.updateMany({
-      where: { id, status: 'failed' },
-      data: { status: 'queued', error: null, finishedAt: null },
+  // A finished review (failed, posted or skipped) -> queued again, for another run on the same commit.
+  // The old result goes: its findings are deleted and its summary, model and token counts cleared, since the
+  // new run writes its own. One conditional update decides it, so of two simultaneous requests only one wins.
+  // Returns the updated row, or null if the review was not finished (any more).
+  async requeueIfFinished(id: string): Promise<Review | null> {
+    return this.prisma.$transaction(async (tx) => {
+      const result = await tx.review.updateMany({
+        where: { id, status: { in: ['failed', 'posted', 'skipped'] } },
+        data: {
+          status: 'queued',
+          error: null,
+          finishedAt: null,
+          summary: null,
+          githubReviewUrl: null,
+          provider: null,
+          model: null,
+          inputTokens: null,
+          outputTokens: null,
+        },
+      });
+      if (result.count === 0) return null;
+      await tx.finding.deleteMany({ where: { reviewId: id } });
+      return tx.review.findUnique({ where: { id } });
     });
-    return result.count > 0 ? this.findById(id) : null;
   }
 
   // For startup. A review left 'running' means the server stopped in the middle of it, so it goes

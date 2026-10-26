@@ -90,7 +90,7 @@ export class ReviewsController {
   @ZodSerializerDto(RetryReviewResponseDto)
   @ApiOkResponse({ type: RetryReviewResponseDto })
   @ApiNotFoundResponse({ description: 'No such review' })
-  @ApiConflictResponse({ description: 'The review is not in the failed state' })
+  @ApiConflictResponse({ description: 'The review is queued or running already' })
   retryReview(@Param() params: RetryReviewParamsDto) {
     return this.retryReviewUsecase.execute(params);
   }

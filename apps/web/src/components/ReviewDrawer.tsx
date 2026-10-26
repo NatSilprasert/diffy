@@ -125,7 +125,25 @@ function DrawerHeader({ review }: { review: GetReviewResponseDtoReview }) {
             </a>
           </Button>
         )}
+        {/* A failed review has its own button in the error box below. */}
+        {(review.status === 'posted' || review.status === 'skipped') && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={retry.isPending}
+            onClick={() => retry.mutate({ id: review.id })}
+            title="Run the review again on the same commit. A new review is posted on GitHub; the old one stays there."
+          >
+            <RotateCw className={retry.isPending ? 'animate-spin' : undefined} aria-hidden />
+            {retry.isPending ? 'Queuing…' : 'Review again'}
+          </Button>
+        )}
       </div>
+      {retry.isError && review.status !== 'failed' && (
+        <p role="alert" className="text-sm text-destructive">
+          {retry.error.message}
+        </p>
+      )}
 
       {working && (
         <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">

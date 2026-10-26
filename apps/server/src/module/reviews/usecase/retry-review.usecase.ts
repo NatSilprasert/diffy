@@ -15,11 +15,12 @@ export class RetryReviewUsecase {
     const review = await this.reviewsRepository.findById(params.id);
     if (!review) throw new NotFoundException('Review not found.');
 
-    // Only a failed review is retried. A posted one would be posted a second time, a queued or running
-    // one is already being handled, and a skipped one would be skipped again for the same reason.
-    const requeued = await this.reviewsRepository.requeueIfFailed(params.id);
+    // Any finished review can run again on the same commit: a failed one to get a result, a posted one to get
+    // a fresh opinion (it posts a new review on GitHub). Only a queued or running one is refused, since it is
+    // already being handled.
+    const requeued = await this.reviewsRepository.requeueIfFinished(params.id);
     if (!requeued) {
-      throw new ConflictException(`Only failed reviews can be retried. This review is ${review.status}.`);
+      throw new ConflictException(`This review is ${review.status}. It is already being handled, so it cannot be started again.`);
     }
 
     this.reviewQueue.enqueue(requeued.id);

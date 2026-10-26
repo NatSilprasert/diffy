@@ -122,23 +122,43 @@ describe('ReviewsRepository.countFindingsBySeverity', () => {
   });
 });
 
-describe('ReviewsRepository.requeueIfFailed', () => {
-  it('only touches a failed review and clears the old error and finish time', async () => {
+describe('ReviewsRepository.requeueIfFinished', () => {
+  // The transaction callback gets a client of its own; here it is the same fake.
+  const withTx = (review: Record<string, unknown>, finding: Record<string, unknown> = {}) => {
+    const tx = { review, finding };
+    return new ReviewsRepository({ $transaction: (run: (t: typeof tx) => unknown) => run(tx) } as unknown as PrismaService);
+  };
+
+  it('only touches a finished review, clears the old result and deletes its findings', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 1 });
     const findUnique = vi.fn().mockResolvedValue({ id: 'v1', status: 'queued' });
-    const result = await repoWith({ updateMany, findUnique }).requeueIfFailed('v1');
+    const deleteMany = vi.fn().mockResolvedValue({ count: 3 });
+    const result = await withTx({ updateMany, findUnique }, { deleteMany }).requeueIfFinished('v1');
 
     expect(updateMany).toHaveBeenCalledWith({
-      where: { id: 'v1', status: 'failed' },
-      data: { status: 'queued', error: null, finishedAt: null },
+      where: { id: 'v1', status: { in: ['failed', 'posted', 'skipped'] } },
+      data: {
+        status: 'queued',
+        error: null,
+        finishedAt: null,
+        summary: null,
+        githubReviewUrl: null,
+        provider: null,
+        model: null,
+        inputTokens: null,
+        outputTokens: null,
+      },
     });
+    expect(deleteMany).toHaveBeenCalledWith({ where: { reviewId: 'v1' } });
     expect(result).toEqual({ id: 'v1', status: 'queued' });
   });
 
-  it('returns null, without reading the row, when it was not failed', async () => {
+  it('returns null and deletes nothing when it was queued or running', async () => {
     const findUnique = vi.fn();
-    const result = await repoWith({ updateMany: vi.fn().mockResolvedValue({ count: 0 }), findUnique }).requeueIfFailed('v1');
+    const deleteMany = vi.fn();
+    const result = await withTx({ updateMany: vi.fn().mockResolvedValue({ count: 0 }), findUnique }, { deleteMany }).requeueIfFinished('v1');
     expect(result).toBeNull();
+    expect(deleteMany).not.toHaveBeenCalled();
     expect(findUnique).not.toHaveBeenCalled();
   });
 });

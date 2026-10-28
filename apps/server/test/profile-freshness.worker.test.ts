@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@diffy/core', () => ({ checkProfileFreshness: vi.fn(), createGithubClient: vi.fn(() => ({})) }));
+vi.mock('@diffy/core', () => ({ checkProfileFreshness: vi.fn() }));
 
 import { checkProfileFreshness } from '@diffy/core';
 import type { ProfilesRepository } from '../src/module/profiles/profiles.repository';
 import { CHECK_EVERY_MS, ProfileFreshnessWorker } from '../src/module/profiles/worker/profile-freshness.worker';
 import type { ProfileBuilderWorker } from '../src/module/profiles/worker/profile-builder.worker';
 import type { ReposService } from '../src/module/repos/repos.service';
-import type { SettingsService } from '../src/module/settings/settings.service';
+import type { GithubService } from '../src/module/github/github.service';
 
 const NOW = Date.parse('2026-10-26T12:00:00Z');
 const oldBuild = new Date(NOW - CHECK_EVERY_MS - 1000);
@@ -16,23 +16,23 @@ const readyRow = { status: 'ready', builtCommit: 'abc', branch: 'main', builtAt:
 const findByRepositoryId = vi.fn();
 const markBuildingIfIdle = vi.fn();
 const getActiveRepo = vi.fn();
-const getGithubToken = vi.fn();
+const getAccess = vi.fn();
 const enqueue = vi.fn();
 
 const worker = () =>
   new ProfileFreshnessWorker(
     { findByRepositoryId, markBuildingIfIdle } as unknown as ProfilesRepository,
     { getActiveRepo } as unknown as ReposService,
-    { getGithubToken } as unknown as SettingsService,
+    { getAccess } as unknown as GithubService,
     { enqueue } as unknown as ProfileBuilderWorker,
   );
 
 beforeEach(() => {
-  for (const fn of [findByRepositoryId, markBuildingIfIdle, getActiveRepo, getGithubToken, enqueue, vi.mocked(checkProfileFreshness)]) fn.mockReset();
+  for (const fn of [findByRepositoryId, markBuildingIfIdle, getActiveRepo, getAccess, enqueue, vi.mocked(checkProfileFreshness)]) fn.mockReset();
   findByRepositoryId.mockResolvedValue(readyRow);
   markBuildingIfIdle.mockResolvedValue(true);
   getActiveRepo.mockResolvedValue({ owner: 'acme', name: 'api' });
-  getGithubToken.mockResolvedValue('t');
+  getAccess.mockResolvedValue({ octokit: {}, secrets: [] });
 });
 
 describe('ProfileFreshnessWorker.checkAll', () => {

@@ -48,7 +48,8 @@ export async function getRepoInstallationClient(app: App, owner: string, repo: s
     return await app.getInstallationOctokit(data.id);
   } catch (err) {
     if ((err as { status?: number }).status === 404) {
-      throw new Error(`diffy is not installed on ${owner}/${repo}, or was not given access to it.`);
+      // Keeps the 404, so a caller can treat it like GitHub's own "not found".
+      throw Object.assign(new Error(`diffy is not installed on ${owner}/${repo}, or was not given access to it.`), { status: 404 });
     }
     throw err;
   }

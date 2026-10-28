@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { GithubService } from '../github/github.service';
 import { SettingsService } from '../settings/settings.service';
 import { ProfilesRepository } from './profiles.repository';
 import { ProfileBuilderWorker } from './worker/profile-builder.worker';
@@ -15,6 +16,7 @@ export class ProfilesService {
     private readonly profilesRepository: ProfilesRepository,
     private readonly builder: ProfileBuilderWorker,
     private readonly settingsService: SettingsService,
+    private readonly githubService: GithubService,
     private readonly freshness: ProfileFreshnessWorker,
   ) {}
 
@@ -31,7 +33,7 @@ export class ProfilesService {
   // are set up, so a repository added first is picked up as soon as Settings are complete. A profile that failed
   // is not started again here: a failure may cost a model call, so a person decides when to retry (Rebuild).
   async startMissing(repositoryIds: string[]): Promise<void> {
-    if (repositoryIds.length === 0 || !(await this.settingsService.isConfigured())) return;
+    if (repositoryIds.length === 0 || !(await this.settingsService.isConfigured({ githubViaApp: this.githubService.isAppMode() }))) return;
     const have = new Set(await this.profilesRepository.findRepositoryIdsWithProfile(repositoryIds));
     for (const repositoryId of repositoryIds) {
       if (have.has(repositoryId)) continue;
@@ -42,7 +44,7 @@ export class ProfilesService {
   // Builds again the profiles of these repositories whose project changed a lot since (at most one look per
   // repository per day). Does nothing until GitHub and the model are set up.
   async refreshStale(repositoryIds: string[]): Promise<void> {
-    if (repositoryIds.length === 0 || !(await this.settingsService.isConfigured())) return;
+    if (repositoryIds.length === 0 || !(await this.settingsService.isConfigured({ githubViaApp: this.githubService.isAppMode() }))) return;
     await this.freshness.checkAll(repositoryIds);
   }
 }

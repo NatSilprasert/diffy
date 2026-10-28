@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@diffy/core', () => ({ createGithubClient: vi.fn(() => ({ client: true })), buildProjectProfile: vi.fn() }));
+vi.mock('@diffy/core', () => ({ buildProjectProfile: vi.fn() }));
 
 import { buildProjectProfile } from '@diffy/core';
 import type { ProfilesRepository } from '../src/module/profiles/profiles.repository';
 import { ProfileBuilderWorker } from '../src/module/profiles/worker/profile-builder.worker';
 import type { ReposService } from '../src/module/repos/repos.service';
+import type { GithubService } from '../src/module/github/github.service';
 import type { SettingsService } from '../src/module/settings/settings.service';
 
 const findByRepositoryId = vi.fn();
@@ -13,28 +14,29 @@ const findBuildingRepositoryIds = vi.fn();
 const saveBuilt = vi.fn();
 const markFailed = vi.fn();
 const getActiveRepo = vi.fn();
-const getGithubToken = vi.fn();
+const getAccess = vi.fn();
 const getLlmConfig = vi.fn();
 
 const builder = () =>
   new ProfileBuilderWorker(
     { findByRepositoryId, findBuildingRepositoryIds, saveBuilt, markFailed } as unknown as ProfilesRepository,
     { getActiveRepo } as unknown as ReposService,
-    { getGithubToken, getLlmConfig } as unknown as SettingsService,
+    { getAccess } as unknown as GithubService,
+    { getLlmConfig } as unknown as SettingsService,
   );
 
 const llm = { provider: 'google', model: 'gemini-x', apiKey: 'AIza-REALSECRET' };
 const built = { content: '## Overview', branch: 'main', commit: 'abc123', usage: { inputTokens: 900, outputTokens: 300 }, filesRead: ['README.md'], dropped: 1 };
 
 beforeEach(() => {
-  for (const fn of [findByRepositoryId, findBuildingRepositoryIds, saveBuilt, markFailed, getActiveRepo, getGithubToken, getLlmConfig]) fn.mockReset();
+  for (const fn of [findByRepositoryId, findBuildingRepositoryIds, saveBuilt, markFailed, getActiveRepo, getAccess, getLlmConfig]) fn.mockReset();
   vi.mocked(buildProjectProfile).mockReset().mockResolvedValue(built as never);
   findByRepositoryId.mockResolvedValue({ status: 'building' });
   findBuildingRepositoryIds.mockResolvedValue([]);
   saveBuilt.mockResolvedValue(undefined);
   markFailed.mockResolvedValue(undefined);
   getActiveRepo.mockResolvedValue({ id: 'r1', owner: 'acme', name: 'shop', baselineShas: [] });
-  getGithubToken.mockResolvedValue('github_pat_REALTOKEN');
+  getAccess.mockResolvedValue({ octokit: { client: true }, secrets: ['github_pat_REALTOKEN'] });
   getLlmConfig.mockResolvedValue(llm);
 });
 

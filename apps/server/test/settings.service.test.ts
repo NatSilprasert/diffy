@@ -73,6 +73,15 @@ describe('SettingsService.isConfigured', () => {
     expect(await configured(null)).toBe(false);
   });
 
+  it('counts GitHub as set up when diffy reaches it through its App, without a saved token', async () => {
+    const service = new SettingsService(
+      { findSingleton: vi.fn().mockResolvedValue({ ...full, githubTokenEnc: null }) } as unknown as SettingsRepository,
+      { decrypt: vi.fn() } as unknown as CryptoService,
+    );
+    expect(await service.isConfigured()).toBe(false);
+    expect(await service.isConfigured({ githubViaApp: true })).toBe(true);
+  });
+
   it('does not decrypt anything', async () => {
     const decrypt = vi.fn();
     await new SettingsService({ findSingleton: vi.fn().mockResolvedValue(full) } as unknown as SettingsRepository, { decrypt } as unknown as CryptoService).isConfigured();

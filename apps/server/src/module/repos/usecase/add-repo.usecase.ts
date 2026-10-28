@@ -1,7 +1,7 @@
-import { createGithubClient, getRepository, listOpenPullRequests, type RepositoryInfo } from '@diffy/core';
+import { getRepository, listOpenPullRequests, type RepositoryInfo } from '@diffy/core';
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { toGithubHttpException } from '../../../infra/github/github-errors';
-import { SettingsService } from '../../settings/settings.service';
+import { GithubService } from '../../github/github.service';
 import type { AddRepoRequestDto, AddRepoResponseDto } from '../dto/add-repo.dto';
 import { toRepoItem } from '../repos.mapper';
 import { ReposRepository } from '../repos.repository';
@@ -10,7 +10,7 @@ import { ReposRepository } from '../repos.repository';
 export class AddRepoUsecase {
   constructor(
     private readonly reposRepository: ReposRepository,
-    private readonly settingsService: SettingsService,
+    private readonly githubService: GithubService,
   ) {}
 
   async execute(input: AddRepoRequestDto): Promise<AddRepoResponseDto> {
@@ -33,9 +33,8 @@ export class AddRepoUsecase {
   // not reviewed automatically, otherwise adding a repo would review all of its open PRs at once. If this
   // cannot be read, the repo is not added at all, because saving it without a baseline would do exactly that.
   private async lookupOnGithub(owner: string, name: string): Promise<{ info: RepositoryInfo; baselineShas: string[] }> {
-    const token = await this.settingsService.getGithubToken();
     try {
-      const octokit = createGithubClient(token);
+      const { octokit } = await this.githubService.getAccess(owner, name);
       const info = await getRepository(octokit, owner, name);
       const openPulls = await listOpenPullRequests(octokit, info.owner, info.name);
       return { info, baselineShas: openPulls.map((pr) => pr.headSha) };

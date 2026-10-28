@@ -1,24 +1,24 @@
 import { BadGatewayException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@diffy/core', () => ({ createGithubClient: vi.fn(() => ({})), getPullRequest: vi.fn() }));
+vi.mock('@diffy/core', () => ({ getPullRequest: vi.fn() }));
 
-import { createGithubClient, getPullRequest } from '@diffy/core';
+import { getPullRequest } from '@diffy/core';
 import { CreateReviewRequestSchema } from '../src/module/reviews/dto/create-review.dto';
 import type { ReposService } from '../src/module/repos/repos.service';
 import type { ReviewsRepository } from '../src/module/reviews/reviews.repository';
 import { CreateReviewUsecase } from '../src/module/reviews/usecase/create-review.usecase';
-import type { SettingsService } from '../src/module/settings/settings.service';
+import type { GithubService } from '../src/module/github/github.service';
 import type { ReviewQueueWorker } from '../src/module/reviews/worker/review-queue.worker';
 
 const createQueued = vi.fn();
 const getActiveRepo = vi.fn();
-const getGithubToken = vi.fn();
+const getAccess = vi.fn();
 const enqueue = vi.fn();
 const usecase = new CreateReviewUsecase(
   { createQueued } as unknown as ReviewsRepository,
   { getActiveRepo } as unknown as ReposService,
-  { getGithubToken } as unknown as SettingsService,
+  { getAccess } as unknown as GithubService,
   { enqueue } as unknown as ReviewQueueWorker,
 );
 
@@ -43,9 +43,8 @@ beforeEach(() => {
   createQueued.mockReset();
   enqueue.mockReset();
   getActiveRepo.mockReset().mockResolvedValue({ id: 'r1', owner: 'acme', name: 'api' });
-  getGithubToken.mockReset().mockResolvedValue('github_pat_x');
+  getAccess.mockReset().mockResolvedValue({ octokit: {}, secrets: [] });
   vi.mocked(getPullRequest).mockReset().mockResolvedValue(pr as never);
-  vi.mocked(createGithubClient).mockClear();
 });
 
 describe('CreateReviewUsecase', () => {
@@ -100,7 +99,7 @@ describe('CreateReviewUsecase', () => {
   });
 
   it('does not call GitHub when no token is saved', async () => {
-    getGithubToken.mockRejectedValue(new BadRequestException('Connect your GitHub token in Settings first.'));
+    getAccess.mockRejectedValue(new BadRequestException('Connect your GitHub token in Settings first.'));
     await expect(usecase.execute({ repositoryId: 'r1', prNumber: 7 })).rejects.toThrow(/Connect your GitHub token/);
     expect(getPullRequest).not.toHaveBeenCalled();
   });

@@ -1,10 +1,10 @@
-import { createGithubClient, listOpenPullRequests } from '@diffy/core';
+import { listOpenPullRequests } from '@diffy/core';
 import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnModuleDestroy } from '@nestjs/common';
 import { ENV } from '../../../infra/config/config.module';
 import type { Env } from '../../../infra/config/env';
 import { ProfilesService } from '../../profiles/profiles.service';
 import { ReposService } from '../../repos/repos.service';
-import { SettingsService } from '../../settings/settings.service';
+import { GithubService } from '../../github/github.service';
 import { ReviewsRepository } from '../reviews.repository';
 import { ReviewQueueWorker } from './review-queue.worker';
 
@@ -42,7 +42,7 @@ export class PollerWorker implements OnApplicationBootstrap, OnModuleDestroy {
   constructor(
     @Inject(ENV) private readonly env: Env,
     private readonly reposService: ReposService,
-    private readonly settingsService: SettingsService,
+    private readonly githubService: GithubService,
     private readonly reviewsRepository: ReviewsRepository,
     private readonly reviewQueue: ReviewQueueWorker,
     private readonly profilesService: ProfilesService,
@@ -111,8 +111,8 @@ export class PollerWorker implements OnApplicationBootstrap, OnModuleDestroy {
   // so one broken repository never stops the others.
   async pollRepo(repo: PolledRepo): Promise<PollResult> {
     try {
-      const token = await this.settingsService.getGithubToken();
-      const pulls = await listOpenPullRequests(createGithubClient(token), repo.owner, repo.name);
+      const { octokit } = await this.githubService.getAccess(repo.owner, repo.name);
+      const pulls = await listOpenPullRequests(octokit, repo.owner, repo.name);
 
       let queued = 0;
       for (const pr of pulls) {

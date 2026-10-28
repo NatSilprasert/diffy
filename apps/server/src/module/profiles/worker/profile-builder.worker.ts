@@ -1,7 +1,8 @@
-import { buildProjectProfile, createGithubClient } from '@diffy/core';
+import { buildProjectProfile } from '@diffy/core';
 import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 import { redactSecrets } from '../../../infra/security/redact';
 import { ReposService } from '../../repos/repos.service';
+import { GithubService } from '../../github/github.service';
 import { SettingsService } from '../../settings/settings.service';
 import { ProfilesRepository } from '../profiles.repository';
 
@@ -18,6 +19,7 @@ export class ProfileBuilderWorker implements OnApplicationBootstrap {
   constructor(
     private readonly profilesRepository: ProfilesRepository,
     private readonly reposService: ReposService,
+    private readonly githubService: GithubService,
     private readonly settingsService: SettingsService,
   ) {}
 
@@ -49,12 +51,12 @@ export class ProfileBuilderWorker implements OnApplicationBootstrap {
       if (profile?.status !== 'building') return;
 
       const repo = await this.reposService.getActiveRepo(repositoryId);
-      const token = await this.settingsService.getGithubToken();
-      secrets.push(token);
+      const { octokit, secrets: githubSecrets } = await this.githubService.getAccess(repo.owner, repo.name);
+      secrets.push(...githubSecrets);
       const llm = await this.settingsService.getLlmConfig();
       secrets.push(llm.apiKey);
 
-      const built = await buildProjectProfile({ octokit: createGithubClient(token), owner: repo.owner, repo: repo.name, llm });
+      const built = await buildProjectProfile({ octokit, owner: repo.owner, repo: repo.name, llm });
       await this.profilesRepository.saveBuilt(repositoryId, {
         content: built.content,
         branch: built.branch,

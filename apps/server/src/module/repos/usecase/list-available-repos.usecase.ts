@@ -1,21 +1,19 @@
-import { createGithubClient, listAccessibleRepos, type AccessibleRepo } from '@diffy/core';
+import type { AccessibleRepo } from '@diffy/core';
 import { Injectable } from '@nestjs/common';
 import { toGithubHttpException } from '../../../infra/github/github-errors';
-import { SettingsService } from '../../settings/settings.service';
+import { GithubService } from '../../github/github.service';
 import type { ListAvailableReposQueryDto, ListAvailableReposResponseDto } from '../dto/list-available-repos.dto';
 
 export const MAX_AVAILABLE_REPOS_RETURNED = 50;
 
 @Injectable()
 export class ListAvailableReposUsecase {
-  constructor(private readonly settingsService: SettingsService) {}
+  constructor(private readonly githubService: GithubService) {}
 
   async execute(input: ListAvailableReposQueryDto): Promise<ListAvailableReposResponseDto> {
-    const token = await this.settingsService.getGithubToken();
-
     let repos: AccessibleRepo[];
     try {
-      repos = await listAccessibleRepos(createGithubClient(token));
+      repos = await this.githubService.listRepos();
     } catch (err) {
       throw toGithubHttpException(err, {
         rejected: 'GitHub rejected the saved token. Enter a new one in Settings.',

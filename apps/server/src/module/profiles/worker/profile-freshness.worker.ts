@@ -1,7 +1,7 @@
-import { checkProfileFreshness, createGithubClient } from '@diffy/core';
+import { checkProfileFreshness } from '@diffy/core';
 import { Injectable, Logger } from '@nestjs/common';
 import { ReposService } from '../../repos/repos.service';
-import { SettingsService } from '../../settings/settings.service';
+import { GithubService } from '../../github/github.service';
 import { ProfilesRepository } from '../profiles.repository';
 import { ProfileBuilderWorker } from './profile-builder.worker';
 
@@ -21,7 +21,7 @@ export class ProfileFreshnessWorker {
   constructor(
     private readonly profilesRepository: ProfilesRepository,
     private readonly reposService: ReposService,
-    private readonly settingsService: SettingsService,
+    private readonly githubService: GithubService,
     private readonly builder: ProfileBuilderWorker,
   ) {}
 
@@ -46,7 +46,7 @@ export class ProfileFreshnessWorker {
     if (now - profile.builtAt.getTime() < CHECK_EVERY_MS) return;
 
     const repo = await this.reposService.getActiveRepo(repositoryId);
-    const octokit = createGithubClient(await this.settingsService.getGithubToken());
+    const { octokit } = await this.githubService.getAccess(repo.owner, repo.name);
     const freshness = await checkProfileFreshness(octokit, repo.owner, repo.name, profile.branch, profile.builtCommit);
     this.checkedAt.set(repositoryId, now);
 

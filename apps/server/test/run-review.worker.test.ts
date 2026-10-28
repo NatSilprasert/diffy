@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@diffy/core', () => ({
-  createGithubClient: vi.fn(() => ({ client: true })),
   getPullRequest: vi.fn(),
   reviewPullRequest: vi.fn(),
 }));
@@ -11,19 +10,21 @@ import type { Env } from '../src/infra/config/env';
 import type { ProfilesService } from '../src/module/profiles/profiles.service';
 import type { ReviewsRepository } from '../src/module/reviews/reviews.repository';
 import { RunReviewWorker } from '../src/module/reviews/worker/run-review.worker';
+import type { GithubService } from '../src/module/github/github.service';
 import type { SettingsService } from '../src/module/settings/settings.service';
 
 const findForRun = vi.fn();
 const claim = vi.fn();
 const saveResult = vi.fn();
 const markFailed = vi.fn();
-const getGithubToken = vi.fn();
+const getAccess = vi.fn();
 const getLlmConfig = vi.fn();
 const getReviewContext = vi.fn();
 
 const service = new RunReviewWorker(
   { findForRun, claim, saveResult, markFailed } as unknown as ReviewsRepository,
-  { getGithubToken, getLlmConfig } as unknown as SettingsService,
+  { getAccess } as unknown as GithubService,
+  { getLlmConfig } as unknown as SettingsService,
   { MAX_DIFF_CHARS: 123_456, MAX_CONTEXT_CHARS: 7_000, EXPAND_DIFF_CONTEXT: false, VERIFY_FINDINGS: false } as Env,
   { getReviewContext } as unknown as ProfilesService,
 );
@@ -43,12 +44,12 @@ const finding = {
 };
 
 beforeEach(() => {
-  for (const fn of [findForRun, claim, saveResult, markFailed, getGithubToken, getLlmConfig, getReviewContext]) fn.mockReset();
+  for (const fn of [findForRun, claim, saveResult, markFailed, getAccess, getLlmConfig, getReviewContext]) fn.mockReset();
   vi.mocked(getPullRequest).mockReset().mockResolvedValue({ headSha: 'abc1234' } as never);
   vi.mocked(reviewPullRequest).mockReset();
   findForRun.mockResolvedValue({ ...queuedReview, repositoryId: 'r1' });
   claim.mockResolvedValue(true);
-  getGithubToken.mockResolvedValue('github_pat_REALTOKEN');
+  getAccess.mockResolvedValue({ octokit: { client: true }, secrets: ['github_pat_REALTOKEN'] });
   getLlmConfig.mockResolvedValue(llm);
   getReviewContext.mockResolvedValue({ profile: undefined, notes: undefined });
 });
@@ -154,7 +155,7 @@ describe('RunReviewWorker.run', () => {
   it('does nothing when the review cannot be claimed (already running or finished)', async () => {
     claim.mockResolvedValue(false);
     await service.run('v1');
-    expect(getGithubToken).not.toHaveBeenCalled();
+    expect(getAccess).not.toHaveBeenCalled();
     expect(saveResult).not.toHaveBeenCalled();
     expect(markFailed).not.toHaveBeenCalled();
   });

@@ -13,9 +13,10 @@ export class SettingsService {
   ) {}
 
   // Whether GitHub and the model are both set up, without decrypting anything. For work that should wait until then.
-  async isConfigured(): Promise<boolean> {
+  // GitHub counts as set up when diffy reaches it through its GitHub App (`githubViaApp`) or a token is saved.
+  async isConfigured({ githubViaApp = false }: { githubViaApp?: boolean } = {}): Promise<boolean> {
     const settings = await this.settingsRepository.findSingleton();
-    return Boolean(settings?.githubTokenEnc && settings.llmProvider && settings.llmModel && settings.llmApiKeyEnc);
+    return Boolean((githubViaApp || settings?.githubTokenEnc) && settings?.llmProvider && settings.llmModel && settings.llmApiKeyEnc);
   }
 
   // The saved GitHub token in plain text, for calling GitHub.

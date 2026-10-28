@@ -1,9 +1,10 @@
-import { createGithubClient, getPullRequest, reviewPullRequest } from '@diffy/core';
+import { getPullRequest, reviewPullRequest } from '@diffy/core';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ProfilesService } from '../../profiles/profiles.service';
 import { ENV } from '../../../infra/config/config.module';
 import type { Env } from '../../../infra/config/env';
 import { redactSecrets } from '../../../infra/security/redact';
+import { GithubService } from '../../github/github.service';
 import { SettingsService } from '../../settings/settings.service';
 import { ReviewsRepository } from '../reviews.repository';
 
@@ -17,6 +18,7 @@ export class RunReviewWorker {
 
   constructor(
     private readonly reviewsRepository: ReviewsRepository,
+    private readonly githubService: GithubService,
     private readonly settingsService: SettingsService,
     @Inject(ENV) private readonly env: Env,
     private readonly profilesService: ProfilesService,
@@ -30,13 +32,12 @@ export class RunReviewWorker {
 
     const secrets: string[] = [];
     try {
-      const token = await this.settingsService.getGithubToken();
-      secrets.push(token);
+      const { owner, name } = review.repository;
+      const { octokit, secrets: githubSecrets } = await this.githubService.getAccess(owner, name);
+      secrets.push(...githubSecrets);
       const llm = await this.settingsService.getLlmConfig();
       secrets.push(llm.apiKey);
 
-      const { owner, name } = review.repository;
-      const octokit = createGithubClient(token);
       const pr = await getPullRequest(octokit, owner, name, review.prNumber);
 
       // The review was queued for a specific commit. If the PR has moved on, the diff GitHub would

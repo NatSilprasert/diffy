@@ -2,22 +2,21 @@ import { BadGatewayException, BadRequestException, ConflictException, NotFoundEx
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@diffy/core', () => ({
-  createGithubClient: vi.fn(() => ({})),
   getRepository: vi.fn(),
   listOpenPullRequests: vi.fn(),
 }));
 
-import { createGithubClient, getRepository, listOpenPullRequests } from '@diffy/core';
+import { getRepository, listOpenPullRequests } from '@diffy/core';
 import { AddRepoRequestSchema } from '../src/module/repos/dto/add-repo.dto';
 import type { ReposRepository } from '../src/module/repos/repos.repository';
 import { AddRepoUsecase } from '../src/module/repos/usecase/add-repo.usecase';
-import type { SettingsService } from '../src/module/settings/settings.service';
+import type { GithubService } from '../src/module/github/github.service';
 
 const add = vi.fn();
-const getGithubToken = vi.fn();
+const getAccess = vi.fn();
 const usecase = new AddRepoUsecase(
   { add } as unknown as ReposRepository,
-  { getGithubToken } as unknown as SettingsService,
+  { getAccess } as unknown as GithubService,
 );
 
 const info = (over: Record<string, unknown> = {}) => ({
@@ -41,10 +40,9 @@ const row = {
 
 beforeEach(() => {
   add.mockReset();
-  getGithubToken.mockReset().mockResolvedValue('github_pat_x');
+  getAccess.mockReset().mockResolvedValue({ octokit: {}, secrets: [] });
   vi.mocked(getRepository).mockReset();
   vi.mocked(listOpenPullRequests).mockReset().mockResolvedValue([]);
-  vi.mocked(createGithubClient).mockClear();
 });
 
 describe('AddRepoUsecase', () => {
@@ -54,7 +52,7 @@ describe('AddRepoUsecase', () => {
 
     const result = await usecase.execute({ fullName: 'acme/api' });
 
-    expect(createGithubClient).toHaveBeenCalledWith('github_pat_x');
+    expect(getAccess).toHaveBeenCalledWith('acme', 'api');
     expect(vi.mocked(getRepository).mock.calls[0]!.slice(1)).toEqual(['acme', 'api']);
     expect(add).toHaveBeenCalledWith({ owner: 'Acme', name: 'Api', baselineShas: [] });
     expect(result).toEqual({
@@ -96,7 +94,7 @@ describe('AddRepoUsecase', () => {
   });
 
   it('does not call GitHub when no token is saved', async () => {
-    getGithubToken.mockRejectedValue(new BadRequestException('Connect your GitHub token in Settings first.'));
+    getAccess.mockRejectedValue(new BadRequestException('Connect your GitHub token in Settings first.'));
     await expect(usecase.execute({ fullName: 'acme/api' })).rejects.toThrow(/Connect your GitHub token/);
     expect(getRepository).not.toHaveBeenCalled();
   });

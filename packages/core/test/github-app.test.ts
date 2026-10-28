@@ -50,7 +50,9 @@ describe('getRepoInstallationClient', () => {
 
   it('explains it when the App is not installed there', async () => {
     const { app } = fakeApp({ repoInstallation: async () => { throw Object.assign(new Error('Not Found'), { status: 404 }); } });
-    await expect(getRepoInstallationClient(app, 'acme', 'api')).rejects.toThrow('diffy is not installed on acme/api, or was not given access to it.');
+    const error = await getRepoInstallationClient(app, 'acme', 'api').catch((err) => err);
+    expect(error.message).toBe('diffy is not installed on acme/api, or was not given access to it.');
+    expect(error.status).toBe(404);
   });
 
   it('passes on any other failure unchanged', async () => {

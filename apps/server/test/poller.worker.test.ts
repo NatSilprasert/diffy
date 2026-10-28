@@ -1,19 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@diffy/core', () => ({ createGithubClient: vi.fn(() => ({ client: true })), listOpenPullRequests: vi.fn() }));
+vi.mock('@diffy/core', () => ({ listOpenPullRequests: vi.fn() }));
 
-import { createGithubClient, listOpenPullRequests } from '@diffy/core';
+import { listOpenPullRequests } from '@diffy/core';
 import type { Env } from '../src/infra/config/env';
 import type { ProfilesService } from '../src/module/profiles/profiles.service';
 import type { ReposService } from '../src/module/repos/repos.service';
 import type { ReviewsRepository } from '../src/module/reviews/reviews.repository';
 import { PollerWorker } from '../src/module/reviews/worker/poller.worker';
 import type { ReviewQueueWorker } from '../src/module/reviews/worker/review-queue.worker';
-import type { SettingsService } from '../src/module/settings/settings.service';
+import type { GithubService } from '../src/module/github/github.service';
 
 const listPollableRepos = vi.fn();
 const recordPoll = vi.fn();
-const getGithubToken = vi.fn();
+const getAccess = vi.fn();
 const createQueued = vi.fn();
 const enqueue = vi.fn();
 const startMissing = vi.fn();
@@ -23,7 +23,7 @@ const poller = () =>
   new PollerWorker(
     { POLL_INTERVAL_SECONDS: 60 } as Env,
     { listPollableRepos, recordPoll } as unknown as ReposService,
-    { getGithubToken } as unknown as SettingsService,
+    { getAccess } as unknown as GithubService,
     { createQueued } as unknown as ReviewsRepository,
     { enqueue } as unknown as ReviewQueueWorker,
     { startMissing, refreshStale } as unknown as ProfilesService,
@@ -45,12 +45,11 @@ const pr = (number: number, over: Record<string, unknown> = {}) => ({
 });
 
 beforeEach(() => {
-  for (const fn of [listPollableRepos, recordPoll, getGithubToken, createQueued, enqueue, startMissing, refreshStale]) fn.mockReset();
+  for (const fn of [listPollableRepos, recordPoll, getAccess, createQueued, enqueue, startMissing, refreshStale]) fn.mockReset();
   startMissing.mockResolvedValue(undefined);
   refreshStale.mockResolvedValue(undefined);
   vi.mocked(listOpenPullRequests).mockReset().mockResolvedValue([]);
-  vi.mocked(createGithubClient).mockClear();
-  getGithubToken.mockResolvedValue('github_pat_x');
+  getAccess.mockResolvedValue({ octokit: { client: true }, secrets: [] });
   recordPoll.mockResolvedValue(undefined);
   createQueued.mockImplementation(async (data: { prNumber: number }) => ({ review: { id: `v${data.prNumber}` }, created: true }));
 });
@@ -63,7 +62,7 @@ describe('PollerWorker.pollRepo', () => {
 
     expect(await poller().pollRepo(repo)).toEqual({ queued: 2, error: null });
 
-    expect(createGithubClient).toHaveBeenCalledWith('github_pat_x');
+    expect(getAccess).toHaveBeenCalledWith('acme', 'api');
     expect(vi.mocked(listOpenPullRequests).mock.calls[0]!.slice(1)).toEqual(['acme', 'api']);
     expect(createQueued).toHaveBeenCalledWith({ repositoryId: 'r1', prNumber: 1, prTitle: 'PR 1', prUrl: pr(1).url, headSha: 'sha1' });
     expect(enqueue.mock.calls.map((c) => c[0])).toEqual(['v1', 'v2']);
@@ -100,7 +99,7 @@ describe('PollerWorker.pollRepo', () => {
   });
 
   it('records a missing or undecryptable token the same way, without calling GitHub', async () => {
-    getGithubToken.mockRejectedValue(new Error('Connect your GitHub token in Settings first.'));
+    getAccess.mockRejectedValue(new Error('Connect your GitHub token in Settings first.'));
 
     await expect(poller().pollRepo(repo)).resolves.toEqual({ queued: 0, error: 'Connect your GitHub token in Settings first.' });
 
@@ -180,7 +179,7 @@ describe('PollerWorker.pollAll', () => {
   it('does nothing when no repository is being watched', async () => {
     listPollableRepos.mockResolvedValue([]);
     await poller().pollAll();
-    expect(getGithubToken).not.toHaveBeenCalled();
+    expect(getAccess).not.toHaveBeenCalled();
   });
 
   it('does not start a second pass while one is still running', async () => {
@@ -300,7 +299,6 @@ describe('PollerWorker.getState', () => {
   describe('project profiles', () => {
     it('asks for a profile for every pollable repository before polling them', async () => {
       listPollableRepos.mockResolvedValue([repo, { ...repo, id: 'r2', name: 'web' }]);
-      getGithubToken.mockResolvedValue('t');
       await poller().pollAll();
       expect(startMissing).toHaveBeenCalledWith(['r1', 'r2']);
       expect(refreshStale).toHaveBeenCalledWith(['r1', 'r2']);
@@ -309,7 +307,6 @@ describe('PollerWorker.getState', () => {
 
     it('never lets a failure to start profiles stop the poll', async () => {
       listPollableRepos.mockResolvedValue([repo]);
-      getGithubToken.mockResolvedValue('t');
       startMissing.mockRejectedValue(new Error('database is down'));
       await poller().pollAll();
       expect(recordPoll).toHaveBeenCalledWith('r1', null);

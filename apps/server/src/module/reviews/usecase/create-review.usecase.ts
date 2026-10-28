@@ -1,8 +1,8 @@
-import { createGithubClient, getPullRequest, type PullRequestInfo } from '@diffy/core';
+import { getPullRequest, type PullRequestInfo } from '@diffy/core';
 import { Injectable } from '@nestjs/common';
 import { toGithubHttpException } from '../../../infra/github/github-errors';
 import { ReposService } from '../../repos/repos.service';
-import { SettingsService } from '../../settings/settings.service';
+import { GithubService } from '../../github/github.service';
 import type { CreateReviewRequestDto, CreateReviewResponseDto } from '../dto/create-review.dto';
 import { toReviewItem } from '../reviews.mapper';
 import { ReviewsRepository } from '../reviews.repository';
@@ -13,7 +13,7 @@ export class CreateReviewUsecase {
   constructor(
     private readonly reviewsRepository: ReviewsRepository,
     private readonly reposService: ReposService,
-    private readonly settingsService: SettingsService,
+    private readonly githubService: GithubService,
     private readonly reviewQueue: ReviewQueueWorker,
   ) {}
 
@@ -35,9 +35,9 @@ export class CreateReviewUsecase {
 
   // The head commit is read from GitHub now, so the review is tied to exactly what was current.
   private async fetchPullRequest(owner: string, name: string, number: number): Promise<PullRequestInfo> {
-    const token = await this.settingsService.getGithubToken();
     try {
-      return await getPullRequest(createGithubClient(token), owner, name, number);
+      const { octokit } = await this.githubService.getAccess(owner, name);
+      return await getPullRequest(octokit, owner, name, number);
     } catch (err) {
       throw toGithubHttpException(err, {
         notFound: `Pull request #${number} was not found in ${owner}/${name}, or the saved token cannot access it.`,

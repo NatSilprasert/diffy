@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { GithubModule } from '../github/github.module';
 import { ReposModule } from '../repos/repos.module';
 import { SettingsModule } from '../settings/settings.module';
 import { ProfilesController } from './profiles.controller';
@@ -12,7 +13,7 @@ import { ProfileBuilderWorker } from './worker/profile-builder.worker';
 import { ProfileFreshnessWorker } from './worker/profile-freshness.worker';
 
 @Module({
-  imports: [ReposModule, SettingsModule],
+  imports: [ReposModule, SettingsModule, GithubModule],
   controllers: [ProfilesController],
   providers: [
     ProfilesRepository,

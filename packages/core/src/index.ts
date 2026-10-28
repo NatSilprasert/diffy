@@ -1,4 +1,5 @@
 export * from './github.js';
+export * from './github-app.js';
 export * from './diff.js';
 export * from './annotate.js';
 export * from './context-expand.js';

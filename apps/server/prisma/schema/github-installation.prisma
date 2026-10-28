@@ -1,0 +1,18 @@
+// A place where the diffy GitHub App is installed: a user or an organization, and which of its repositories it
+// was given (GitHub keeps that list; diffy reads it when needed). Created and kept up to date by GitHub's webhooks.
+model GithubInstallation {
+  id                  String    @id @default(cuid())
+  // GitHub's own id of the installation.
+  installationId      Int       @unique
+  accountLogin        String
+  // "User" or "Organization".
+  accountType         String
+  // "all" repositories of the account, or only "selected" ones.
+  repositorySelection String
+  // Set while GitHub has the installation suspended; reviews must not run.
+  suspendedAt         DateTime?
+  // Set when the App was uninstalled. The row stays so the history that refers to it keeps its meaning.
+  removedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}

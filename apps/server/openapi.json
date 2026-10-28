@@ -22,6 +22,33 @@
         ]
       }
     },
+    "/api/github/webhook": {
+      "post": {
+        "operationId": "receiveWebhook",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiveWebhookResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The signature does not match"
+          },
+          "503": {
+            "description": "The GitHub App is not configured"
+          }
+        },
+        "tags": [
+          "Github"
+        ]
+      }
+    },
     "/api/settings": {
       "get": {
         "operationId": "getSettings",
@@ -759,6 +786,21 @@
         "required": [
           "ok",
           "database"
+        ]
+      },
+      "ReceiveWebhookResponseDto": {
+        "type": "object",
+        "properties": {
+          "handled": {
+            "type": "boolean"
+          },
+          "event": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "handled",
+          "event"
         ]
       },
       "GetSettingsResponseDto": {

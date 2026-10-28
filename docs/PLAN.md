@@ -31,7 +31,7 @@ AI รีวิว pull request แบบ open source ที่ผู้ใช�
 | D | Repos API (D1–D3) | เสร็จ |
 | E | Reviews API และ worker (E1–E7) | เสร็จ |
 | F | หน้าเว็บ (Next.js) F1–F7 | **F1–F7 เสร็จ** (เว็บครบ) |
-| S | diffy เป็นบริการกลาง diffy[bot] S0–S7 (หัวข้อ 9, Phase S) | **S0 เสร็จ, S1a เสร็จ**, กำลังทำ S1b |
+| S | diffy เป็นบริการกลาง diffy[bot] S0–S7 (หัวข้อ 9, Phase S) | **S0, S1 เสร็จ**, ต่อ S2 |
 | G | ~~self-host: process เดียวและเอกสาร~~ ยกเลิก (เลิกโหมด self-host) G1 อยู่ใน stash ใช้ต่อใน S6 | ยกเลิก |
 | R | ทำให้รีวิวละเอียดขึ้น R1–R7 (หัวข้อ 9, Phase R) | **R1–R5 และ R2c เสร็จ (R2b เหลือทดสอบรวม)** |
 
@@ -306,7 +306,7 @@ Migration ที่มี: `init`, `add_repository_removed_at`, `lowercase_enums
 
 - **S0 GitHub App** (เจ้าของโปรเจกต์ทำเอง ขั้นตอนด้านล่าง) สร้าง 2 ตัว: `diffy-dev` สำหรับพัฒนา (webhook ผ่าน smee.io) และ `diffy` ตัวจริง (ทำตอน S6)
 - ~~**S0**~~ **เสร็จแล้ว** (ทดสอบกับ GitHub จริง: App `diffy-dev-natsilp` ยืนยันตัวตนด้วย id + private key ได้, เห็น installation บน `NatSilprasert` แบบเลือก repo และ repo `diffy-sandbox` ผ่าน installation token)
-- **S1 webhook + installation** (S1a เสร็จ: `github-app.ts` ใน core: `createGithubApp`, `getAppIdentity`, `listAppInstallations`, `getInstallationClient`, `getRepoInstallationClient`, `listInstallationRepos`; S1b ยังไม่ทำ: endpoint ฝั่ง server) `POST /api/github/webhook` ตรวจลายเซ็น HMAC (`X-Hub-Signature-256`) ด้วย raw body รับ `installation` / `installation_repositories` แล้วบันทึก account และ repo; core มี client ที่ทำงานในนาม installation
+- ~~**S1 webhook + installation**~~ **เสร็จแล้ว** core: `github-app.ts` (`createGithubApp`, `getAppIdentity`, `listAppInstallations`, `getInstallationClient`, `getRepoInstallationClient`, `listInstallationRepos`) server: `POST /api/github/webhook` (`module/github`) ตรวจลายเซ็น HMAC-SHA256 จาก raw body (`timingSafeEqual`) ก่อนอ่านข้อมูล: 503 ถ้ายังไม่ตั้ง `GITHUB_WEBHOOK_SECRET`, 401 ถ้าลายเซ็นผิด/ไม่มี รับ `ping`, `installation` (created/new_permissions_accepted → upsert, deleted → `removedAt`, suspend/unsuspend → `suspendedAt`) และ `installation_repositories` (อัปเดต selection) event อื่นตอบ 200 `handled:false` ตาราง `GithubInstallation` (migration `20261028000000`) เก็บเฉพาะ installation ส่วนรายการ repo อ่านสดจาก GitHub ด้วย `listInstallationRepos` (ไม่ต้อง sync) env `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY_PATH`, `GITHUB_WEBHOOK_SECRET` เป็น optional จนกว่า S2 ตัดโหมด token ทดสอบจริง: GitHub redeliver event `installation` ผ่าน smee → server → แถวใน DB ถูกต้อง; ลายเซ็นผิดได้ 401
 - **S2 รีวิวจาก webhook** `pull_request` (opened, synchronize, reopened, ready_for_review) เข้าคิว ใช้ installation token ทุกที่แทน token ส่วนตัว (8 จุดของ `getGithubToken`) ตัด poller (อาจเก็บเป็นตัวกวาดสำรองวันละครั้งเผื่อ webhook หาย)
 - **S3 หลายผู้ใช้** `Account` (GitHub user/org ที่ติดตั้ง), `User`, `Membership`; repo, รีวิว, brief, การตั้งค่า LLM ผูกกับ account; `Settings` singleton ไปเป็นต่อ account; test ว่าข้อมูลไม่ข้าม account
 - **S4 ล็อกอิน** OAuth ของ GitHub App (user-to-server) → session cookie (httpOnly, secure, SameSite) → guard ทุก endpoint; สิทธิ์เห็น account มาจาก `GET /user/installations` ของผู้ใช้คนนั้น

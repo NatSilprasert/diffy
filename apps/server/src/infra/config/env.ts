@@ -21,6 +21,12 @@ export const EnvSchema = z.object({
   // No auth in v1, so listen on localhost only unless the user opts out.
   HOST: z.string().min(1).default('127.0.0.1'),
   POLL_INTERVAL_SECONDS: z.coerce.number().int().positive().default(60),
+  // The diffy GitHub App. All optional while the personal-token mode still exists; the webhook answers 503 without them.
+  GITHUB_APP_ID: z.coerce.number().int().positive().optional(),
+  // Path of the App's private key (.pem), relative to the project root or absolute.
+  GITHUB_APP_PRIVATE_KEY_PATH: z.string().min(1).optional(),
+  // The secret GitHub signs webhooks with.
+  GITHUB_WEBHOOK_SECRET: z.string().min(16).optional(),
   // How much diff (in characters, about 4 per token) one review may send to the model. Bigger pull requests
   // are reviewed in part: code first, then tests, then the rest. Same default as DEFAULT_MAX_DIFF_CHARS in core.
   MAX_DIFF_CHARS: z.coerce.number().int().min(10_000).default(150_000),

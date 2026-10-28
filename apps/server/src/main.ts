@@ -16,7 +16,7 @@ async function bootstrap() {
   }
 
   try {
-    const app = await NestFactory.create(AppModule, { abortOnError: false });
+    const app = await NestFactory.create(AppModule, { abortOnError: false, rawBody: true });
     configureApp(app);
     enableDevCors(app);
     SwaggerModule.setup('api/docs', app, buildOpenApiDocument(app));

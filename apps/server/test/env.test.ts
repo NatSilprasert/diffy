@@ -35,6 +35,14 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, VERIFY_FINDINGS: 'maybe' })).toThrow(/VERIFY_FINDINGS/);
   });
 
+  it('reads the GitHub App settings, all optional', () => {
+    expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url }).GITHUB_APP_ID).toBeUndefined();
+    const env = parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, GITHUB_APP_ID: '5507932', GITHUB_WEBHOOK_SECRET: 'a-long-enough-webhook-secret' });
+    expect(env).toMatchObject({ GITHUB_APP_ID: 5507932, GITHUB_WEBHOOK_SECRET: 'a-long-enough-webhook-secret' });
+    expect(() => parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, GITHUB_WEBHOOK_SECRET: 'short' })).toThrow(/GITHUB_WEBHOOK_SECRET/);
+    expect(() => parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, GITHUB_APP_ID: 'abc' })).toThrow(/GITHUB_APP_ID/);
+  });
+
   it('reads the context budget, where 0 turns the documents off', () => {
     expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, MAX_CONTEXT_CHARS: '0' }).MAX_CONTEXT_CHARS).toBe(0);
     expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, MAX_CONTEXT_CHARS: '50000' }).MAX_CONTEXT_CHARS).toBe(50_000);

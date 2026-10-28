@@ -35,6 +35,12 @@ export class ReposService {
     return repos.map(toWatchedRepo);
   }
 
+  // The watched repository with this name, or null when diffy is not meant to review it.
+  async findPollableRepo(owner: string, name: string): Promise<WatchedRepo | null> {
+    const repo = await this.reposRepository.findPollableByName(owner, name);
+    return repo ? toWatchedRepo(repo) : null;
+  }
+
   // "owner/name" for each id, removed repositories included. Unknown ids are simply missing from the map.
   async getFullNames(ids: string[]): Promise<Map<string, string>> {
     if (ids.length === 0) return new Map();

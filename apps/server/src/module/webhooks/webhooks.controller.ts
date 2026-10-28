@@ -5,7 +5,7 @@ import { ReceiveWebhookResponseDto } from './dto/receive-webhook.dto';
 import { ReceiveWebhookUsecase } from './usecase/receive-webhook.usecase';
 
 @Controller('github')
-export class GithubController {
+export class WebhooksController {
   constructor(private readonly receiveWebhookUsecase: ReceiveWebhookUsecase) {}
 
   // GitHub calls this itself, so there is no request DTO: the body is whatever GitHub sent, and it is only read

@@ -13,6 +13,7 @@ import { ENV } from '../../infra/config/config.module';
 import type { Env } from '../../infra/config/env';
 import { readAppPrivateKey } from '../../infra/github/app-private-key';
 import { SettingsService } from '../settings/settings.service';
+import { GithubRepository, type InstallationData } from './github.repository';
 
 type Octokit = ReturnType<typeof createGithubClient>;
 
@@ -34,6 +35,7 @@ export class GithubService {
   constructor(
     @Inject(ENV) private readonly env: Env,
     private readonly settingsService: SettingsService,
+    private readonly githubRepository: GithubRepository,
   ) {}
 
   isAppMode(): boolean {
@@ -57,6 +59,15 @@ export class GithubService {
       repos.push(...(await listInstallationRepos(await getInstallationClient(app, installation.id))));
     }
     return repos.sort((a, b) => a.fullName.localeCompare(b.fullName));
+  }
+
+  // Where the App is installed is kept up to date from GitHub's webhooks.
+  recordInstallation(data: InstallationData): Promise<void> {
+    return this.githubRepository.upsertInstallation(data);
+  }
+
+  markInstallation(installationId: number, change: { removedAt?: Date | null; suspendedAt?: Date | null }): Promise<boolean> {
+    return this.githubRepository.updateInstallation(installationId, change);
   }
 
   // Made once: the App keeps the tokens of its installations and renews them by itself.

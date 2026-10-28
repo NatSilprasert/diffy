@@ -23,11 +23,15 @@ import { ServiceUnavailableException } from '@nestjs/common';
 import type { Env } from '../src/infra/config/env';
 import { readAppPrivateKey } from '../src/infra/github/app-private-key';
 import { GithubService } from '../src/module/github/github.service';
+import type { GithubRepository } from '../src/module/github/github.repository';
 import type { SettingsService } from '../src/module/settings/settings.service';
 
 const getGithubToken = vi.fn();
+const upsertInstallation = vi.fn();
+const updateInstallation = vi.fn();
 const appEnv = { GITHUB_APP_ID: 5507932, GITHUB_APP_PRIVATE_KEY_PATH: 'app.pem' } as Env;
-const service = (env: Partial<Env> = appEnv) => new GithubService(env as Env, { getGithubToken } as unknown as SettingsService);
+const service = (env: Partial<Env> = appEnv) =>
+  new GithubService(env as Env, { getGithubToken } as unknown as SettingsService, { upsertInstallation, updateInstallation } as unknown as GithubRepository);
 
 const repo = (fullName: string) => {
   const [owner, name] = fullName.split('/') as [string, string];
@@ -103,5 +107,18 @@ describe('GithubService.listRepos', () => {
   it('lists what the token can see without the App', async () => {
     vi.mocked(listAccessibleRepos).mockResolvedValue([repo('acme/api')]);
     expect(await service({}).listRepos()).toEqual([repo('acme/api')]);
+  });
+});
+
+describe('GithubService installations', () => {
+  it('records and marks installations through the repository', async () => {
+    const data = { installationId: 7, accountLogin: 'acme', accountType: 'User', repositorySelection: 'all' };
+    updateInstallation.mockResolvedValue(true);
+
+    await service().recordInstallation(data);
+    expect(upsertInstallation).toHaveBeenCalledWith(data);
+
+    expect(await service().markInstallation(7, { suspendedAt: null })).toBe(true);
+    expect(updateInstallation).toHaveBeenCalledWith(7, { suspendedAt: null });
   });
 });

@@ -3,8 +3,10 @@ import { z } from 'zod';
 import { ENV } from '../../../infra/config/config.module';
 import type { Env } from '../../../infra/config/env';
 import { verifyWebhookSignature } from '../../../infra/github/webhook-signature';
+import { GithubService } from '../../github/github.service';
+import { ReposService } from '../../repos/repos.service';
+import { ReviewsService } from '../../reviews/reviews.service';
 import type { ReceiveWebhookResponseDto } from '../dto/receive-webhook.dto';
-import { GithubRepository } from '../github.repository';
 
 const InstallationPayload = z.object({
   action: z.string(),
@@ -15,6 +17,24 @@ const InstallationPayload = z.object({
     repository_selection: z.enum(['all', 'selected']),
   }),
 });
+
+const PullRequestPayload = z.object({
+  action: z.string(),
+  repository: z.object({ name: z.string(), owner: z.object({ login: z.string() }) }),
+  pull_request: z.object({
+    number: z.number().int(),
+    title: z.string(),
+    html_url: z.string(),
+    draft: z.boolean().optional(),
+    head: z.object({ sha: z.string() }),
+    // Null when the author's account was deleted.
+    user: z.object({ type: z.string() }).nullable(),
+  }),
+});
+
+// What happens to a pull request is decided by these: a new one, new commits, a closed one that comes back, a draft
+// that is ready now. Everything else (labels, assignees, closing, edits of the text) needs no review.
+const REVIEW_ACTIONS = new Set(['opened', 'synchronize', 'reopened', 'ready_for_review']);
 
 export type ReceiveWebhookInput = {
   event: string | undefined;
@@ -29,7 +49,9 @@ export class ReceiveWebhookUsecase {
   private readonly logger = new Logger(ReceiveWebhookUsecase.name);
 
   constructor(
-    private readonly githubRepository: GithubRepository,
+    private readonly githubService: GithubService,
+    private readonly reposService: ReposService,
+    private readonly reviewsService: ReviewsService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -46,9 +68,33 @@ export class ReceiveWebhookUsecase {
       case 'installation_repositories':
         await this.onInstallation(event, input.payload);
         return { handled: true, event };
+      case 'pull_request':
+        await this.onPullRequest(input.payload);
+        return { handled: true, event };
       default:
         return { handled: false, event };
     }
+  }
+
+  private async onPullRequest(payload: unknown): Promise<void> {
+    const parsed = PullRequestPayload.safeParse(payload);
+    if (!parsed.success) throw new BadRequestException('Unexpected pull_request payload.');
+    const { action, repository, pull_request: pr } = parsed.data;
+    if (!REVIEW_ACTIONS.has(action)) return;
+
+    // A repository nobody asked diffy to watch (the App may be installed on all of an account's repositories).
+    const repo = await this.reposService.findPollableRepo(repository.owner.login, repository.name);
+    if (!repo) return;
+
+    const queued = await this.reviewsService.queueReview(repo, {
+      number: pr.number,
+      title: pr.title,
+      url: pr.html_url,
+      headSha: pr.head.sha,
+      isDraft: pr.draft ?? false,
+      authorIsBot: pr.user?.type === 'Bot',
+    });
+    if (queued) this.logger.log(`${repo.owner}/${repo.name}#${pr.number}: queued a review (${action})`);
   }
 
   private async onInstallation(event: string, payload: unknown): Promise<void> {
@@ -66,23 +112,23 @@ export class ReceiveWebhookUsecase {
 
     if (event === 'installation_repositories') {
       // Repositories were added or taken away. GitHub keeps the list, so only the selection is recorded.
-      await this.githubRepository.upsertInstallation(data);
+      await this.githubService.recordInstallation(data);
       return;
     }
 
     switch (action) {
       case 'created':
       case 'new_permissions_accepted':
-        await this.githubRepository.upsertInstallation(data);
+        await this.githubService.recordInstallation(data);
         break;
       case 'deleted':
-        await this.githubRepository.updateInstallation(data.installationId, { removedAt: new Date() });
+        await this.githubService.markInstallation(data.installationId, { removedAt: new Date() });
         break;
       case 'suspend':
-        await this.githubRepository.updateInstallation(data.installationId, { suspendedAt: new Date() });
+        await this.githubService.markInstallation(data.installationId, { suspendedAt: new Date() });
         break;
       case 'unsuspend':
-        await this.githubRepository.updateInstallation(data.installationId, { suspendedAt: null });
+        await this.githubService.markInstallation(data.installationId, { suspendedAt: null });
         break;
       default:
         this.logger.warn(`Ignored installation action "${action}"`);

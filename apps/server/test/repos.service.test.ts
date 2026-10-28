@@ -42,3 +42,18 @@ describe('ReposService.getFullNames', () => {
     expect(await service.getFullNames(['r1', 'x'])).toEqual(new Map([['r1', 'acme/api']]));
   });
 });
+
+describe('ReposService.findPollableRepo', () => {
+  it('returns the watched repository by name, with identity and baseline only', async () => {
+    const findPollableByName = vi.fn().mockResolvedValue({ id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'], enabled: true, lastError: 'x', removedAt: null });
+    const service = new ReposService({ findPollableByName } as unknown as ReposRepository);
+
+    expect(await service.findPollableRepo('Acme', 'API')).toEqual({ id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'] });
+    expect(findPollableByName).toHaveBeenCalledWith('Acme', 'API');
+  });
+
+  it('is null when the repository is not watched', async () => {
+    const service = new ReposService({ findPollableByName: vi.fn().mockResolvedValue(null) } as unknown as ReposRepository);
+    expect(await service.findPollableRepo('acme', 'api')).toBeNull();
+  });
+});

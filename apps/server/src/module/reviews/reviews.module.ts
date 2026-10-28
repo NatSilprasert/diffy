@@ -3,6 +3,7 @@ import { GithubModule } from '../github/github.module';
 import { ProfilesModule } from '../profiles/profiles.module';
 import { ReposModule } from '../repos/repos.module';
 import { SettingsModule } from '../settings/settings.module';
+import { ReviewsService } from './reviews.service';
 import { ReviewsController } from './reviews.controller';
 import { ReviewsRepository } from './reviews.repository';
 import { CreateReviewUsecase } from './usecase/create-review.usecase';
@@ -22,6 +23,7 @@ import { RunReviewWorker } from './worker/run-review.worker';
   controllers: [ReviewsController],
   providers: [
     ReviewsRepository,
+    ReviewsService,
     CreateReviewUsecase,
     ListReviewsUsecase,
     GetReviewUsecase,
@@ -34,5 +36,7 @@ import { RunReviewWorker } from './worker/run-review.worker';
     ReviewQueueWorker,
     PollerWorker,
   ],
+  // Only the service is public. Other modules never touch this module's repository.
+  exports: [ReviewsService],
 })
 export class ReviewsModule {}

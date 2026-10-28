@@ -12,6 +12,14 @@ export class ReposRepository {
     return this.prisma.repository.findFirst({ where: { id, removedAt: null } });
   }
 
+  // The repository diffy reviews under this name (GitHub's casing is not trusted to match), or null when it is not
+  // watched, was removed, or is paused.
+  findPollableByName(owner: string, name: string) {
+    return this.prisma.repository.findFirst({
+      where: { owner: { equals: owner, mode: 'insensitive' }, name: { equals: name, mode: 'insensitive' }, removedAt: null, enabled: true },
+    });
+  }
+
   // Names for a set of ids, including repositories that were removed (their reviews are still in the history).
   findNamesByIds(ids: string[]) {
     return this.prisma.repository.findMany({ where: { id: { in: ids } }, select: { id: true, owner: true, name: true } });

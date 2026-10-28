@@ -5,6 +5,7 @@ import type { Env } from '../../../infra/config/env';
 import { ProfilesService } from '../../profiles/profiles.service';
 import { ReposService } from '../../repos/repos.service';
 import { GithubService } from '../../github/github.service';
+import { isReviewable } from '../review-eligibility';
 import { ReviewsRepository } from '../reviews.repository';
 import { ReviewQueueWorker } from './review-queue.worker';
 
@@ -116,11 +117,7 @@ export class PollerWorker implements OnApplicationBootstrap, OnModuleDestroy {
 
       let queued = 0;
       for (const pr of pulls) {
-        // Drafts are not ready for review yet; they get one when marked ready (same commit, no row yet).
-        // Bots (Dependabot and the like) open many PRs nobody wants an AI opinion on.
-        if (pr.isDraft || pr.authorIsBot) continue;
-        // Already open, at this exact commit, when the repo was added. A newer commit is reviewed.
-        if (repo.baselineShas.includes(pr.headSha)) continue;
+        if (!isReviewable(pr, repo.baselineShas)) continue;
 
         const { review, created } = await this.reviewsRepository.createQueued({
           repositoryId: repo.id,

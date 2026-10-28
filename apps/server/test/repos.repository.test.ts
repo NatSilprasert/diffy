@@ -102,6 +102,14 @@ describe('ReposRepository polling queries', () => {
     expect(repository.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { removedAt: null, enabled: true } }));
   });
 
+  it('findPollableByName matches the name in any casing, and only a live, unpaused repository', async () => {
+    const { repo, repository } = setup({ findFirst: vi.fn().mockResolvedValue(null) });
+    await repo.findPollableByName('NatSilprasert', 'Diffy-Sandbox');
+    expect(repository.findFirst).toHaveBeenCalledWith({
+      where: { owner: { equals: 'NatSilprasert', mode: 'insensitive' }, name: { equals: 'Diffy-Sandbox', mode: 'insensitive' }, removedAt: null, enabled: true },
+    });
+  });
+
   it('markPolled stamps the time and stores the error (null clears it)', async () => {
     const { repo, repository } = setup({ updateMany: vi.fn().mockResolvedValue({ count: 1 }) });
     await repo.markPolled('r1', 'boom');

@@ -31,7 +31,8 @@ AI รีวิว pull request แบบ open source ที่ผู้ใช�
 | D | Repos API (D1–D3) | เสร็จ |
 | E | Reviews API และ worker (E1–E7) | เสร็จ |
 | F | หน้าเว็บ (Next.js) F1–F7 | **F1–F7 เสร็จ** (เว็บครบ) |
-| G | รวมเป็น process เดียวและเอกสาร G1–G2 | ยังไม่เริ่ม |
+| S | diffy เป็นบริการกลาง diffy[bot] S0–S7 (หัวข้อ 9, Phase S) | **กำลังทำ S0** |
+| G | ~~self-host: process เดียวและเอกสาร~~ ยกเลิก (เลิกโหมด self-host) G1 อยู่ใน stash ใช้ต่อใน S6 | ยกเลิก |
 | R | ทำให้รีวิวละเอียดขึ้น R1–R7 (หัวข้อ 9, Phase R) | **R1–R5 และ R2c เสร็จ (R2b เหลือทดสอบรวม)** |
 
 จำนวน test ที่ผ่าน ณ วันที่เขียน: `shared` 8, `core` 74, `server` 227, `web` 29
@@ -290,6 +291,44 @@ Migration ที่มี: `init`, `add_repository_removed_at`, `lowercase_enums
 **ค่าใช้จ่าย** R2, R2b, R3, R5, R6 เพิ่ม token ต่อรีวิวทั้งหมด R3 กับ R6 มากที่สุด ใส่ค่าจำกัดใน `.diffy.yaml` และ `.env` ให้คุมได้ ตัวเลขใน Dashboard เห็นผลทันที
 
 **ที่ทำแล้วก่อน Phase R** (ปรับให้รีวิว PR ใหญ่ดีขึ้น): ตัวกรองไฟล์ที่ระบบสร้างเองกว้างขึ้นและอ่าน `.gitattributes` (`linguist-generated`), เลือกไฟล์โค้ดก่อน test ก่อนไฟล์อื่น (เล็กก่อน), งบ diff 150,000 ตัวอักษร ตั้งได้ด้วย `MAX_DIFF_CHARS`
+
+### Phase S — diffy เป็นบริการกลาง (diffy[bot])
+
+ตัดสินใจแล้ว (28 ต.ค. 2026): **เลิกโหมด self-host** diffy เป็นบริการที่เปิดให้ทุกคนบน GitHub ใช้ มี GitHub App ตัวเดียว (`diffy`, แบบ public) ที่เจ้าของโปรเจกต์ถือ private key รีวิวขึ้นเป็น `diffy[bot]` ผู้ใช้ล็อกอินด้วย GitHub ติดตั้ง App บน account/org แล้วเลือก repo เอง **ผู้ใช้ใส่ API key ของ LLM เอง** ต่อ account (diffy ไม่จ่ายค่าโมเดล) host ยังไม่ตัดสินใจ (ตัวเลือก: Fly.io, Railway, Render + Supabase)
+
+```
+ผู้ใช้ ──login with GitHub──▶ เว็บ diffy (URL สาธารณะ)
+   └──install diffy──▶ GitHub ──webhook (PR เปิด/push)──▶ server diffy
+                                                       ├─ installation token → อ่าน diff
+                                                       ├─ LLM (key ของผู้ใช้) → รีวิว
+                                                       └─ โพสต์เป็น diffy[bot]
+```
+
+- **S0 GitHub App** (เจ้าของโปรเจกต์ทำเอง ขั้นตอนด้านล่าง) สร้าง 2 ตัว: `diffy-dev` สำหรับพัฒนา (webhook ผ่าน smee.io) และ `diffy` ตัวจริง (ทำตอน S6)
+- **S1 webhook + installation** `POST /api/github/webhook` ตรวจลายเซ็น HMAC (`X-Hub-Signature-256`) ด้วย raw body รับ `installation` / `installation_repositories` แล้วบันทึก account และ repo; core มี client ที่ทำงานในนาม installation
+- **S2 รีวิวจาก webhook** `pull_request` (opened, synchronize, reopened, ready_for_review) เข้าคิว ใช้ installation token ทุกที่แทน token ส่วนตัว (8 จุดของ `getGithubToken`) ตัด poller (อาจเก็บเป็นตัวกวาดสำรองวันละครั้งเผื่อ webhook หาย)
+- **S3 หลายผู้ใช้** `Account` (GitHub user/org ที่ติดตั้ง), `User`, `Membership`; repo, รีวิว, brief, การตั้งค่า LLM ผูกกับ account; `Settings` singleton ไปเป็นต่อ account; test ว่าข้อมูลไม่ข้าม account
+- **S4 ล็อกอิน** OAuth ของ GitHub App (user-to-server) → session cookie (httpOnly, secure, SameSite) → guard ทุก endpoint; สิทธิ์เห็น account มาจาก `GET /user/installations` ของผู้ใช้คนนั้น
+- **S5 เว็บ** หน้าล็อกอิน, onboarding (ติดตั้ง App → ใส่ LLM key → เสร็จ), ตัวสลับ account, ลบหน้าวาง GitHub token
+- **S6 deploy** process เดียว (G1 ที่ stash ไว้), Supabase, host, โดเมน, App ตัวจริงชี้ webhook ไปที่โดเมน
+- **S7 ก่อนเปิดสาธารณะ** ลบข้อมูลเมื่อถอน App, จำกัดจำนวนรีวิวต่อ account (กันใช้ server เกิน แม้ค่าโมเดลเป็นของผู้ใช้), privacy policy (โค้ดผ่าน server diffy และผู้ให้บริการ LLM ของผู้ใช้), log/alert
+
+ผลต่อของเดิม: pipeline รีวิว (Phase R), `.diffy.yaml`, brief และหน้าเว็บส่วนใหญ่ใช้ต่อได้; Phase G (README ติดตั้งเอง, `HOST=127.0.0.1`) ยกเลิก ส่วน G1 ใช้ใน S6; คิวในหน่วยความจำยังพอสำหรับ server ตัวเดียว (กู้จาก DB ได้)
+
+#### S0: สร้าง GitHub App สำหรับพัฒนา (`diffy-dev`)
+
+1. เปิด https://smee.io → **Start a new channel** เก็บ URL ไว้ (เช่น `https://smee.io/AbCd123`) เป็นทางส่ง webhook จาก GitHub มาเครื่อง
+2. GitHub → Settings → Developer settings → GitHub Apps → **New GitHub App**
+   - GitHub App name: `diffy-dev-<ชื่อคุณ>` (ต้องไม่ซ้ำทั้ง GitHub)
+   - Homepage URL: `http://localhost:3000`
+   - Callback URL: `http://localhost:3000/api/auth/github/callback` และติ๊ก **Request user authorization (OAuth) during installation**
+   - Webhook: ติ๊ก **Active**, Webhook URL = URL ของ smee, Webhook secret = ค่าสุ่ม (`openssl rand -hex 32`)
+   - Repository permissions: **Pull requests: Read and write**, **Contents: Read-only**, **Issues: Read-only**, **Checks: Read-only**, Metadata: Read-only (บังคับ)
+   - Subscribe to events: **Pull request** (event การติดตั้งส่งมาเองเสมอ)
+   - Where can this GitHub App be installed: **Only on this account** (ตัว dev) ส่วนตัวจริงเลือก Any account
+3. หลังสร้าง: จด **App ID** และ **Client ID**, กด **Generate a new client secret**, กด **Generate a private key** (ได้ไฟล์ `.pem`)
+4. ใส่ใน `.env` (ห้าม commit): `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY_PATH` (path ของ `.pem` เก็บไว้นอก repo), `GITHUB_WEBHOOK_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `SMEE_URL`
+5. ติดตั้ง App บน account ของคุณ เลือก repo ทดสอบ 1 ตัว
 
 ### คำถามที่ยังเปิดอยู่
 1. **รีวิวซ้ำทุกครั้งที่ push**: ข้อเสนอคือข้าม finding ที่ `(path, title)` เหมือนที่เคยโพสต์ใน PR นั้นแล้ว (รีวิวเฉพาะส่วนที่เปลี่ยนจริงเก็บไว้ v2)

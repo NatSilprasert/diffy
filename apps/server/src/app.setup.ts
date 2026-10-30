@@ -10,9 +10,10 @@ export function configureApp(app: INestApplication) {
 
 // In development the web app runs on its own port, so the browser needs CORS to call the API.
 // In production the API serves the web app itself (same origin) and CORS stays off. It is only ever
-// opened for the dev origins above, never for "*": there is no login in v1, and any other web page
-// in the user's browser must not be able to call an API that holds their GitHub token.
+// opened for the dev origins above, never for "*": any other web page in the user's browser must not be able to call
+// the API with their session.
 export function enableDevCors(app: INestApplication) {
   if (process.env.NODE_ENV === 'production') return;
-  app.enableCors({ origin: DEV_WEB_ORIGINS });
+  // Credentials: the session cookie travels between the two dev ports (they are the same site, so SameSite=Lax allows it).
+  app.enableCors({ origin: DEV_WEB_ORIGINS, credentials: true });
 }

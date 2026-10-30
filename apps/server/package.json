@@ -5,7 +5,7 @@
   "scripts": {
     "build": "prisma generate --no-hints && nest build",
     "predev": "prisma generate --no-hints",
-    "dev": "PORT=4000 nest start --watch",
+    "dev": "PORT=4000 WEB_URL=http://localhost:3000 nest start --watch",
     "start:prod": "node dist/main.js",
     "gen:openapi": "pnpm build && node dist/scripts/gen-openapi.js",
     "db:generate": "prisma generate --no-hints",

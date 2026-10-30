@@ -1,6 +1,7 @@
 import { Body, Controller, Headers, HttpCode, Post, Req, type RawBodyRequest } from '@nestjs/common';
 import { ApiOkResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { ZodSerializerDto } from 'nestjs-zod';
+import { Public } from '../../infra/decorator/public.decorator';
 import { ReceiveWebhookResponseDto } from './dto/receive-webhook.dto';
 import { ReceiveWebhookUsecase } from './usecase/receive-webhook.usecase';
 
@@ -10,6 +11,7 @@ export class WebhooksController {
 
   // GitHub calls this itself, so there is no request DTO: the body is whatever GitHub sent, and it is only read
   // after the signature of the raw bytes has been checked.
+  @Public()
   @Post('webhook')
   @HttpCode(200)
   @ZodSerializerDto(ReceiveWebhookResponseDto)

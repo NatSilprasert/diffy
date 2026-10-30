@@ -29,6 +29,15 @@ export const EnvSchema = z.object({
   GITHUB_APP_PRIVATE_KEY_PATH: z.string().min(1),
   // The secret GitHub signs webhooks with.
   GITHUB_WEBHOOK_SECRET: z.string().min(16),
+  // Signing in with GitHub: the OAuth credentials of the same GitHub App.
+  GITHUB_CLIENT_ID: z.string().min(1),
+  GITHUB_CLIENT_SECRET: z.string().min(1),
+  // Where a person's browser reaches diffy's API (the address registered as the App's callback URL, without the
+  // path). Defaults to http://localhost:PORT. https:// turns on the Secure flag of the session cookie.
+  PUBLIC_URL: z.url().optional(),
+  // Where the web app is, for sending people back after they sign in. Defaults to PUBLIC_URL; during development the
+  // web app has its own port, so `pnpm dev` sets it.
+  WEB_URL: z.url().optional(),
   // How much diff (in characters, about 4 per token) one review may send to the model. Bigger pull requests
   // are reviewed in part: code first, then tests, then the rest. Same default as DEFAULT_MAX_DIFF_CHARS in core.
   MAX_DIFF_CHARS: z.coerce.number().int().min(10_000).default(150_000),

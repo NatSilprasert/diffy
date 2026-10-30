@@ -3,6 +3,7 @@
 import { FolderGit2, GitPullRequest, LayoutDashboard, PanelLeft, Settings, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { AccountMenu } from '@/components/AccountMenu';
 import { Button } from '@/components/ui/button';
 import { LABEL } from '@/lib/sidebar';
 import { cn } from '@/lib/utils';
@@ -91,6 +92,9 @@ export function Sidebar() {
               <NavItem key={link.href} link={link} pathname={pathname} />
             ))}
           </ul>
+        </div>
+        <div className="hidden md:block">
+          <AccountMenu />
         </div>
         {/* On a narrow screen the sidebar is a bar on top, so Settings joins the row. */}
         <ul className="flex gap-1 md:hidden">

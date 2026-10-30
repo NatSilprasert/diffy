@@ -12,4 +12,6 @@ model Account {
   updatedAt     DateTime             @updatedAt
   installations GithubInstallation[]
   repositories  Repository[]
+  memberships   Membership[]
+  sessions      Session[]
 }

@@ -5,7 +5,7 @@ const key = Buffer.alloc(32, 7).toString('base64');
 const url = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 const secret = 'a-long-enough-webhook-secret';
 // What diffy needs to start: the database, the encryption key and the GitHub App.
-const base = { ENCRYPTION_KEY: key, DATABASE_URL: url, GITHUB_APP_ID: '5507932', GITHUB_APP_PRIVATE_KEY_PATH: 'app.pem', GITHUB_WEBHOOK_SECRET: secret };
+const base = { ENCRYPTION_KEY: key, DATABASE_URL: url, GITHUB_APP_ID: '5507932', GITHUB_APP_PRIVATE_KEY_PATH: 'app.pem', GITHUB_WEBHOOK_SECRET: secret, GITHUB_CLIENT_ID: 'Iv23liabc', GITHUB_CLIENT_SECRET: 'client-secret' };
 
 describe('parseEnv', () => {
   it('applies defaults when only what is required is set', () => {
@@ -15,6 +15,8 @@ describe('parseEnv', () => {
       GITHUB_APP_ID: 5507932,
       GITHUB_APP_PRIVATE_KEY_PATH: 'app.pem',
       GITHUB_WEBHOOK_SECRET: secret,
+      GITHUB_CLIENT_ID: 'Iv23liabc',
+      GITHUB_CLIENT_SECRET: 'client-secret',
       PORT: 3000,
       HOST: '127.0.0.1',
       POLL_INTERVAL_SECONDS: 900,
@@ -46,6 +48,16 @@ describe('parseEnv', () => {
     expect(() => parseEnv(without)).toThrow(/GITHUB_APP_ID[\s\S]*GITHUB_APP_PRIVATE_KEY_PATH[\s\S]*GITHUB_WEBHOOK_SECRET/);
     expect(() => parseEnv({ ...base, GITHUB_APP_ID: 'abc' })).toThrow(/GITHUB_APP_ID/);
     expect(() => parseEnv({ ...base, GITHUB_WEBHOOK_SECRET: 'short' })).toThrow(/GITHUB_WEBHOOK_SECRET/);
+  });
+
+  it('requires the sign-in credentials of the App, and takes the two addresses as optional urls', () => {
+    const { GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, ...without } = base;
+    expect(() => parseEnv(without)).toThrow(/GITHUB_CLIENT_ID[\s\S]*GITHUB_CLIENT_SECRET/);
+
+    const env = parseEnv({ ...base, PUBLIC_URL: 'https://diffy.example.com', WEB_URL: 'http://localhost:3000' });
+    expect(env).toMatchObject({ PUBLIC_URL: 'https://diffy.example.com', WEB_URL: 'http://localhost:3000' });
+    expect(parseEnv(base).PUBLIC_URL).toBeUndefined();
+    expect(() => parseEnv({ ...base, PUBLIC_URL: 'not a url' })).toThrow(/PUBLIC_URL/);
   });
 
   it('reads the context budget, where 0 turns the documents off', () => {

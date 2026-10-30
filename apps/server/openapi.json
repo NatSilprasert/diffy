@@ -22,6 +22,78 @@
         ]
       }
     },
+    "/api/auth/me": {
+      "get": {
+        "operationId": "getMe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetMeResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/account": {
+      "put": {
+        "operationId": "switchAccount",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwitchAccountRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SwitchAccountResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The person cannot use diffy for that account"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Signed out"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/api/settings": {
       "get": {
         "operationId": "getSettings",
@@ -749,6 +821,168 @@
         "required": [
           "ok",
           "database"
+        ]
+      },
+      "GetMeResponseDto": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "login": {
+                "type": "string"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "The name the person gave on GitHub"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "avatarUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "login",
+              "name",
+              "avatarUrl"
+            ]
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "login": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string",
+                  "description": "\"User\" or \"Organization\""
+                }
+              },
+              "required": [
+                "id",
+                "login",
+                "type"
+              ]
+            },
+            "description": "The accounts the person can use diffy for"
+          },
+          "currentAccountId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The account being looked at now; null when there is none yet"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "user",
+          "accounts",
+          "currentAccountId"
+        ]
+      },
+      "SwitchAccountRequestDto": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "accountId"
+        ]
+      },
+      "SwitchAccountResponseDto": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "login": {
+                "type": "string"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "The name the person gave on GitHub"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "avatarUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "login",
+              "name",
+              "avatarUrl"
+            ]
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "login": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string",
+                  "description": "\"User\" or \"Organization\""
+                }
+              },
+              "required": [
+                "id",
+                "login",
+                "type"
+              ]
+            },
+            "description": "The accounts the person can use diffy for"
+          },
+          "currentAccountId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The account being looked at now; null when there is none yet"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "user",
+          "accounts",
+          "currentAccountId"
         ]
       },
       "GetSettingsResponseDto": {

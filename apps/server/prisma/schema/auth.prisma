@@ -1,0 +1,44 @@
+// A person who signed in with GitHub. Only what GitHub says about them; no password, and not even the GitHub token
+// they signed in with (it is used once, to ask GitHub who they are and where they can use diffy).
+model User {
+  id          String       @id @default(cuid())
+  githubId    Int          @unique
+  login       String
+  name        String?
+  avatarUrl   String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  sessions    Session[]
+  memberships Membership[]
+}
+
+// A browser that is signed in. The cookie holds a random token; only its hash is kept here, so a copy of the
+// database cannot be used to sign in.
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // The account this browser is looking at now. Null means the first one the person can use.
+  accountId String?
+  account   Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Which accounts a person can use diffy for. Taken from GitHub (the installations they can reach) every time they
+// sign in.
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, accountId])
+  @@index([accountId])
+}

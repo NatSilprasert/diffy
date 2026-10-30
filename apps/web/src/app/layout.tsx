@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { AuthGate } from '@/components/AuthGate';
 import { Providers } from '@/components/Providers';
 import { ReviewDrawer } from '@/components/ReviewDrawer';
 import { Sidebar } from '@/components/Sidebar';
@@ -21,18 +22,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <Providers>
-          <div className="flex min-h-screen flex-col bg-sidebar md:flex-row">
-            <Sidebar />
-            <main className="min-w-0 flex-1 md:p-2 md:pl-0">
-              <div className="min-h-full rounded-xl border border-sidebar-border bg-background px-6 py-8 md:min-h-[calc(100vh-1rem)] md:px-10">
-                <div className="w-full max-w-screen-2xl">{children}</div>
-              </div>
-            </main>
-          </div>
-          {/* useSearchParams needs a Suspense boundary in a static export. */}
-          <Suspense fallback={null}>
-            <ReviewDrawer />
-          </Suspense>
+          <AuthGate>
+            <div className="flex min-h-screen flex-col bg-sidebar md:flex-row">
+              <Sidebar />
+              <main className="min-w-0 flex-1 md:p-2 md:pl-0">
+                <div className="min-h-full rounded-xl border border-sidebar-border bg-background px-6 py-8 md:min-h-[calc(100vh-1rem)] md:px-10">
+                  <div className="w-full max-w-screen-2xl">{children}</div>
+                </div>
+              </main>
+            </div>
+            {/* useSearchParams needs a Suspense boundary in a static export. */}
+            <Suspense fallback={null}>
+              <ReviewDrawer />
+            </Suspense>
+          </AuthGate>
         </Providers>
       </body>
     </html>

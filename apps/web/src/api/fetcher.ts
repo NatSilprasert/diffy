@@ -42,7 +42,8 @@ export async function apiFetch<T>(url: string, options: RequestInit): Promise<T>
 
   let response: Response;
   try {
-    response = await fetch(`${BASE_URL}${url}`, { ...options, headers });
+    // The session cookie goes with every call, also to the API's own port during development.
+    response = await fetch(`${BASE_URL}${url}`, { ...options, headers, credentials: 'include' });
   } catch {
     throw new ApiError(0, 'Could not reach the diffy server. Is it running?');
   }

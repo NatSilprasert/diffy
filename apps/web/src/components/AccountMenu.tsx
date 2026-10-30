@@ -22,10 +22,11 @@ export function AccountMenu() {
   });
   const logout = useLogout({
     mutation: {
-      onSuccess: () => {
-        queryClient.clear();
-        // With nobody signed in, the gate shows the way in.
-        void queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      onSuccess: async () => {
+        // Everything on the screen belonged to the person who left: forget it. Then ask again who is signed in; the
+        // answer is "nobody", and the gate shows the way in.
+        queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== getGetMeQueryKey()[0] });
+        await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       },
     },
   });

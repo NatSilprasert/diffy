@@ -10,7 +10,7 @@ export type WatchedRepo = {
   accountId: string;
   owner: string;
   name: string;
-  // Head commits that already existed when the repo was added; the poller does not review these.
+  // Head commits that already existed when the repo was added; diffy does not review these.
   baselineShas: string[];
 };
 
@@ -22,7 +22,7 @@ const toWatchedRepo = (repo: { id: string; accountId: string; owner: string; nam
   baselineShas: repo.baselineShas,
 });
 
-// The repos module's public API for other modules (reviews now, the poller later).
+// The repos module's public API for other modules (reviews, profiles, webhooks).
 @Injectable()
 export class ReposService {
   private readonly logger = new Logger(ReposService.name);
@@ -47,15 +47,15 @@ export class ReposService {
     return toWatchedRepo(repo);
   }
 
-  // The repositories to poll for new pull requests.
-  async listPollableRepos(): Promise<WatchedRepo[]> {
+  // The repositories diffy reviews pull requests of.
+  async listWatchedRepos(): Promise<WatchedRepo[]> {
     const repos = await this.reposRepository.findPollable();
     return repos.map(toWatchedRepo);
   }
 
   // The watched repository with this name, or null when diffy is not meant to review it.
-  async findPollableRepo(owner: string, name: string): Promise<WatchedRepo | null> {
-    const repo = await this.reposRepository.findPollableByName(owner, name);
+  async findWatchedRepo(owner: string, name: string): Promise<WatchedRepo | null> {
+    const repo = await this.reposRepository.findWatchedByName(owner, name);
     return repo ? toWatchedRepo(repo) : null;
   }
 
@@ -64,11 +64,6 @@ export class ReposService {
     if (ids.length === 0) return new Map();
     const repos = await this.reposRepository.findNamesByIds(ids);
     return new Map(repos.map((repo) => [repo.id, `${repo.owner}/${repo.name}`]));
-  }
-
-  // Remember when a repository was last polled, and why it failed (null = it went fine).
-  recordPoll(id: string, error: string | null): Promise<void> {
-    return this.reposRepository.markPolled(id, error);
   }
 
   // Checks a repository with GitHub and notes the head commit of every pull request that is open right now. Those are

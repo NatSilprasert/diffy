@@ -14,7 +14,7 @@ const recordInstallation = vi.fn();
 const markInstallation = vi.fn();
 const recordAccount = vi.fn();
 const grantInstaller = vi.fn();
-const findPollableRepo = vi.fn();
+const findWatchedRepo = vi.fn();
 const autoWatch = vi.fn();
 const unwatch = vi.fn();
 const unwatchAll = vi.fn();
@@ -25,7 +25,7 @@ const usecase = (env: Partial<Env> = { GITHUB_WEBHOOK_SECRET: secret }) =>
     { recordInstallation, markInstallation } as unknown as GithubService,
     { recordAccount } as unknown as AccountsService,
     { grantInstaller } as unknown as AuthService,
-    { findPollableRepo, autoWatch, unwatch, unwatchAll } as unknown as ReposService,
+    { findWatchedRepo, autoWatch, unwatch, unwatchAll } as unknown as ReposService,
     { queueReview } as unknown as ReviewsService,
     env as Env,
   );
@@ -44,12 +44,12 @@ const installation = (over: Record<string, unknown> = {}) => ({
 });
 
 beforeEach(() => {
-  for (const fn of [recordInstallation, markInstallation, recordAccount, grantInstaller, findPollableRepo, queueReview, autoWatch, unwatch, unwatchAll]) fn.mockReset();
+  for (const fn of [recordInstallation, markInstallation, recordAccount, grantInstaller, findWatchedRepo, queueReview, autoWatch, unwatch, unwatchAll]) fn.mockReset();
   autoWatch.mockResolvedValue(0);
   unwatch.mockResolvedValue(0);
   unwatchAll.mockResolvedValue(0);
   recordAccount.mockResolvedValue({ id: 'acc1', githubId: 4242, login: 'NatSilprasert', type: 'User' });
-  findPollableRepo.mockResolvedValue({ id: 'r1', owner: 'NatSilprasert', name: 'diffy-sandbox', baselineShas: [] });
+  findWatchedRepo.mockResolvedValue({ id: 'r1', owner: 'NatSilprasert', name: 'diffy-sandbox', baselineShas: [] });
   queueReview.mockResolvedValue(true);
 });
 
@@ -166,7 +166,7 @@ describe('ReceiveWebhookUsecase pull requests', () => {
   it('queues a review for a pull request of a watched repository', async () => {
     expect(await usecase().execute(delivery('pull_request', pullRequest()))).toEqual({ handled: true, event: 'pull_request' });
 
-    expect(findPollableRepo).toHaveBeenCalledWith('NatSilprasert', 'diffy-sandbox');
+    expect(findWatchedRepo).toHaveBeenCalledWith('NatSilprasert', 'diffy-sandbox');
     expect(queueReview).toHaveBeenCalledWith(expect.objectContaining({ id: 'r1' }), {
       number: 4,
       title: 'Add search',
@@ -184,7 +184,7 @@ describe('ReceiveWebhookUsecase pull requests', () => {
 
   it.each(['closed', 'edited', 'labeled', 'assigned', 'converted_to_draft'])('does nothing on "%s"', async (action) => {
     await usecase().execute(delivery('pull_request', pullRequest({ action })));
-    expect(findPollableRepo).not.toHaveBeenCalled();
+    expect(findWatchedRepo).not.toHaveBeenCalled();
     expect(queueReview).not.toHaveBeenCalled();
   });
 
@@ -197,7 +197,7 @@ describe('ReceiveWebhookUsecase pull requests', () => {
   });
 
   it('does not queue anything for a repository that is not watched', async () => {
-    findPollableRepo.mockResolvedValue(null);
+    findWatchedRepo.mockResolvedValue(null);
     expect(await usecase().execute(delivery('pull_request', pullRequest()))).toEqual({ handled: true, event: 'pull_request' });
     expect(queueReview).not.toHaveBeenCalled();
   });

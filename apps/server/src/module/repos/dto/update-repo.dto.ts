@@ -8,7 +8,7 @@ export const UpdateRepoParamsSchema = z.object({
 export class UpdateRepoParamsDto extends createZodDto(UpdateRepoParamsSchema) {}
 
 export const UpdateRepoRequestSchema = z.object({
-  // false pauses the repo: it stays in the list but is not polled.
+  // false pauses the repo: it stays in the list but its pull requests are not reviewed.
   enabled: z.boolean(),
 });
 export class UpdateRepoRequestDto extends createZodDto(UpdateRepoRequestSchema) {}

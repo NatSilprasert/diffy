@@ -3,7 +3,6 @@
 import { AlertCircle, X } from 'lucide-react';
 import { useState } from 'react';
 import { useGetStatus } from '@/api/generated/diffy';
-import { timeAgo } from '@/lib/time';
 import { cn } from '@/lib/utils';
 
 // A notice at the top of the dashboard about what diffy is doing: tinted green when it waits, violet while it reviews,
@@ -19,7 +18,6 @@ export function LiveStatus() {
   if (status.isPending || closed) return null;
 
   const queue = status.data?.queue;
-  const poller = status.data?.poller;
   const tone = unreachable ? 'destructive' : reviewing ? 'primary' : 'success';
 
   return (
@@ -55,13 +53,10 @@ export function LiveStatus() {
                   <span className="font-normal text-muted-foreground"> · {current.prTitle}</span>
                 </>
               ) : (
-                'Idle · waiting for new pull requests'
+                'Idle · waiting for pull requests from GitHub'
               )}
             </p>
-            <p className="text-muted-foreground">
-              {queue!.waiting} waiting · last check{' '}
-              {poller!.running ? 'in progress' : poller!.lastRunAt ? timeAgo(poller!.lastRunAt) : 'not yet'} · every {poller!.intervalSeconds} s
-            </p>
+            <p className="text-muted-foreground">{queue!.waiting === 0 ? 'No review waiting' : `${queue!.waiting} waiting`}</p>
           </>
         )}
       </div>

@@ -14,7 +14,6 @@ import { GetReviewStatsResponseDto } from './dto/get-review-stats.dto';
 import { GetUsageResponseDto } from './dto/get-usage.dto';
 import { GetStatusResponseDto } from './dto/get-status.dto';
 import { ListReviewsQueryDto, ListReviewsResponseDto } from './dto/list-reviews.dto';
-import { PollRepoRequestDto, PollRepoResponseDto } from './dto/poll-repo.dto';
 import { RetryReviewParamsDto, RetryReviewResponseDto } from './dto/retry-review.dto';
 import { CreateReviewUsecase } from './usecase/create-review.usecase';
 import { GetReviewStatsUsecase } from './usecase/get-review-stats.usecase';
@@ -22,7 +21,6 @@ import { GetUsageUsecase } from './usecase/get-usage.usecase';
 import { GetReviewUsecase } from './usecase/get-review.usecase';
 import { GetStatusUsecase } from './usecase/get-status.usecase';
 import { ListReviewsUsecase } from './usecase/list-reviews.usecase';
-import { PollRepoUsecase } from './usecase/poll-repo.usecase';
 import { RetryReviewUsecase } from './usecase/retry-review.usecase';
 
 @Controller('reviews')
@@ -32,7 +30,6 @@ export class ReviewsController {
     private readonly listReviewsUsecase: ListReviewsUsecase,
     private readonly getReviewUsecase: GetReviewUsecase,
     private readonly retryReviewUsecase: RetryReviewUsecase,
-    private readonly pollRepoUsecase: PollRepoUsecase,
     private readonly getStatusUsecase: GetStatusUsecase,
     private readonly getReviewStatsUsecase: GetReviewStatsUsecase,
     private readonly getUsageUsecase: GetUsageUsecase,
@@ -94,16 +91,5 @@ export class ReviewsController {
   @ApiConflictResponse({ description: 'The review is queued or running already' })
   retryReview(@CurrentAccountId() accountId: string, @Param() params: RetryReviewParamsDto) {
     return this.retryReviewUsecase.execute(accountId, params);
-  }
-
-  // "Check now": looks for new pull requests in one repository straight away, instead of waiting for the timer.
-  @Post('poll')
-  @HttpCode(200)
-  @ZodSerializerDto(PollRepoResponseDto)
-  @ApiOkResponse({ type: PollRepoResponseDto })
-  @ApiBadRequestResponse({ description: 'Invalid body' })
-  @ApiNotFoundResponse({ description: 'No such repository' })
-  pollRepo(@CurrentAccountId() accountId: string, @Body() body: PollRepoRequestDto) {
-    return this.pollRepoUsecase.execute(accountId, body);
   }
 }

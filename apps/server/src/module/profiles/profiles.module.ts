@@ -11,6 +11,7 @@ import { RebuildProfileUsecase } from './usecase/rebuild-profile.usecase';
 import { UpdateProfileNotesUsecase } from './usecase/update-profile-notes.usecase';
 import { ProfileBuilderWorker } from './worker/profile-builder.worker';
 import { ProfileFreshnessWorker } from './worker/profile-freshness.worker';
+import { ProfileMaintenanceWorker } from './worker/profile-maintenance.worker';
 
 @Module({
   imports: [ReposModule, SettingsModule, GithubModule],
@@ -19,6 +20,7 @@ import { ProfileFreshnessWorker } from './worker/profile-freshness.worker';
     ProfilesRepository,
     ProfileBuilderWorker,
     ProfileFreshnessWorker,
+    ProfileMaintenanceWorker,
     ProfilesService,
     ListProfilesUsecase,
     GetProfileUsecase,

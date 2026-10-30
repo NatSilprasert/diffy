@@ -12,9 +12,7 @@ import { GetUsageUsecase } from './usecase/get-usage.usecase';
 import { GetReviewUsecase } from './usecase/get-review.usecase';
 import { GetStatusUsecase } from './usecase/get-status.usecase';
 import { ListReviewsUsecase } from './usecase/list-reviews.usecase';
-import { PollRepoUsecase } from './usecase/poll-repo.usecase';
 import { RetryReviewUsecase } from './usecase/retry-review.usecase';
-import { PollerWorker } from './worker/poller.worker';
 import { ReviewQueueWorker } from './worker/review-queue.worker';
 import { RunReviewWorker } from './worker/run-review.worker';
 
@@ -28,13 +26,11 @@ import { RunReviewWorker } from './worker/run-review.worker';
     ListReviewsUsecase,
     GetReviewUsecase,
     RetryReviewUsecase,
-    PollRepoUsecase,
     GetStatusUsecase,
     GetReviewStatsUsecase,
     GetUsageUsecase,
     RunReviewWorker,
     ReviewQueueWorker,
-    PollerWorker,
   ],
   // Only the service is public. Other modules never touch this module's repository.
   exports: [ReviewsService],

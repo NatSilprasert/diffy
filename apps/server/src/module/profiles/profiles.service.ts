@@ -9,7 +9,7 @@ import { ProfileFreshnessWorker } from './worker/profile-freshness.worker';
 // notes people wrote.
 export type ReviewContext = { profile: string | undefined; notes: string | undefined };
 
-// The profiles module's public API for other modules (the poller and the review worker).
+// The profiles module's public API for other modules (the maintenance worker and the review worker).
 @Injectable()
 export class ProfilesService {
   constructor(

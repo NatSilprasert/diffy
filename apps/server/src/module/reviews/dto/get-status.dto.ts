@@ -15,11 +15,5 @@ export const GetStatusResponseSchema = z.object({
       })
       .nullable(),
   }),
-  poller: z.object({
-    intervalSeconds: z.number().int(),
-    running: z.boolean(),
-    lastRunAt: z.iso.datetime().nullable(),
-    nextRunAt: z.iso.datetime().nullable(),
-  }),
 });
 export class GetStatusResponseDto extends createZodDto(GetStatusResponseSchema) {}

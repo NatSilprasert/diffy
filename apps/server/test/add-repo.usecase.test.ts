@@ -30,8 +30,6 @@ const row = {
   owner: 'Acme',
   name: 'Api',
   enabled: true,
-  lastPolledAt: null,
-  lastError: null,
   createdAt: new Date('2026-10-24T01:02:03.000Z'),
 };
 
@@ -56,8 +54,6 @@ describe('AddRepoUsecase', () => {
       name: 'Api',
       fullName: 'Acme/Api',
       enabled: true,
-      lastPolledAt: null,
-      lastError: null,
       createdAt: '2026-10-24T01:02:03.000Z',
     });
   });

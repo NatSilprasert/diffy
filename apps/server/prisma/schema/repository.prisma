@@ -4,17 +4,15 @@ model Repository {
   account      Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
   owner        String
   name         String
-  // false = paused: still listed, but never polled.
+  // false = paused: still listed, but its pull requests are not reviewed.
   enabled      Boolean   @default(true)
   // Set when the user removes the repo. Hidden everywhere, but the review history stays,
   // and adding the same repo again restores this row instead of creating a new one.
   removedAt    DateTime?
-  // Head commits of the pull requests that were already open when the repo was added. The poller does
+  // Head commits of the pull requests that were already open when the repo was added. diffy does
   // not review these, so adding a repo does not trigger a review of every open PR. Any later commit
   // has a different SHA and is reviewed as usual.
   baselineShas String[]  @default([])
-  lastPolledAt DateTime?
-  lastError    String?
   createdAt    DateTime  @default(now())
   reviews      Review[]
   profile      RepoProfile?

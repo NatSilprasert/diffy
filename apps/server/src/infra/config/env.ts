@@ -20,9 +20,6 @@ export const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   // No login yet, so listen on localhost only unless the user opts out.
   HOST: z.string().min(1).default('127.0.0.1'),
-  // Webhooks tell diffy about pull requests at once. This slower pass over every watched repository is the safety net
-  // for what a webhook missed (the server was down, GitHub failed to deliver).
-  POLL_INTERVAL_SECONDS: z.coerce.number().int().positive().default(900),
   // The diffy GitHub App: every call to GitHub is made as the App, and its webhooks tell diffy what happens.
   GITHUB_APP_ID: z.coerce.number().int().positive(),
   // Path of the App's private key (.pem), relative to the project root or absolute.

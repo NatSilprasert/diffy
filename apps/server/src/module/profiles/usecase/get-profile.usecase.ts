@@ -14,7 +14,7 @@ export class GetProfileUsecase {
   async execute(accountId: string, params: GetProfileParamsDto): Promise<GetProfileResponseDto> {
     await this.reposService.getAccountRepo(params.repositoryId, accountId);
     const profile = await this.profilesRepository.findByRepositoryId(params.repositoryId);
-    // A repository that was just added has none for a moment: the poller starts it on its next pass.
+    // A repository that was just added has none for a moment: the maintenance worker starts it on its next pass.
     if (!profile) throw new NotFoundException('This repository has no profile yet.');
     return toProfileItem(profile);
   }

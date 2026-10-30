@@ -1,4 +1,4 @@
-// Which pull requests get a review. One rule for every way diffy learns about a pull request (the poller and the webhook).
+// Which pull requests get a review. One rule for every way diffy learns about a pull request (the webhook).
 export type ReviewablePullRequest = { isDraft: boolean; authorIsBot: boolean; headSha: string };
 
 // Drafts are not ready for review yet; they get one when marked ready (same commit, no review row yet).

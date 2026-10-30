@@ -8,8 +8,6 @@ const row = (over: Record<string, unknown> = {}) => ({
   owner: 'acme',
   name: 'api',
   enabled: true,
-  lastPolledAt: null,
-  lastError: null,
   createdAt: new Date('2026-10-24T01:02:03.000Z'),
   ...over,
 });
@@ -22,15 +20,13 @@ describe('ListReposUsecase', () => {
     expect(await run([])).toEqual({ repos: [] });
   });
 
-  it('formats dates as ISO strings and builds fullName', async () => {
+  it('formats the date as an ISO string and builds fullName', async () => {
     const result = await run([
-      row({ lastPolledAt: new Date('2026-10-24T02:00:00.000Z'), lastError: 'Bad credentials', enabled: false }),
+      row({ enabled: false }),
     ]);
     expect(result.repos[0]).toMatchObject({
       fullName: 'acme/api',
       enabled: false,
-      lastPolledAt: '2026-10-24T02:00:00.000Z',
-      lastError: 'Bad credentials',
       createdAt: '2026-10-24T01:02:03.000Z',
     });
     expect(ListReposResponseSchema.safeParse(result).success).toBe(true);

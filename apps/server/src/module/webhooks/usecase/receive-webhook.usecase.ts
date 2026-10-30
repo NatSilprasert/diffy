@@ -93,7 +93,7 @@ export class ReceiveWebhookUsecase {
     if (!REVIEW_ACTIONS.has(action)) return;
 
     // A repository nobody asked diffy to watch (the App may be installed on all of an account's repositories).
-    const repo = await this.reposService.findPollableRepo(repository.owner.login, repository.name);
+    const repo = await this.reposService.findWatchedRepo(repository.owner.login, repository.name);
     if (!repo) return;
 
     const queued = await this.reviewsService.queueReview(repo, {

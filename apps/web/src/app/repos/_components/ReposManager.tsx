@@ -14,14 +14,13 @@ import { WatchedRepoRow } from './WatchedRepoRow';
 const COLUMNS = [
   { label: 'Repository' },
   { label: 'Status' },
-  { label: 'Last checked' },
   { label: 'Brief' },
   { label: 'Watch' },
   { label: 'Actions', srOnly: true },
 ];
 
 export function ReposManager() {
-  // Refreshed now and then so "last checked" keeps up with the poller running in the background.
+  // Refreshed now and then: repositories the account gives the App on GitHub appear here by themselves.
   const repos = useListRepos({ query: { refetchInterval: 15_000 } });
   const [search, setSearch] = useState('');
   const [adding, setAdding] = useState(false);

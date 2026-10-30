@@ -734,43 +734,6 @@
         ]
       }
     },
-    "/api/reviews/poll": {
-      "post": {
-        "operationId": "pollRepo",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PollRepoRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PollRepoResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid body"
-          },
-          "404": {
-            "description": "No such repository"
-          }
-        },
-        "tags": [
-          "Reviews"
-        ]
-      }
-    },
     "/api/github/webhook": {
       "post": {
         "operationId": "receiveWebhook",
@@ -1244,29 +1207,6 @@
                 "enabled": {
                   "type": "boolean"
                 },
-                "lastPolledAt": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "format": "date-time",
-                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "lastError": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "description": "Why the last check of this repository failed; null if it went fine"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
                 "createdAt": {
                   "type": "string",
                   "format": "date-time",
@@ -1279,8 +1219,6 @@
                 "name",
                 "fullName",
                 "enabled",
-                "lastPolledAt",
-                "lastError",
                 "createdAt"
               ]
             }
@@ -1320,29 +1258,6 @@
           "enabled": {
             "type": "boolean"
           },
-          "lastPolledAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "lastError": {
-            "anyOf": [
-              {
-                "type": "string",
-                "description": "Why the last check of this repository failed; null if it went fine"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -1355,8 +1270,6 @@
           "name",
           "fullName",
           "enabled",
-          "lastPolledAt",
-          "lastError",
           "createdAt"
         ]
       },
@@ -1389,29 +1302,6 @@
           "enabled": {
             "type": "boolean"
           },
-          "lastPolledAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "lastError": {
-            "anyOf": [
-              {
-                "type": "string",
-                "description": "Why the last check of this repository failed; null if it went fine"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -1424,8 +1314,6 @@
           "name",
           "fullName",
           "enabled",
-          "lastPolledAt",
-          "lastError",
           "createdAt"
         ]
       },
@@ -2470,54 +2358,10 @@
               "waiting",
               "current"
             ]
-          },
-          "poller": {
-            "type": "object",
-            "properties": {
-              "intervalSeconds": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "running": {
-                "type": "boolean"
-              },
-              "lastRunAt": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "nextRunAt": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "required": [
-              "intervalSeconds",
-              "running",
-              "lastRunAt",
-              "nextRunAt"
-            ]
           }
         },
         "required": [
-          "queue",
-          "poller"
+          "queue"
         ]
       },
       "GetReviewResponseDto": {
@@ -2853,43 +2697,6 @@
           "githubReviewUrl",
           "createdAt",
           "finishedAt"
-        ]
-      },
-      "PollRepoRequestDto": {
-        "type": "object",
-        "properties": {
-          "repositoryId": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "repositoryId"
-        ]
-      },
-      "PollRepoResponseDto": {
-        "type": "object",
-        "properties": {
-          "queued": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "error": {
-            "anyOf": [
-              {
-                "type": "string",
-                "description": "Why the check failed; null if it went fine"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "queued",
-          "error"
         ]
       },
       "ReceiveWebhookResponseDto": {

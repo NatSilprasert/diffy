@@ -8,8 +8,6 @@ export function toRepoItem(repo: Repository): RepoItem {
     name: repo.name,
     fullName: `${repo.owner}/${repo.name}`,
     enabled: repo.enabled,
-    lastPolledAt: repo.lastPolledAt?.toISOString() ?? null,
-    lastError: repo.lastError,
     createdAt: repo.createdAt.toISOString(),
   };
 }

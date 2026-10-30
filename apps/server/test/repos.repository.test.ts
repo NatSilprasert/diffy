@@ -52,7 +52,7 @@ describe('ReposRepository.add', () => {
     expect(await repo.add(data)).toEqual({ id: 'old' });
     expect(repository.updateMany).toHaveBeenCalledWith({
       where: { owner: 'a', name: 'b', removedAt: { not: null } },
-      data: { accountId: 'acc1', removedAt: null, enabled: true, lastError: null, baselineShas: ['s1', 's2'] },
+      data: { accountId: 'acc1', removedAt: null, enabled: true, baselineShas: ['s1', 's2'] },
     });
     expect(repository.findUnique).toHaveBeenCalledWith({ where: { owner_name: { owner: 'a', name: 'b' } } });
     expect(repository.create).not.toHaveBeenCalled();
@@ -110,25 +110,14 @@ describe('ReposRepository polling queries', () => {
     expect(repository.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { removedAt: null, enabled: true } }));
   });
 
-  it('findPollableByName matches the name in any casing, and only a live, unpaused repository', async () => {
+  it('findWatchedByName matches the name in any casing, and only a live, unpaused repository', async () => {
     const { repo, repository } = setup({ findFirst: vi.fn().mockResolvedValue(null) });
-    await repo.findPollableByName('NatSilprasert', 'Diffy-Sandbox');
+    await repo.findWatchedByName('NatSilprasert', 'Diffy-Sandbox');
     expect(repository.findFirst).toHaveBeenCalledWith({
       where: { owner: { equals: 'NatSilprasert', mode: 'insensitive' }, name: { equals: 'Diffy-Sandbox', mode: 'insensitive' }, removedAt: null, enabled: true },
     });
   });
 
-  it('markPolled stamps the time and stores the error (null clears it)', async () => {
-    const { repo, repository } = setup({ updateMany: vi.fn().mockResolvedValue({ count: 1 }) });
-    await repo.markPolled('r1', 'boom');
-    const call = repository.updateMany.mock.calls[0]![0];
-    expect(call.where).toEqual({ id: 'r1' });
-    expect(call.data.lastError).toBe('boom');
-    expect(call.data.lastPolledAt).toBeInstanceOf(Date);
-
-    await repo.markPolled('r1', null);
-    expect(repository.updateMany.mock.calls[1]![0].data.lastError).toBeNull();
-  });
 });
 
 describe('ReposRepository.softRemoveByName / softRemoveAllOfAccount', () => {

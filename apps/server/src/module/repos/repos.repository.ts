@@ -14,7 +14,7 @@ export class ReposRepository {
 
   // The repository diffy reviews under this name (GitHub's casing is not trusted to match), or null when it is not
   // watched, was removed, or is paused.
-  findPollableByName(owner: string, name: string) {
+  findWatchedByName(owner: string, name: string) {
     return this.prisma.repository.findFirst({
       where: { owner: { equals: owner, mode: 'insensitive' }, name: { equals: name, mode: 'insensitive' }, removedAt: null, enabled: true },
     });
@@ -42,7 +42,7 @@ export class ReposRepository {
   async add({ accountId, owner, name, baselineShas }: { accountId: string; owner: string; name: string; baselineShas: string[] }) {
     const restored = await this.prisma.repository.updateMany({
       where: { owner, name, removedAt: { not: null } },
-      data: { accountId, removedAt: null, enabled: true, lastError: null, baselineShas },
+      data: { accountId, removedAt: null, enabled: true, baselineShas },
     });
     try {
       if (restored.count > 0) return await this.prisma.repository.findUnique({ where: { owner_name: { owner, name } } });
@@ -92,16 +92,11 @@ export class ReposRepository {
     return result.count;
   }
 
-  // Repositories the poller should look at: not removed and not paused.
+  // Repositories diffy reviews: not removed and not paused.
   findPollable() {
     return this.prisma.repository.findMany({
       where: { removedAt: null, enabled: true },
       orderBy: [{ owner: 'asc' }, { name: 'asc' }],
     });
-  }
-
-  // lastError = null records a clean poll. The repository may have been removed meanwhile; that is fine.
-  async markPolled(id: string, lastError: string | null): Promise<void> {
-    await this.prisma.repository.updateMany({ where: { id }, data: { lastPolledAt: new Date(), lastError } });
   }
 }

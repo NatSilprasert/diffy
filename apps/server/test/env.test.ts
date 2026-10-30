@@ -19,7 +19,6 @@ describe('parseEnv', () => {
       GITHUB_CLIENT_SECRET: 'client-secret',
       PORT: 3000,
       HOST: '127.0.0.1',
-      POLL_INTERVAL_SECONDS: 900,
       MAX_DIFF_CHARS: 150_000,
       EXPAND_DIFF_CONTEXT: true,
       VERIFY_FINDINGS: true,
@@ -67,9 +66,9 @@ describe('parseEnv', () => {
   });
 
   it('coerces numeric strings from the environment', () => {
-    const env = parseEnv({ ...base, PORT: '4000', POLL_INTERVAL_SECONDS: '30' });
+    const env = parseEnv({ ...base, PORT: '4000', MAX_DIFF_CHARS: '30000' });
     expect(env.PORT).toBe(4000);
-    expect(env.POLL_INTERVAL_SECONDS).toBe(30);
+    expect(env.MAX_DIFF_CHARS).toBe(30_000);
   });
 
   it('fails with a readable message when ENCRYPTION_KEY is missing', () => {

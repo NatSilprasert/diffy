@@ -8,7 +8,7 @@ const service = (found: unknown) =>
 
 describe('ReposService.getActiveRepo', () => {
   it('returns only what other modules need: identity and baseline', async () => {
-    const found = { id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'], enabled: true, lastError: 'x', removedAt: null };
+    const found = { id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'], enabled: true, removedAt: null };
     expect(await service(found).getActiveRepo('r1')).toEqual({ id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'] });
   });
 
@@ -18,19 +18,12 @@ describe('ReposService.getActiveRepo', () => {
 });
 
 describe('ReposService polling helpers', () => {
-  it('listPollableRepos returns identity and baseline only', async () => {
-    const findPollable = vi.fn().mockResolvedValue([{ id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'], enabled: true, lastError: 'x', removedAt: null }]);
+  it('listWatchedRepos returns identity and baseline only', async () => {
+    const findPollable = vi.fn().mockResolvedValue([{ id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'], enabled: true, removedAt: null }]);
     const service = new ReposService({ findPollable } as unknown as ReposRepository);
-    expect(await service.listPollableRepos()).toEqual([{ id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'] }]);
+    expect(await service.listWatchedRepos()).toEqual([{ id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'] }]);
   });
 
-  it('recordPoll passes the error (or null) to the repository', async () => {
-    const markPolled = vi.fn().mockResolvedValue(undefined);
-    const service = new ReposService({ markPolled } as unknown as ReposRepository);
-    await service.recordPoll('r1', null);
-    await service.recordPoll('r1', 'boom');
-    expect(markPolled.mock.calls).toEqual([['r1', null], ['r1', 'boom']]);
-  });
 });
 
 describe('ReposService.getFullNames', () => {
@@ -43,17 +36,17 @@ describe('ReposService.getFullNames', () => {
   });
 });
 
-describe('ReposService.findPollableRepo', () => {
+describe('ReposService.findWatchedRepo', () => {
   it('returns the watched repository by name, with identity and baseline only', async () => {
-    const findPollableByName = vi.fn().mockResolvedValue({ id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'], enabled: true, lastError: 'x', removedAt: null });
-    const service = new ReposService({ findPollableByName } as unknown as ReposRepository);
+    const findWatchedByName = vi.fn().mockResolvedValue({ id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'], enabled: true, removedAt: null });
+    const service = new ReposService({ findWatchedByName } as unknown as ReposRepository);
 
-    expect(await service.findPollableRepo('Acme', 'API')).toEqual({ id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'] });
-    expect(findPollableByName).toHaveBeenCalledWith('Acme', 'API');
+    expect(await service.findWatchedRepo('Acme', 'API')).toEqual({ id: 'r1', owner: 'acme', name: 'api', baselineShas: ['s1'] });
+    expect(findWatchedByName).toHaveBeenCalledWith('Acme', 'API');
   });
 
   it('is null when the repository is not watched', async () => {
-    const service = new ReposService({ findPollableByName: vi.fn().mockResolvedValue(null) } as unknown as ReposRepository);
-    expect(await service.findPollableRepo('acme', 'api')).toBeNull();
+    const service = new ReposService({ findWatchedByName: vi.fn().mockResolvedValue(null) } as unknown as ReposRepository);
+    expect(await service.findWatchedRepo('acme', 'api')).toBeNull();
   });
 });

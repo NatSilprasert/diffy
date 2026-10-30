@@ -83,3 +83,12 @@ describe('AuthService.describe', () => {
     expect(await service(null).service.describe('t')).toBeNull();
   });
 });
+
+describe('AuthService.grantInstaller', () => {
+  it('makes the person who installed the App a member of the account', async () => {
+    const addMembershipByGithubId = vi.fn().mockResolvedValue(true);
+    const s = new AuthService({ addMembershipByGithubId } as unknown as AuthRepository, { PORT: 3000 } as Env);
+    expect(await s.grantInstaller(777, 'acc1')).toBe(true);
+    expect(addMembershipByGithubId).toHaveBeenCalledWith(777, 'acc1');
+  });
+});

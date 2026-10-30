@@ -13,8 +13,9 @@ export class StartLoginUsecase {
   ) {}
 
   // Where to send the person, and the state that has to come back with them.
-  execute(): { url: string; state: string } {
+  // `selectAccount`: the person asked to choose the GitHub account, even if their browser is signed in to one.
+  execute({ selectAccount = false }: { selectAccount?: boolean } = {}): { url: string; state: string } {
     const state = newOAuthState();
-    return { url: buildAuthorizeUrl({ clientId: this.env.GITHUB_CLIENT_ID, redirectUri: this.authService.callbackUrl, state }), state };
+    return { url: buildAuthorizeUrl({ clientId: this.env.GITHUB_CLIENT_ID, redirectUri: this.authService.callbackUrl, state, selectAccount }), state };
   }
 }

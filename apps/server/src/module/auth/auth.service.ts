@@ -34,6 +34,12 @@ export class AuthService {
     return this.publicUrl.startsWith('https://');
   }
 
+  // The person who installed the App on an account can use diffy for it at once, without signing in again (their
+  // accounts are otherwise only read from GitHub when they sign in). Someone who has not signed in yet gets it then.
+  grantInstaller(githubUserId: number, accountId: string): Promise<boolean> {
+    return this.authRepository.addMembershipByGithubId(githubUserId, accountId);
+  }
+
   // The person behind a session cookie, or null when there is no live session for it.
   async authenticate(token: string | undefined): Promise<AuthContext | null> {
     return (await this.load(token))?.context ?? null;

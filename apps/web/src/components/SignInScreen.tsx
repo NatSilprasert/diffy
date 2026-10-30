@@ -14,7 +14,7 @@ export function SignInScreen() {
           href={SIGN_IN_URL}
           className="inline-flex h-10 w-full cursor-pointer items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
-          Continue with GitHub
+          Sign in with GitHub
         </a>
         <p className="text-xs text-muted-foreground">diffy asks GitHub who you are and which accounts you can use it for. It does not keep your GitHub token.</p>
       </div>

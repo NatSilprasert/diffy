@@ -3,6 +3,7 @@ import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../src/infra/config/env';
 import type { AccountsService } from '../src/module/accounts/accounts.service';
+import type { AuthService } from '../src/module/auth/auth.service';
 import type { GithubService } from '../src/module/github/github.service';
 import type { ReposService } from '../src/module/repos/repos.service';
 import type { ReviewsService } from '../src/module/reviews/reviews.service';
@@ -12,6 +13,7 @@ const secret = 'a-long-enough-webhook-secret';
 const recordInstallation = vi.fn();
 const markInstallation = vi.fn();
 const recordAccount = vi.fn();
+const grantInstaller = vi.fn();
 const findPollableRepo = vi.fn();
 const autoWatch = vi.fn();
 const unwatch = vi.fn();
@@ -22,6 +24,7 @@ const usecase = (env: Partial<Env> = { GITHUB_WEBHOOK_SECRET: secret }) =>
   new ReceiveWebhookUsecase(
     { recordInstallation, markInstallation } as unknown as GithubService,
     { recordAccount } as unknown as AccountsService,
+    { grantInstaller } as unknown as AuthService,
     { findPollableRepo, autoWatch, unwatch, unwatchAll } as unknown as ReposService,
     { queueReview } as unknown as ReviewsService,
     env as Env,
@@ -41,7 +44,7 @@ const installation = (over: Record<string, unknown> = {}) => ({
 });
 
 beforeEach(() => {
-  for (const fn of [recordInstallation, markInstallation, recordAccount, findPollableRepo, queueReview, autoWatch, unwatch, unwatchAll]) fn.mockReset();
+  for (const fn of [recordInstallation, markInstallation, recordAccount, grantInstaller, findPollableRepo, queueReview, autoWatch, unwatch, unwatchAll]) fn.mockReset();
   autoWatch.mockResolvedValue(0);
   unwatch.mockResolvedValue(0);
   unwatchAll.mockResolvedValue(0);
@@ -82,6 +85,18 @@ describe('ReceiveWebhookUsecase', () => {
     await usecase().execute(delivery('installation', { action: 'deleted', installation: installation() }));
     expect(markInstallation).toHaveBeenCalledWith(176119160, { removedAt: expect.any(Date) });
     expect(unwatchAll).toHaveBeenCalledWith('acc1');
+  });
+
+  it('lets whoever installed the App use diffy for the account at once', async () => {
+    await usecase().execute(delivery('installation', { action: 'created', installation: installation(), sender: { id: 777 } }));
+    expect(grantInstaller).toHaveBeenCalledWith(777, 'acc1');
+  });
+
+  it('grants nobody anything on other installation events, or when GitHub names no sender', async () => {
+    await usecase().execute(delivery('installation', { action: 'created', installation: installation() }));
+    await usecase().execute(delivery('installation', { action: 'new_permissions_accepted', installation: installation(), sender: { id: 777 } }));
+    await usecase().execute(delivery('installation_repositories', { action: 'added', installation: installation(), sender: { id: 777 } }));
+    expect(grantInstaller).not.toHaveBeenCalled();
   });
 
   it('starts watching the repositories the account gave when it installed the App', async () => {

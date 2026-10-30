@@ -4,8 +4,21 @@ import { Octokit } from 'octokit';
 // and comes back with a one-time code. diffy trades the code for a token that speaks for that person, asks GitHub who
 // they are and where they can use diffy, and then throws the token away: nothing here is kept.
 
-export function buildAuthorizeUrl({ clientId, redirectUri, state }: { clientId: string; redirectUri: string; state: string }): string {
+// `selectAccount` makes GitHub show its account picker even when the browser is signed in to GitHub already, for a
+// person who has more than one GitHub account.
+export function buildAuthorizeUrl({
+  clientId,
+  redirectUri,
+  state,
+  selectAccount = false,
+}: {
+  clientId: string;
+  redirectUri: string;
+  state: string;
+  selectAccount?: boolean;
+}): string {
   const query = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, state });
+  if (selectAccount) query.set('prompt', 'select_account');
   return `https://github.com/login/oauth/authorize?${query}`;
 }
 

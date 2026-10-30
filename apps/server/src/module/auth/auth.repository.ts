@@ -24,6 +24,15 @@ export class AuthRepository {
     ]);
   }
 
+  // Makes the person with this GitHub id a member of the account, if they have signed in to diffy before. False when they
+  // have not: they get their accounts from GitHub when they first do.
+  async addMembershipByGithubId(githubId: number, accountId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({ where: { githubId }, select: { id: true } });
+    if (!user) return false;
+    await this.prisma.membership.createMany({ data: [{ userId: user.id, accountId }], skipDuplicates: true });
+    return true;
+  }
+
   async createSession(data: { tokenHash: string; userId: string; expiresAt: Date }): Promise<void> {
     await this.prisma.session.create({ data });
     // Sessions that ran out are of no use to anyone: tidy them up whenever a new one is made.

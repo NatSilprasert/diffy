@@ -21,6 +21,19 @@ describe('buildAuthorizeUrl', () => {
   });
 });
 
+describe('buildAuthorizeUrl with an account picker', () => {
+  const input = { clientId: 'Iv1.abc', redirectUri: 'http://x/cb', state: 's' };
+
+  it('asks GitHub to let the person choose the account', () => {
+    expect(new URL(buildAuthorizeUrl({ ...input, selectAccount: true })).searchParams.get('prompt')).toBe('select_account');
+  });
+
+  it('does not, by default', () => {
+    expect(new URL(buildAuthorizeUrl(input)).searchParams.has('prompt')).toBe(false);
+    expect(new URL(buildAuthorizeUrl({ ...input, selectAccount: false })).searchParams.has('prompt')).toBe(false);
+  });
+});
+
 describe('exchangeCodeForToken', () => {
   const input = { clientId: 'id', clientSecret: 'secret', code: 'the-code', redirectUri: 'http://x/cb' };
   const answer = (body: unknown, ok = true) => vi.fn().mockResolvedValue({ ok, status: ok ? 200 : 500, json: async () => body });

@@ -28,6 +28,19 @@ describe('StartLoginUsecase', () => {
   });
 });
 
+describe('StartLoginUsecase with an account picker', () => {
+  const usecase = new StartLoginUsecase({ callbackUrl: 'http://localhost:4000/api/auth/github/callback' } as unknown as AuthService, { GITHUB_CLIENT_ID: 'Iv23liabc' } as Env);
+
+  it('asks GitHub to let the person choose the account when they ask for it', () => {
+    expect(new URL(usecase.execute({ selectAccount: true }).url).searchParams.get('prompt')).toBe('select_account');
+  });
+
+  it('does not otherwise', () => {
+    expect(new URL(usecase.execute().url).searchParams.has('prompt')).toBe(false);
+    expect(new URL(usecase.execute({ selectAccount: false }).url).searchParams.has('prompt')).toBe(false);
+  });
+});
+
 describe('GetMeUsecase', () => {
   it('describes the person signed in', async () => {
     const describe_ = vi.fn().mockResolvedValue({ sessionId: 's1', userId: 'u1', accountId: 'a1', view });

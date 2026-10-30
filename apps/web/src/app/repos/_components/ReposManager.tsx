@@ -69,7 +69,8 @@ export function ReposManager() {
             <div>
               <p className="font-medium">You are not watching any repository yet</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Add one and diffy reviews its new pull requests. Pull requests that are already open stay as they are.
+                Give the diffy GitHub App a repository and it shows up here by itself, then its new pull requests are reviewed. Pull
+                requests that are already open stay as they are. You can also add one yourself.
               </p>
             </div>
             <Button onClick={() => setAdding(true)}>

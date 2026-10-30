@@ -61,3 +61,19 @@ describe('AuthRepository', () => {
     expect(deleteMany).toHaveBeenCalledWith({ where: { id: 's1' } });
   });
 });
+
+describe('AuthRepository.addMembershipByGithubId', () => {
+  it('adds the person to the account when they have signed in before', async () => {
+    const findUnique = vi.fn().mockResolvedValue({ id: 'u1' });
+    const createMany = vi.fn().mockResolvedValue({ count: 1 });
+    expect(await repoWith({ user: { findUnique }, membership: { createMany } }).addMembershipByGithubId(777, 'a1')).toBe(true);
+    expect(findUnique).toHaveBeenCalledWith({ where: { githubId: 777 }, select: { id: true } });
+    expect(createMany).toHaveBeenCalledWith({ data: [{ userId: 'u1', accountId: 'a1' }], skipDuplicates: true });
+  });
+
+  it('does nothing for a person diffy has not met: they get their accounts when they first sign in', async () => {
+    const createMany = vi.fn();
+    expect(await repoWith({ user: { findUnique: vi.fn().mockResolvedValue(null) }, membership: { createMany } }).addMembershipByGithubId(777, 'a1')).toBe(false);
+    expect(createMany).not.toHaveBeenCalled();
+  });
+});

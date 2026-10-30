@@ -32,8 +32,8 @@ export class AuthController {
   @Public()
   @Get('github/login')
   @ApiExcludeEndpoint()
-  login(@Res() res: HttpResponse) {
-    const { url, state } = this.startLoginUsecase.execute();
+  login(@Query('prompt') prompt: string | undefined, @Res() res: HttpResponse) {
+    const { url, state } = this.startLoginUsecase.execute({ selectAccount: prompt === 'select_account' });
     res.cookie(STATE_COOKIE, state, { httpOnly: true, secure: this.authService.secureCookies, sameSite: 'lax', maxAge: STATE_MINUTES * 60_000, path: '/api/auth' });
     res.redirect(url);
   }

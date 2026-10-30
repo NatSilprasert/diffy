@@ -36,13 +36,13 @@ export function SetupChecklist() {
     <Card>
       <CardHeader>
         <CardTitle>Finish setting up</CardTitle>
-        <CardDescription>diffy needs these three things before it can review a pull request.</CardDescription>
+        <CardDescription>diffy needs these three things before it can review a pull request. The repositories you give the App on GitHub are watched automatically.</CardDescription>
       </CardHeader>
       <CardContent>
         <ol className="space-y-4">
-          <Step done={github} href="/settings/" title="Install the GitHub App" hint="Install diffy on your account and pick the repositories, so it can read pull requests and post reviews." />
+          <Step done={github} href="/settings/" title="Install the GitHub App" hint="Install diffy on your account and give it the repositories you want reviewed." />
           <Step done={llm} href="/settings/" title="Choose an AI model" hint="Pick a provider and model and save its API key." />
-          <Step done={watching} href="/repos/" title="Watch a repository" hint="Add at least one repository. Its open pull requests are skipped; new ones get reviewed." />
+          <Step done={watching} href="/repos/" title="Have a repository to watch" hint="Give the App at least one repository on GitHub. Its open pull requests are skipped; new ones get reviewed." />
         </ol>
       </CardContent>
     </Card>

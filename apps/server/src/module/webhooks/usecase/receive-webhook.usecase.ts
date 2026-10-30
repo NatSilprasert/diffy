@@ -4,6 +4,7 @@ import { ENV } from '../../../infra/config/config.module';
 import type { Env } from '../../../infra/config/env';
 import { verifyWebhookSignature } from '../../../infra/github/webhook-signature';
 import { AccountsService } from '../../accounts/accounts.service';
+import { AuthService } from '../../auth/auth.service';
 import { GithubService } from '../../github/github.service';
 import { ReposService } from '../../repos/repos.service';
 import { ReviewsService } from '../../reviews/reviews.service';
@@ -13,6 +14,8 @@ const RepositoryList = z.array(z.object({ name: z.string() })).optional();
 
 const InstallationPayload = z.object({
   action: z.string(),
+  // Who installed it, or changed what it can reach.
+  sender: z.object({ id: z.number().int() }).optional(),
   // The repositories the account gave the App when it installed it, or gave or took away since.
   repositories: RepositoryList,
   repositories_added: RepositoryList,
@@ -58,6 +61,7 @@ export class ReceiveWebhookUsecase {
   constructor(
     private readonly githubService: GithubService,
     private readonly accountsService: AccountsService,
+    private readonly authService: AuthService,
     private readonly reposService: ReposService,
     private readonly reviewsService: ReviewsService,
     @Inject(ENV) private readonly env: Env,
@@ -116,7 +120,7 @@ export class ReceiveWebhookUsecase {
   private async onInstallation(event: string, payload: unknown): Promise<void> {
     const parsed = InstallationPayload.safeParse(payload);
     if (!parsed.success) throw new BadRequestException(`Unexpected ${event} payload.`);
-    const { action, installation, repositories, repositories_added, repositories_removed } = parsed.data;
+    const { action, installation, sender, repositories, repositories_added, repositories_removed } = parsed.data;
     if (!installation.account) return;
     const owner = installation.account.login;
     const named = (list: Array<{ name: string }> | undefined) => (list ?? []).map(({ name }) => ({ owner, name }));
@@ -137,6 +141,8 @@ export class ReceiveWebhookUsecase {
     switch (action) {
       case 'created':
         await this.githubService.recordInstallation(data);
+        // Whoever installed it can use diffy for the account straight away.
+        if (sender) await this.authService.grantInstaller(sender.id, account.id);
         this.watchInBackground(account.id, named(repositories));
         break;
       case 'new_permissions_accepted':

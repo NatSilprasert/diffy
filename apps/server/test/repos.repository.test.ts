@@ -130,3 +130,31 @@ describe('ReposRepository polling queries', () => {
     expect(repository.updateMany.mock.calls[1]![0].data.lastError).toBeNull();
   });
 });
+
+describe('ReposRepository.softRemoveByName / softRemoveAllOfAccount', () => {
+  it('removes the named repositories of the account, ignoring case, and counts them', async () => {
+    const { repo, repository } = setup({ updateMany: vi.fn().mockResolvedValue({ count: 2 }) });
+    expect(await repo.softRemoveByName('acc1', [{ owner: 'Acme', name: 'Api' }, { owner: 'Acme', name: 'Web' }])).toBe(2);
+
+    const call = repository.updateMany.mock.calls[0]![0];
+    expect(call.where.accountId).toBe('acc1');
+    expect(call.where.removedAt).toBeNull();
+    expect(call.where.OR).toEqual([
+      { owner: { equals: 'Acme', mode: 'insensitive' }, name: { equals: 'Api', mode: 'insensitive' } },
+      { owner: { equals: 'Acme', mode: 'insensitive' }, name: { equals: 'Web', mode: 'insensitive' } },
+    ]);
+    expect(call.data.enabled).toBe(false);
+  });
+
+  it('touches nothing when no name is given', async () => {
+    const { repo, repository } = setup({ updateMany: vi.fn() });
+    expect(await repo.softRemoveByName('acc1', [])).toBe(0);
+    expect(repository.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('removes everything of the account that is not removed yet', async () => {
+    const { repo, repository } = setup({ updateMany: vi.fn().mockResolvedValue({ count: 3 }) });
+    expect(await repo.softRemoveAllOfAccount('acc1')).toBe(3);
+    expect(repository.updateMany.mock.calls[0]![0].where).toEqual({ accountId: 'acc1', removedAt: null });
+  });
+});

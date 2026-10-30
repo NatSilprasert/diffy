@@ -1,17 +1,17 @@
-import { getRepository, listOpenPullRequests, type RepositoryInfo } from '@diffy/core';
+import type { RepositoryInfo } from '@diffy/core';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { toGithubHttpException } from '../../../infra/github/github-errors';
 import { AccountsService } from '../../accounts/accounts.service';
-import { GithubService } from '../../github/github.service';
 import type { AddRepoRequestDto, AddRepoResponseDto } from '../dto/add-repo.dto';
 import { toRepoItem } from '../repos.mapper';
 import { ReposRepository } from '../repos.repository';
+import { ReposService } from '../repos.service';
 
 @Injectable()
 export class AddRepoUsecase {
   constructor(
     private readonly reposRepository: ReposRepository,
-    private readonly githubService: GithubService,
+    private readonly reposService: ReposService,
     private readonly accountsService: AccountsService,
   ) {}
 
@@ -36,17 +36,12 @@ export class AddRepoUsecase {
     return toRepoItem(created);
   }
 
-  // Check with GitHub first: a typo, or a repo the token cannot see, should fail now, not silently
-  // never produce a review.
-  // It also notes the head commit of every pull request that is open right now. Those are the baseline:
-  // not reviewed automatically, otherwise adding a repo would review all of its open PRs at once. If this
-  // cannot be read, the repo is not added at all, because saving it without a baseline would do exactly that.
+  // Check with GitHub first: a typo, or a repository the App cannot reach, should fail now, not silently never produce a
+  // review. If the open pull requests cannot be read, the repository is not added at all, because saving it without
+  // a baseline would review all of them at once.
   private async lookupOnGithub(owner: string, name: string): Promise<{ info: RepositoryInfo; baselineShas: string[] }> {
     try {
-      const { octokit } = await this.githubService.getAccess(owner, name);
-      const info = await getRepository(octokit, owner, name);
-      const openPulls = await listOpenPullRequests(octokit, info.owner, info.name);
-      return { info, baselineShas: openPulls.map((pr) => pr.headSha) };
+      return await this.reposService.lookupOnGithub(owner, name);
     } catch (err) {
       throw toGithubHttpException(err, {
         notFound: `${owner}/${name} was not found, or the diffy GitHub App is not installed on it. Install the App from Settings and give it this repository.`,

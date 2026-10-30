@@ -72,6 +72,26 @@ export class ReposRepository {
     return result.count > 0;
   }
 
+  // Soft-removes the repositories of an account by name (GitHub's casing is not trusted to match). Returns how many.
+  async softRemoveByName(accountId: string, repos: Array<{ owner: string; name: string }>): Promise<number> {
+    if (repos.length === 0) return 0;
+    const result = await this.prisma.repository.updateMany({
+      where: {
+        accountId,
+        removedAt: null,
+        OR: repos.map(({ owner, name }) => ({ owner: { equals: owner, mode: 'insensitive' as const }, name: { equals: name, mode: 'insensitive' as const } })),
+      },
+      data: { removedAt: new Date(), enabled: false },
+    });
+    return result.count;
+  }
+
+  // Soft-removes every repository of an account (the App was uninstalled). Returns how many.
+  async softRemoveAllOfAccount(accountId: string): Promise<number> {
+    const result = await this.prisma.repository.updateMany({ where: { accountId, removedAt: null }, data: { removedAt: new Date(), enabled: false } });
+    return result.count;
+  }
+
   // Repositories the poller should look at: not removed and not paused.
   findPollable() {
     return this.prisma.repository.findMany({

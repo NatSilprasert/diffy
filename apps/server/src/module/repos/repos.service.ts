@@ -1,4 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { getRepository, listOpenPullRequests, type RepositoryInfo } from '@diffy/core';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { GithubService } from '../github/github.service';
 import { ReposRepository } from './repos.repository';
 
 // What other modules get to know about a repository: enough to talk to GitHub and to poll it.
@@ -23,7 +25,12 @@ const toWatchedRepo = (repo: { id: string; accountId: string; owner: string; nam
 // The repos module's public API for other modules (reviews now, the poller later).
 @Injectable()
 export class ReposService {
-  constructor(private readonly reposRepository: ReposRepository) {}
+  private readonly logger = new Logger(ReposService.name);
+
+  constructor(
+    private readonly reposRepository: ReposRepository,
+    private readonly githubService: GithubService,
+  ) {}
 
   // A repository, whoever it belongs to: for the workers, which serve every account. A request from a person goes
   // through getAccountRepo instead. Unknown and removed ids are both "not found".
@@ -62,5 +69,44 @@ export class ReposService {
   // Remember when a repository was last polled, and why it failed (null = it went fine).
   recordPoll(id: string, error: string | null): Promise<void> {
     return this.reposRepository.markPolled(id, error);
+  }
+
+  // Checks a repository with GitHub and notes the head commit of every pull request that is open right now. Those are
+  // the baseline: not reviewed automatically, otherwise watching a repository would review all of its open pull
+  // requests at once. Throws what GitHub throws; the caller decides what that means.
+  async lookupOnGithub(owner: string, name: string): Promise<{ info: RepositoryInfo; baselineShas: string[] }> {
+    const { octokit } = await this.githubService.getAccess(owner, name);
+    const info = await getRepository(octokit, owner, name);
+    const openPulls = await listOpenPullRequests(octokit, info.owner, info.name);
+    return { info, baselineShas: openPulls.map((pr) => pr.headSha) };
+  }
+
+  // Starts watching repositories the account gave the App, without anyone clicking Add. One that cannot be read (or is
+  // archived, which GitHub does not allow reviews on) is skipped and logged, never a reason to leave the others. A
+  // repository the person removed earlier comes back: giving the App access again is asking for it. Returns how many
+  // started being watched.
+  async autoWatch(accountId: string, repos: Array<{ owner: string; name: string }>): Promise<number> {
+    let started = 0;
+    for (const { owner, name } of repos) {
+      try {
+        const { info, baselineShas } = await this.lookupOnGithub(owner, name);
+        if (info.archived) continue;
+        const created = await this.reposRepository.add({ accountId, owner: info.owner, name: info.name, baselineShas });
+        if (created) started++;
+      } catch (err) {
+        this.logger.warn(`Could not start watching ${owner}/${name}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    return started;
+  }
+
+  // Stops watching repositories the account took the App away from. Their review history stays.
+  unwatch(accountId: string, repos: Array<{ owner: string; name: string }>): Promise<number> {
+    return this.reposRepository.softRemoveByName(accountId, repos);
+  }
+
+  // Stops watching everything of an account (the App was uninstalled).
+  unwatchAll(accountId: string): Promise<number> {
+    return this.reposRepository.softRemoveAllOfAccount(accountId);
   }
 }

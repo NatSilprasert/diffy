@@ -13,13 +13,16 @@ const recordInstallation = vi.fn();
 const markInstallation = vi.fn();
 const recordAccount = vi.fn();
 const findPollableRepo = vi.fn();
+const autoWatch = vi.fn();
+const unwatch = vi.fn();
+const unwatchAll = vi.fn();
 const queueReview = vi.fn();
 
 const usecase = (env: Partial<Env> = { GITHUB_WEBHOOK_SECRET: secret }) =>
   new ReceiveWebhookUsecase(
     { recordInstallation, markInstallation } as unknown as GithubService,
     { recordAccount } as unknown as AccountsService,
-    { findPollableRepo } as unknown as ReposService,
+    { findPollableRepo, autoWatch, unwatch, unwatchAll } as unknown as ReposService,
     { queueReview } as unknown as ReviewsService,
     env as Env,
   );
@@ -38,7 +41,10 @@ const installation = (over: Record<string, unknown> = {}) => ({
 });
 
 beforeEach(() => {
-  for (const fn of [recordInstallation, markInstallation, recordAccount, findPollableRepo, queueReview]) fn.mockReset();
+  for (const fn of [recordInstallation, markInstallation, recordAccount, findPollableRepo, queueReview, autoWatch, unwatch, unwatchAll]) fn.mockReset();
+  autoWatch.mockResolvedValue(0);
+  unwatch.mockResolvedValue(0);
+  unwatchAll.mockResolvedValue(0);
   recordAccount.mockResolvedValue({ id: 'acc1', githubId: 4242, login: 'NatSilprasert', type: 'User' });
   findPollableRepo.mockResolvedValue({ id: 'r1', owner: 'NatSilprasert', name: 'diffy-sandbox', baselineShas: [] });
   queueReview.mockResolvedValue(true);
@@ -63,18 +69,56 @@ describe('ReceiveWebhookUsecase', () => {
   });
 
   it.each([
-    ['deleted', { removedAt: expect.any(Date) }],
     ['suspend', { suspendedAt: expect.any(Date) }],
     ['unsuspend', { suspendedAt: null }],
-  ])('marks the installation on "%s"', async (action, data) => {
+  ])('marks the installation on "%s", and keeps its repositories', async (action, data) => {
     await usecase().execute(delivery('installation', { action, installation: installation() }));
     expect(markInstallation).toHaveBeenCalledWith(176119160, data);
     expect(recordInstallation).not.toHaveBeenCalled();
+    expect(unwatchAll).not.toHaveBeenCalled();
   });
 
-  it('keeps the selection up to date when repositories are added or removed', async () => {
-    await usecase().execute(delivery('installation_repositories', { action: 'added', installation: installation({ repository_selection: 'all' }) }));
+  it('marks an uninstalled App, and stops watching everything of that account', async () => {
+    await usecase().execute(delivery('installation', { action: 'deleted', installation: installation() }));
+    expect(markInstallation).toHaveBeenCalledWith(176119160, { removedAt: expect.any(Date) });
+    expect(unwatchAll).toHaveBeenCalledWith('acc1');
+  });
+
+  it('starts watching the repositories the account gave when it installed the App', async () => {
+    await usecase().execute(delivery('installation', { action: 'created', installation: installation(), repositories: [{ name: 'api' }, { name: 'web' }] }));
+    expect(autoWatch).toHaveBeenCalledWith('acc1', [{ owner: 'NatSilprasert', name: 'api' }, { owner: 'NatSilprasert', name: 'web' }]);
+  });
+
+  it('answers at once: the repositories are started after the answer, and a failure there never fails the webhook', async () => {
+    let finish!: () => void;
+    autoWatch.mockReturnValue(new Promise<number>((resolve) => (finish = () => resolve(1))));
+    const result = await usecase().execute(delivery('installation', { action: 'created', installation: installation(), repositories: [{ name: 'api' }] }));
+    expect(result).toEqual({ handled: true, event: 'installation' });
+    finish();
+
+    autoWatch.mockRejectedValue(new Error('GitHub is down'));
+    await expect(usecase().execute(delivery('installation', { action: 'created', installation: installation(), repositories: [{ name: 'api' }] }))).resolves.toMatchObject({ handled: true });
+  });
+
+  it('does not start anything for a new permission, or when the list of repositories is empty', async () => {
+    await usecase().execute(delivery('installation', { action: 'new_permissions_accepted', installation: installation(), repositories: [{ name: 'api' }] }));
+    await usecase().execute(delivery('installation', { action: 'created', installation: installation(), repositories: [] }));
+    await usecase().execute(delivery('installation', { action: 'created', installation: installation() }));
+    expect(autoWatch).not.toHaveBeenCalled();
+  });
+
+  it('keeps the selection up to date, starts watching what the account gave and stops watching what it took away', async () => {
+    await usecase().execute(
+      delivery('installation_repositories', {
+        action: 'added',
+        installation: installation({ repository_selection: 'all' }),
+        repositories_added: [{ name: 'api' }],
+        repositories_removed: [{ name: 'old' }],
+      }),
+    );
     expect(recordInstallation).toHaveBeenCalledWith(expect.objectContaining({ repositorySelection: 'all' }));
+    expect(autoWatch).toHaveBeenCalledWith('acc1', [{ owner: 'NatSilprasert', name: 'api' }]);
+    expect(unwatch).toHaveBeenCalledWith('acc1', [{ owner: 'NatSilprasert', name: 'old' }]);
   });
 
   it('refuses an installation payload it cannot read, and ignores an unknown action', async () => {

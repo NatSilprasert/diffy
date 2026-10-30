@@ -9,8 +9,14 @@ import { ReposService } from '../../repos/repos.service';
 import { ReviewsService } from '../../reviews/reviews.service';
 import type { ReceiveWebhookResponseDto } from '../dto/receive-webhook.dto';
 
+const RepositoryList = z.array(z.object({ name: z.string() })).optional();
+
 const InstallationPayload = z.object({
   action: z.string(),
+  // The repositories the account gave the App when it installed it, or gave or took away since.
+  repositories: RepositoryList,
+  repositories_added: RepositoryList,
+  repositories_removed: RepositoryList,
   installation: z.object({
     id: z.number().int(),
     // Null for a few odd cases (a deleted account); such an installation is not worth keeping.
@@ -97,29 +103,48 @@ export class ReceiveWebhookUsecase {
     if (queued) this.logger.log(`${repo.owner}/${repo.name}#${pr.number}: queued a review (${action})`);
   }
 
+  // Looking at each repository takes a few calls to GitHub, and GitHub wants an answer to a webhook within seconds, so
+  // the repositories are started after the answer. What goes wrong is logged by the service, per repository.
+  private watchInBackground(accountId: string, repos: Array<{ owner: string; name: string }>): void {
+    if (repos.length === 0) return;
+    void this.reposService.autoWatch(accountId, repos).then(
+      (started) => started > 0 && this.logger.log(`Started watching ${started} repositor${started === 1 ? 'y' : 'ies'} (installed on GitHub)`),
+      (err) => this.logger.error(`Could not start watching the new repositories: ${err instanceof Error ? err.message : String(err)}`),
+    );
+  }
+
   private async onInstallation(event: string, payload: unknown): Promise<void> {
     const parsed = InstallationPayload.safeParse(payload);
     if (!parsed.success) throw new BadRequestException(`Unexpected ${event} payload.`);
-    const { action, installation } = parsed.data;
+    const { action, installation, repositories, repositories_added, repositories_removed } = parsed.data;
     if (!installation.account) return;
+    const owner = installation.account.login;
+    const named = (list: Array<{ name: string }> | undefined) => (list ?? []).map(({ name }) => ({ owner, name }));
 
     // The account is kept up to date by every event about its installation: a login can change.
     const account = await this.accountsService.recordAccount({ githubId: installation.account.id, login: installation.account.login, type: installation.account.type });
     const data = { installationId: installation.id, accountId: account.id, repositorySelection: installation.repository_selection };
 
     if (event === 'installation_repositories') {
-      // Repositories were added or taken away. GitHub keeps the list, so only the selection is recorded.
+      // Repositories were given or taken away. GitHub keeps the list, so the selection is what is recorded; what the
+      // account gave is watched at once, and what it took away is not.
       await this.githubService.recordInstallation(data);
+      await this.reposService.unwatch(account.id, named(repositories_removed));
+      this.watchInBackground(account.id, named(repositories_added));
       return;
     }
 
     switch (action) {
       case 'created':
+        await this.githubService.recordInstallation(data);
+        this.watchInBackground(account.id, named(repositories));
+        break;
       case 'new_permissions_accepted':
         await this.githubService.recordInstallation(data);
         break;
       case 'deleted':
         await this.githubService.markInstallation(data.installationId, { removedAt: new Date() });
+        await this.reposService.unwatchAll(account.id);
         break;
       case 'suspend':
         await this.githubService.markInstallation(data.installationId, { suspendedAt: new Date() });

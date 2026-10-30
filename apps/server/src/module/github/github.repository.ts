@@ -3,8 +3,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service';
 
 export type InstallationData = {
   installationId: number;
-  accountLogin: string;
-  accountType: string;
+  accountId: string;
   repositorySelection: string;
 };
 
@@ -26,7 +25,8 @@ export class GithubRepository {
   findActiveInstallations() {
     return this.prisma.githubInstallation.findMany({
       where: { removedAt: null, suspendedAt: null },
-      orderBy: { accountLogin: 'asc' },
+      include: { account: true },
+      orderBy: { account: { login: 'asc' } },
     });
   }
 

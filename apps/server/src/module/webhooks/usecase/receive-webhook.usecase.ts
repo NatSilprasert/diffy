@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ENV } from '../../../infra/config/config.module';
 import type { Env } from '../../../infra/config/env';
 import { verifyWebhookSignature } from '../../../infra/github/webhook-signature';
+import { AccountsService } from '../../accounts/accounts.service';
 import { GithubService } from '../../github/github.service';
 import { ReposService } from '../../repos/repos.service';
 import { ReviewsService } from '../../reviews/reviews.service';
@@ -13,7 +14,7 @@ const InstallationPayload = z.object({
   installation: z.object({
     id: z.number().int(),
     // Null for a few odd cases (a deleted account); such an installation is not worth keeping.
-    account: z.object({ login: z.string(), type: z.string() }).nullable(),
+    account: z.object({ id: z.number().int(), login: z.string(), type: z.string() }).nullable(),
     repository_selection: z.enum(['all', 'selected']),
   }),
 });
@@ -50,6 +51,7 @@ export class ReceiveWebhookUsecase {
 
   constructor(
     private readonly githubService: GithubService,
+    private readonly accountsService: AccountsService,
     private readonly reposService: ReposService,
     private readonly reviewsService: ReviewsService,
     @Inject(ENV) private readonly env: Env,
@@ -101,12 +103,9 @@ export class ReceiveWebhookUsecase {
     const { action, installation } = parsed.data;
     if (!installation.account) return;
 
-    const data = {
-      installationId: installation.id,
-      accountLogin: installation.account.login,
-      accountType: installation.account.type,
-      repositorySelection: installation.repository_selection,
-    };
+    // The account is kept up to date by every event about its installation: a login can change.
+    const account = await this.accountsService.recordAccount({ githubId: installation.account.id, login: installation.account.login, type: installation.account.type });
+    const data = { installationId: installation.id, accountId: account.id, repositorySelection: installation.repository_selection };
 
     if (event === 'installation_repositories') {
       // Repositories were added or taken away. GitHub keeps the list, so only the selection is recorded.

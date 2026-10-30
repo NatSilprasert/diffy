@@ -10,13 +10,16 @@ import { getRepository, listOpenPullRequests } from '@diffy/core';
 import { AddRepoRequestSchema } from '../src/module/repos/dto/add-repo.dto';
 import type { ReposRepository } from '../src/module/repos/repos.repository';
 import { AddRepoUsecase } from '../src/module/repos/usecase/add-repo.usecase';
+import type { AccountsService } from '../src/module/accounts/accounts.service';
 import type { GithubService } from '../src/module/github/github.service';
 
 const add = vi.fn();
 const getAccess = vi.fn();
+const findByLogin = vi.fn();
 const usecase = new AddRepoUsecase(
   { add } as unknown as ReposRepository,
   { getAccess } as unknown as GithubService,
+  { findByLogin } as unknown as AccountsService,
 );
 
 const info = (over: Record<string, unknown> = {}) => ({
@@ -41,6 +44,7 @@ const row = {
 beforeEach(() => {
   add.mockReset();
   getAccess.mockReset().mockResolvedValue({ octokit: {}, secrets: [] });
+  findByLogin.mockReset().mockResolvedValue({ id: 'acc1', githubId: 4242, login: 'Acme', type: 'Organization' });
   vi.mocked(getRepository).mockReset();
   vi.mocked(listOpenPullRequests).mockReset().mockResolvedValue([]);
 });
@@ -54,7 +58,8 @@ describe('AddRepoUsecase', () => {
 
     expect(getAccess).toHaveBeenCalledWith('acme', 'api');
     expect(vi.mocked(getRepository).mock.calls[0]!.slice(1)).toEqual(['acme', 'api']);
-    expect(add).toHaveBeenCalledWith({ owner: 'Acme', name: 'Api', baselineShas: [] });
+    expect(findByLogin).toHaveBeenCalledWith('Acme');
+    expect(add).toHaveBeenCalledWith({ accountId: 'acc1', owner: 'Acme', name: 'Api', baselineShas: [] });
     expect(result).toEqual({
       id: 'r1',
       owner: 'Acme',
@@ -76,6 +81,13 @@ describe('AddRepoUsecase', () => {
   it('returns 404 and saves nothing when GitHub does not know the repository', async () => {
     vi.mocked(getRepository).mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
     await expect(usecase.execute({ fullName: 'acme/nope' })).rejects.toBeInstanceOf(NotFoundException);
+    expect(add).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 and saves nothing when the App is not installed on the owner of the repository', async () => {
+    vi.mocked(getRepository).mockResolvedValue(info());
+    findByLogin.mockResolvedValue(null);
+    await expect(usecase.execute({ fullName: 'acme/api' })).rejects.toThrow(/not installed on Acme/);
     expect(add).not.toHaveBeenCalled();
   });
 
@@ -109,7 +121,7 @@ describe('AddRepoUsecase baseline', () => {
     await usecase.execute({ fullName: 'acme/api' });
 
     expect(vi.mocked(listOpenPullRequests).mock.calls[0]!.slice(1)).toEqual(['Acme', 'Api']); // GitHub's casing
-    expect(add).toHaveBeenCalledWith({ owner: 'Acme', name: 'Api', baselineShas: ['aaa', 'bbb', 'ccc'] });
+    expect(add).toHaveBeenCalledWith({ accountId: 'acc1', owner: 'Acme', name: 'Api', baselineShas: ['aaa', 'bbb', 'ccc'] });
   });
 
   it('does not add the repository when the open pull requests cannot be read', async () => {

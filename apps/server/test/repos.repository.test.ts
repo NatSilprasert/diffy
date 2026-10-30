@@ -28,12 +28,12 @@ describe('ReposRepository.findAll', () => {
 });
 
 describe('ReposRepository.add', () => {
-  const data = { owner: 'a', name: 'b', baselineShas: ['s1', 's2'] };
+  const data = { accountId: 'acc1', owner: 'a', name: 'b', baselineShas: ['s1', 's2'] };
 
   it('creates a new row when nothing was removed before', async () => {
     const { repo, repository } = setup({ create: vi.fn().mockResolvedValue({ id: 'new' }) });
     expect(await repo.add(data)).toEqual({ id: 'new' });
-    expect(repository.create).toHaveBeenCalledWith({ data: { owner: 'a', name: 'b', baselineShas: ['s1', 's2'] } });
+    expect(repository.create).toHaveBeenCalledWith({ data: { accountId: 'acc1', owner: 'a', name: 'b', baselineShas: ['s1', 's2'] } });
   });
 
   it('restores a removed row, keeping its id, instead of creating one', async () => {
@@ -44,7 +44,7 @@ describe('ReposRepository.add', () => {
     expect(await repo.add(data)).toEqual({ id: 'old' });
     expect(repository.updateMany).toHaveBeenCalledWith({
       where: { owner: 'a', name: 'b', removedAt: { not: null } },
-      data: { removedAt: null, enabled: true, lastError: null, baselineShas: ['s1', 's2'] },
+      data: { accountId: 'acc1', removedAt: null, enabled: true, lastError: null, baselineShas: ['s1', 's2'] },
     });
     expect(repository.findUnique).toHaveBeenCalledWith({ where: { owner_name: { owner: 'a', name: 'b' } } });
     expect(repository.create).not.toHaveBeenCalled();

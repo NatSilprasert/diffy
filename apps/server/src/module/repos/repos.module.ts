@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AccountsModule } from '../accounts/accounts.module';
 import { GithubModule } from '../github/github.module';
 import { SettingsModule } from '../settings/settings.module';
 import { ReposController } from './repos.controller';
@@ -11,7 +12,7 @@ import { RemoveRepoUsecase } from './usecase/remove-repo.usecase';
 import { UpdateRepoUsecase } from './usecase/update-repo.usecase';
 
 @Module({
-  imports: [SettingsModule, GithubModule],
+  imports: [SettingsModule, GithubModule, AccountsModule],
   controllers: [ReposController],
   providers: [
     ReposRepository,

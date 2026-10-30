@@ -1,0 +1,15 @@
+// Whoever installed the diffy GitHub App: a person or an organization on GitHub. Everything diffy keeps (repositories,
+// reviews, the project briefs, the model settings) belongs to one account, and people see only the accounts they can
+// reach on GitHub. Keyed by GitHub's own id, not the login: a login can be renamed, and uninstalling and installing
+// the App again gives a new installation but the same account.
+model Account {
+  id            String               @id @default(cuid())
+  githubId      Int                  @unique
+  login         String
+  // "User" or "Organization".
+  type          String
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  installations GithubInstallation[]
+  repositories  Repository[]
+}

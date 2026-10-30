@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../src/infra/config/env';
+import type { AccountsService } from '../src/module/accounts/accounts.service';
 import type { GithubService } from '../src/module/github/github.service';
 import type { ReposService } from '../src/module/repos/repos.service';
 import type { ReviewsService } from '../src/module/reviews/reviews.service';
@@ -10,12 +11,14 @@ import { ReceiveWebhookUsecase } from '../src/module/webhooks/usecase/receive-we
 const secret = 'a-long-enough-webhook-secret';
 const recordInstallation = vi.fn();
 const markInstallation = vi.fn();
+const recordAccount = vi.fn();
 const findPollableRepo = vi.fn();
 const queueReview = vi.fn();
 
 const usecase = (env: Partial<Env> = { GITHUB_WEBHOOK_SECRET: secret }) =>
   new ReceiveWebhookUsecase(
     { recordInstallation, markInstallation } as unknown as GithubService,
+    { recordAccount } as unknown as AccountsService,
     { findPollableRepo } as unknown as ReposService,
     { queueReview } as unknown as ReviewsService,
     env as Env,
@@ -29,13 +32,14 @@ function delivery(event: string, payload: unknown, over: { signature?: string } 
 
 const installation = (over: Record<string, unknown> = {}) => ({
   id: 176119160,
-  account: { login: 'NatSilprasert', type: 'User' },
+  account: { id: 4242, login: 'NatSilprasert', type: 'User' },
   repository_selection: 'selected',
   ...over,
 });
 
 beforeEach(() => {
-  for (const fn of [recordInstallation, markInstallation, findPollableRepo, queueReview]) fn.mockReset();
+  for (const fn of [recordInstallation, markInstallation, recordAccount, findPollableRepo, queueReview]) fn.mockReset();
+  recordAccount.mockResolvedValue({ id: 'acc1', githubId: 4242, login: 'NatSilprasert', type: 'User' });
   findPollableRepo.mockResolvedValue({ id: 'r1', owner: 'NatSilprasert', name: 'diffy-sandbox', baselineShas: [] });
   queueReview.mockResolvedValue(true);
 });
@@ -54,7 +58,8 @@ describe('ReceiveWebhookUsecase', () => {
     const result = await usecase().execute(delivery('installation', { action: 'created', installation: installation() }));
 
     expect(result).toEqual({ handled: true, event: 'installation' });
-    expect(recordInstallation).toHaveBeenCalledWith({ installationId: 176119160, accountLogin: 'NatSilprasert', accountType: 'User', repositorySelection: 'selected' });
+    expect(recordAccount).toHaveBeenCalledWith({ githubId: 4242, login: 'NatSilprasert', type: 'User' });
+    expect(recordInstallation).toHaveBeenCalledWith({ installationId: 176119160, accountId: 'acc1', repositorySelection: 'selected' });
   });
 
   it.each([

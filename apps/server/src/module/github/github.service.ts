@@ -67,8 +67,8 @@ export class GithubService {
   async listInstalledAccounts(): Promise<InstalledAccount[]> {
     const installations = await this.githubRepository.findActiveInstallations();
     return installations.map((installation) => ({
-      login: installation.accountLogin,
-      type: installation.accountType,
+      login: installation.account.login,
+      type: installation.account.type,
       repositorySelection: installation.repositorySelection,
     }));
   }

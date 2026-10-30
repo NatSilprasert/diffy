@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../src/infra/prisma/prisma.service';
 import { GithubRepository } from '../src/module/github/github.repository';
 
-const data = { installationId: 7, accountLogin: 'acme', accountType: 'Organization', repositorySelection: 'all' };
+const data = { installationId: 7, accountId: 'acc1', repositorySelection: 'all' };
 
 describe('GithubRepository', () => {
   it('creates an installation, or updates a known one and makes it live again', async () => {
@@ -25,6 +25,6 @@ describe('GithubRepository.findActiveInstallations', () => {
   it('asks only for installations that are not uninstalled or suspended, by account', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
     await new GithubRepository({ githubInstallation: { findMany } } as unknown as PrismaService).findActiveInstallations();
-    expect(findMany).toHaveBeenCalledWith({ where: { removedAt: null, suspendedAt: null }, orderBy: { accountLogin: 'asc' } });
+    expect(findMany).toHaveBeenCalledWith({ where: { removedAt: null, suspendedAt: null }, include: { account: true }, orderBy: { account: { login: 'asc' } } });
   });
 });

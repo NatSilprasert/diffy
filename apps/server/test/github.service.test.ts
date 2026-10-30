@@ -97,7 +97,7 @@ describe('GithubService.getAppInfo', () => {
 
 describe('GithubService installations', () => {
   it('records and marks installations through the repository', async () => {
-    const data = { installationId: 7, accountLogin: 'acme', accountType: 'User', repositorySelection: 'all' };
+    const data = { installationId: 7, accountId: 'acc1', repositorySelection: 'all' };
     updateInstallation.mockResolvedValue(true);
 
     await service().recordInstallation(data);
@@ -109,7 +109,7 @@ describe('GithubService installations', () => {
 
   it('lists the accounts the App is installed on now', async () => {
     findActiveInstallations.mockResolvedValue([
-      { installationId: 7, accountLogin: 'acme', accountType: 'Organization', repositorySelection: 'selected', createdAt: new Date() },
+      { installationId: 7, account: { login: 'acme', type: 'Organization' }, repositorySelection: 'selected', createdAt: new Date() },
     ]);
     expect(await service().listInstalledAccounts()).toEqual([{ login: 'acme', type: 'Organization', repositorySelection: 'selected' }]);
   });

@@ -1,6 +1,7 @@
 import { getRepository, listOpenPullRequests, type RepositoryInfo } from '@diffy/core';
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { toGithubHttpException } from '../../../infra/github/github-errors';
+import { AccountsService } from '../../accounts/accounts.service';
 import { GithubService } from '../../github/github.service';
 import type { AddRepoRequestDto, AddRepoResponseDto } from '../dto/add-repo.dto';
 import { toRepoItem } from '../repos.mapper';
@@ -11,6 +12,7 @@ export class AddRepoUsecase {
   constructor(
     private readonly reposRepository: ReposRepository,
     private readonly githubService: GithubService,
+    private readonly accountsService: AccountsService,
   ) {}
 
   async execute(input: AddRepoRequestDto): Promise<AddRepoResponseDto> {
@@ -21,8 +23,12 @@ export class AddRepoUsecase {
       throw new BadRequestException(`${info.fullName} is archived, so GitHub does not allow reviews on it.`);
     }
 
+    // A repository belongs to the account that owns it. The App can only reach it if that account installed it.
+    const account = await this.accountsService.findByLogin(info.owner);
+    if (!account) throw new NotFoundException(`The diffy GitHub App is not installed on ${info.owner}. Install it from Settings first.`);
+
     // Saved with GitHub's casing, so "Acme/API" and "acme/api" cannot become two entries.
-    const created = await this.reposRepository.add({ owner: info.owner, name: info.name, baselineShas });
+    const created = await this.reposRepository.add({ accountId: account.id, owner: info.owner, name: info.name, baselineShas });
     if (!created) throw new ConflictException(`${info.fullName} is already being watched.`);
     return toRepoItem(created);
   }

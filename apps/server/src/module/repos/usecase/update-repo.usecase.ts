@@ -7,8 +7,8 @@ import { ReposRepository } from '../repos.repository';
 export class UpdateRepoUsecase {
   constructor(private readonly reposRepository: ReposRepository) {}
 
-  async execute(params: UpdateRepoParamsDto, input: UpdateRepoRequestDto): Promise<UpdateRepoResponseDto> {
-    const updated = await this.reposRepository.updateEnabled(params.id, input.enabled);
+  async execute(accountId: string, params: UpdateRepoParamsDto, input: UpdateRepoRequestDto): Promise<UpdateRepoResponseDto> {
+    const updated = await this.reposRepository.updateEnabled(params.id, accountId, input.enabled);
     if (!updated) throw new NotFoundException('Repository not found.');
     return toRepoItem(updated);
   }

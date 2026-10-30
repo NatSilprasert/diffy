@@ -5,12 +5,11 @@ vi.mock('@diffy/core', () => ({
   getAppIdentity: vi.fn(),
   getRepoInstallationClient: vi.fn(),
   getInstallationClient: vi.fn(),
-  listAppInstallations: vi.fn(),
   listInstallationRepos: vi.fn(),
 }));
 vi.mock('../src/infra/github/app-private-key', () => ({ readAppPrivateKey: vi.fn(() => 'PRIVATE-KEY') }));
 
-import { createGithubApp, getAppIdentity, getInstallationClient, getRepoInstallationClient, listAppInstallations, listInstallationRepos } from '@diffy/core';
+import { createGithubApp, getAppIdentity, getInstallationClient, getRepoInstallationClient, listInstallationRepos } from '@diffy/core';
 import { ServiceUnavailableException } from '@nestjs/common';
 import type { Env } from '../src/infra/config/env';
 import { readAppPrivateKey } from '../src/infra/github/app-private-key';
@@ -19,9 +18,9 @@ import { GithubService } from '../src/module/github/github.service';
 
 const upsertInstallation = vi.fn();
 const updateInstallation = vi.fn();
-const findActiveInstallations = vi.fn();
+const findActiveInstallationsOfAccount = vi.fn();
 const env = { GITHUB_APP_ID: 5507932, GITHUB_APP_PRIVATE_KEY_PATH: 'app.pem' } as Env;
-const service = () => new GithubService(env, { upsertInstallation, updateInstallation, findActiveInstallations } as unknown as GithubRepository);
+const service = () => new GithubService(env, { upsertInstallation, updateInstallation, findActiveInstallationsOfAccount } as unknown as GithubRepository);
 
 const repo = (fullName: string) => {
   const [owner, name] = fullName.split('/') as [string, string];
@@ -29,13 +28,12 @@ const repo = (fullName: string) => {
 };
 
 beforeEach(() => {
-  for (const fn of [upsertInstallation, updateInstallation, findActiveInstallations]) fn.mockReset();
+  for (const fn of [upsertInstallation, updateInstallation, findActiveInstallationsOfAccount]) fn.mockReset();
   vi.mocked(createGithubApp).mockClear();
   vi.mocked(readAppPrivateKey).mockClear();
   vi.mocked(getAppIdentity).mockReset().mockResolvedValue({ slug: 'diffy-dev', name: 'diffy-dev' });
   vi.mocked(getRepoInstallationClient).mockReset().mockResolvedValue({ installation: true } as never);
   vi.mocked(getInstallationClient).mockReset().mockImplementation(async (_app, id) => ({ id }) as never);
-  vi.mocked(listAppInstallations).mockReset();
   vi.mocked(listInstallationRepos).mockReset();
 });
 
@@ -71,11 +69,18 @@ describe('GithubService.getAccess', () => {
 });
 
 describe('GithubService.listRepos', () => {
-  it('gathers the repositories of every installation of the App, sorted', async () => {
-    vi.mocked(listAppInstallations).mockResolvedValue([{ id: 1, account: 'zed', repositorySelection: 'all' }, { id: 2, account: 'acme', repositorySelection: 'selected' }]);
+  it('gathers the repositories of the installations of the account, sorted', async () => {
+    findActiveInstallationsOfAccount.mockResolvedValue([{ installationId: 1 }, { installationId: 2 }]);
     vi.mocked(listInstallationRepos).mockImplementation(async (client) => ((client as unknown as { id: number }).id === 1 ? [repo('zed/web')] : [repo('acme/api')]));
 
-    expect((await service().listRepos()).map((r) => r.fullName)).toEqual(['acme/api', 'zed/web']);
+    expect((await service().listRepos('acc1')).map((r) => r.fullName)).toEqual(['acme/api', 'zed/web']);
+    expect(findActiveInstallationsOfAccount).toHaveBeenCalledWith('acc1');
+  });
+
+  it('is empty for an account that installed the App nowhere', async () => {
+    findActiveInstallationsOfAccount.mockResolvedValue([]);
+    expect(await service().listRepos('acc1')).toEqual([]);
+    expect(listInstallationRepos).not.toHaveBeenCalled();
   });
 });
 
@@ -107,10 +112,10 @@ describe('GithubService installations', () => {
     expect(updateInstallation).toHaveBeenCalledWith(7, { suspendedAt: null });
   });
 
-  it('lists the accounts the App is installed on now', async () => {
-    findActiveInstallations.mockResolvedValue([
+  it('lists where the App is installed for one account', async () => {
+    findActiveInstallationsOfAccount.mockResolvedValue([
       { installationId: 7, account: { login: 'acme', type: 'Organization' }, repositorySelection: 'selected', createdAt: new Date() },
     ]);
-    expect(await service().listInstalledAccounts()).toEqual([{ login: 'acme', type: 'Organization', repositorySelection: 'selected' }]);
+    expect(await service().listInstalledAccounts('acc1')).toEqual([{ login: 'acme', type: 'Organization', repositorySelection: 'selected' }]);
   });
 });

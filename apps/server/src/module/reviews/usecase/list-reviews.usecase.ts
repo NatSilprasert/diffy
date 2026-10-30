@@ -8,10 +8,10 @@ import { ReviewsRepository } from '../reviews.repository';
 export class ListReviewsUsecase {
   constructor(private readonly reviewsRepository: ReviewsRepository) {}
 
-  async execute(input: ListReviewsQueryDto): Promise<ListReviewsResponseDto> {
+  async execute(accountId: string, input: ListReviewsQueryDto): Promise<ListReviewsResponseDto> {
     const { limit, cursor, repositoryId, status, period, q } = input;
     const since = period ? periodStart(period) : undefined;
-    const rows = await this.reviewsRepository.listPage({ repositoryId, status, since, search: q }, limit, cursor);
+    const rows = await this.reviewsRepository.listPage({ accountId, repositoryId, status, since, search: q }, limit, cursor);
 
     // One extra row was fetched: its presence means there is a next page, and it is not shown.
     const hasMore = rows.length > limit;

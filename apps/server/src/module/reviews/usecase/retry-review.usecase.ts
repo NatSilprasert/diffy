@@ -11,8 +11,8 @@ export class RetryReviewUsecase {
     private readonly reviewQueue: ReviewQueueWorker,
   ) {}
 
-  async execute(params: RetryReviewParamsDto): Promise<RetryReviewResponseDto> {
-    const review = await this.reviewsRepository.findById(params.id);
+  async execute(accountId: string, params: RetryReviewParamsDto): Promise<RetryReviewResponseDto> {
+    const review = await this.reviewsRepository.findOfAccount(params.id, accountId);
     if (!review) throw new NotFoundException('Review not found.');
 
     // Any finished review can run again on the same commit: a failed one to get a result, a posted one to get

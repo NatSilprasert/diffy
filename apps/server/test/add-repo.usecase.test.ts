@@ -15,11 +15,11 @@ import type { GithubService } from '../src/module/github/github.service';
 
 const add = vi.fn();
 const getAccess = vi.fn();
-const findByLogin = vi.fn();
+const findById = vi.fn();
 const usecase = new AddRepoUsecase(
   { add } as unknown as ReposRepository,
   { getAccess } as unknown as GithubService,
-  { findByLogin } as unknown as AccountsService,
+  { findById } as unknown as AccountsService,
 );
 
 const info = (over: Record<string, unknown> = {}) => ({
@@ -44,7 +44,7 @@ const row = {
 beforeEach(() => {
   add.mockReset();
   getAccess.mockReset().mockResolvedValue({ octokit: {}, secrets: [] });
-  findByLogin.mockReset().mockResolvedValue({ id: 'acc1', githubId: 4242, login: 'Acme', type: 'Organization' });
+  findById.mockReset().mockResolvedValue({ id: 'acc1', githubId: 4242, login: 'Acme', type: 'Organization' });
   vi.mocked(getRepository).mockReset();
   vi.mocked(listOpenPullRequests).mockReset().mockResolvedValue([]);
 });
@@ -54,11 +54,11 @@ describe('AddRepoUsecase', () => {
     vi.mocked(getRepository).mockResolvedValue(info());
     add.mockResolvedValue(row);
 
-    const result = await usecase.execute({ fullName: 'acme/api' });
+    const result = await usecase.execute('acc1', { fullName: 'acme/api' });
 
     expect(getAccess).toHaveBeenCalledWith('acme', 'api');
     expect(vi.mocked(getRepository).mock.calls[0]!.slice(1)).toEqual(['acme', 'api']);
-    expect(findByLogin).toHaveBeenCalledWith('Acme');
+    expect(findById).toHaveBeenCalledWith('acc1');
     expect(add).toHaveBeenCalledWith({ accountId: 'acc1', owner: 'Acme', name: 'Api', baselineShas: [] });
     expect(result).toEqual({
       id: 'r1',
@@ -75,39 +75,52 @@ describe('AddRepoUsecase', () => {
   it('returns 409 when the repository is already watched', async () => {
     vi.mocked(getRepository).mockResolvedValue(info());
     add.mockResolvedValue(null);
-    await expect(usecase.execute({ fullName: 'acme/api' })).rejects.toBeInstanceOf(ConflictException);
+    await expect(usecase.execute('acc1', { fullName: 'acme/api' })).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('returns 404 and saves nothing when GitHub does not know the repository', async () => {
     vi.mocked(getRepository).mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
-    await expect(usecase.execute({ fullName: 'acme/nope' })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(usecase.execute('acc1', { fullName: 'acme/nope' })).rejects.toBeInstanceOf(NotFoundException);
     expect(add).not.toHaveBeenCalled();
   });
 
-  it('returns 404 and saves nothing when the App is not installed on the owner of the repository', async () => {
+  it('returns 404 and saves nothing when the repository belongs to another account than the one the person is on', async () => {
     vi.mocked(getRepository).mockResolvedValue(info());
-    findByLogin.mockResolvedValue(null);
-    await expect(usecase.execute({ fullName: 'acme/api' })).rejects.toThrow(/not installed on Acme/);
+    findById.mockResolvedValue({ id: 'acc1', githubId: 1, login: 'someone-else', type: 'User' });
+    await expect(usecase.execute('acc1', { fullName: 'acme/api' })).rejects.toThrow(/does not belong to someone-else\. Switch to the account/);
+    expect(add).not.toHaveBeenCalled();
+  });
+
+  it('compares the owner and the account without caring about case', async () => {
+    vi.mocked(getRepository).mockResolvedValue(info({ owner: 'ACME', fullName: 'ACME/Api' }));
+    add.mockResolvedValue(row);
+    await expect(usecase.execute('acc1', { fullName: 'acme/api' })).resolves.toMatchObject({ id: 'r1' });
+  });
+
+  it('returns 404 when the account is gone', async () => {
+    vi.mocked(getRepository).mockResolvedValue(info());
+    findById.mockResolvedValue(null);
+    await expect(usecase.execute('acc1', { fullName: 'acme/api' })).rejects.toBeInstanceOf(NotFoundException);
     expect(add).not.toHaveBeenCalled();
   });
 
   it('refuses an archived repository', async () => {
     vi.mocked(getRepository).mockResolvedValue(info({ archived: true }));
-    await expect(usecase.execute({ fullName: 'acme/api' })).rejects.toThrow(/archived/);
+    await expect(usecase.execute('acc1', { fullName: 'acme/api' })).rejects.toThrow(/archived/);
     expect(add).not.toHaveBeenCalled();
   });
 
   it('maps a rejected token to 400 and a network failure to 502', async () => {
     vi.mocked(getRepository).mockRejectedValueOnce(Object.assign(new Error('Bad credentials'), { status: 401 }));
-    await expect(usecase.execute({ fullName: 'acme/api' })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(usecase.execute('acc1', { fullName: 'acme/api' })).rejects.toBeInstanceOf(BadRequestException);
 
     vi.mocked(getRepository).mockRejectedValueOnce(new Error('ENOTFOUND'));
-    await expect(usecase.execute({ fullName: 'acme/api' })).rejects.toBeInstanceOf(BadGatewayException);
+    await expect(usecase.execute('acc1', { fullName: 'acme/api' })).rejects.toBeInstanceOf(BadGatewayException);
   });
 
   it('does not call GitHub when no token is saved', async () => {
     getAccess.mockRejectedValue(new BadRequestException('Connect your GitHub token in Settings first.'));
-    await expect(usecase.execute({ fullName: 'acme/api' })).rejects.toThrow(/Connect your GitHub token/);
+    await expect(usecase.execute('acc1', { fullName: 'acme/api' })).rejects.toThrow(/Connect your GitHub token/);
     expect(getRepository).not.toHaveBeenCalled();
   });
 });
@@ -118,7 +131,7 @@ describe('AddRepoUsecase baseline', () => {
     vi.mocked(listOpenPullRequests).mockResolvedValue([{ headSha: 'aaa' }, { headSha: 'bbb' }, { headSha: 'ccc' }] as never);
     add.mockResolvedValue(row);
 
-    await usecase.execute({ fullName: 'acme/api' });
+    await usecase.execute('acc1', { fullName: 'acme/api' });
 
     expect(vi.mocked(listOpenPullRequests).mock.calls[0]!.slice(1)).toEqual(['Acme', 'Api']); // GitHub's casing
     expect(add).toHaveBeenCalledWith({ accountId: 'acc1', owner: 'Acme', name: 'Api', baselineShas: ['aaa', 'bbb', 'ccc'] });
@@ -128,13 +141,13 @@ describe('AddRepoUsecase baseline', () => {
     vi.mocked(getRepository).mockResolvedValue(info());
     vi.mocked(listOpenPullRequests).mockRejectedValue(new Error('ENOTFOUND'));
 
-    await expect(usecase.execute({ fullName: 'acme/api' })).rejects.toBeInstanceOf(BadGatewayException);
+    await expect(usecase.execute('acc1', { fullName: 'acme/api' })).rejects.toBeInstanceOf(BadGatewayException);
     expect(add).not.toHaveBeenCalled();
   });
 
   it('does not read pull requests of an archived repository', async () => {
     vi.mocked(getRepository).mockResolvedValue(info({ archived: true }));
-    await expect(usecase.execute({ fullName: 'acme/api' })).rejects.toThrow(/archived/);
+    await expect(usecase.execute('acc1', { fullName: 'acme/api' })).rejects.toThrow(/archived/);
     expect(add).not.toHaveBeenCalled();
   });
 });

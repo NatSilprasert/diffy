@@ -7,12 +7,12 @@ import { ReviewsRepository } from '../reviews.repository';
 export class GetReviewStatsUsecase {
   constructor(private readonly reviewsRepository: ReviewsRepository) {}
 
-  async execute(now: Date = new Date()): Promise<GetReviewStatsResponseDto> {
+  async execute(accountId: string, now: Date = new Date()): Promise<GetReviewStatsResponseDto> {
     const [total, month, week, day] = await Promise.all([
-      this.reviewsRepository.countSince(),
-      this.reviewsRepository.countSince(periodStart('month', now)),
-      this.reviewsRepository.countSince(periodStart('week', now)),
-      this.reviewsRepository.countSince(periodStart('day', now)),
+      this.reviewsRepository.countSince(accountId),
+      this.reviewsRepository.countSince(accountId, periodStart('month', now)),
+      this.reviewsRepository.countSince(accountId, periodStart('week', now)),
+      this.reviewsRepository.countSince(accountId, periodStart('day', now)),
     ]);
     return { total, month, week, day };
   }

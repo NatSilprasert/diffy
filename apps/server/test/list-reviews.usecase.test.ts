@@ -33,43 +33,44 @@ function setup(rows: ReturnType<typeof row>[], counts: Array<{ reviewId: string;
 describe('ListReviewsUsecase', () => {
   it('returns every row and no cursor when the page is not full', async () => {
     const { usecase } = setup([row(3), row(2)]);
-    const result = await usecase.execute({ limit: 5 });
+    const result = await usecase.execute('acc1', { limit: 5 });
     expect(result.reviews.map((r) => r.id)).toEqual(['v3', 'v2']);
     expect(result.nextCursor).toBeNull();
   });
 
   it('hides the extra look-ahead row and points the cursor at the last visible one', async () => {
     const { usecase, listPage } = setup([row(4), row(3), row(2)]); // limit 2 + 1 look-ahead
-    const result = await usecase.execute({ limit: 2 });
-    expect(listPage).toHaveBeenCalledWith({ repositoryId: undefined, status: undefined }, 2, undefined);
+    const result = await usecase.execute('acc1', { limit: 2 });
+    expect(listPage).toHaveBeenCalledWith({ accountId: 'acc1', repositoryId: undefined, status: undefined }, 2, undefined);
     expect(result.reviews.map((r) => r.id)).toEqual(['v4', 'v3']);
     expect(result.nextCursor).toBe('v3');
   });
 
   it('has no next page when the result is exactly one page', async () => {
     const { usecase } = setup([row(2), row(1)]);
-    expect((await usecase.execute({ limit: 2 })).nextCursor).toBeNull();
+    expect((await usecase.execute('acc1', { limit: 2 })).nextCursor).toBeNull();
   });
 
   it('passes the filters and cursor to the repository', async () => {
     const { usecase, listPage } = setup([]);
-    await usecase.execute({ limit: 10, cursor: 'v9', repositoryId: 'r1', status: 'failed' });
-    expect(listPage).toHaveBeenCalledWith({ repositoryId: 'r1', status: 'failed' }, 10, 'v9');
+    await usecase.execute('acc1', { limit: 10, cursor: 'v9', repositoryId: 'r1', status: 'failed' });
+    expect(listPage).toHaveBeenCalledWith({ accountId: 'acc1', repositoryId: 'r1', status: 'failed' }, 10, 'v9');
   });
 
   it('turns the period into a start time and passes the search text on', async () => {
     const { usecase, listPage } = setup([]);
     const before = Date.now();
-    await usecase.execute({ limit: 10, period: 'day', q: 'cart' });
+    await usecase.execute('acc1', { limit: 10, period: 'day', q: 'cart' });
     const filter = listPage.mock.calls[0]![0];
     expect(filter.search).toBe('cart');
+    expect(filter.accountId).toBe('acc1');
     // 24 hours before "now", give or take the time the test took.
     expect(Math.abs(filter.since.getTime() - (before - 24 * 3600 * 1000))).toBeLessThan(5000);
   });
 
   it('returns an empty list for an empty result, without counting findings', async () => {
     const { usecase } = setup([]);
-    expect(await usecase.execute({ limit: 20 })).toEqual({ reviews: [], nextCursor: null });
+    expect(await usecase.execute('acc1', { limit: 20 })).toEqual({ reviews: [], nextCursor: null });
   });
 
   it('counts findings per severity for only the visible rows, with zeros filled in', async () => {
@@ -81,7 +82,7 @@ describe('ListReviewsUsecase', () => {
         { reviewId: 'v2', severity: 'high', count: 2 },
       ],
     );
-    const result = await usecase.execute({ limit: 2 });
+    const result = await usecase.execute('acc1', { limit: 2 });
 
     expect(countFindingsBySeverity).toHaveBeenCalledWith(['v3', 'v2']);
     expect(result.reviews[0]!.findingCounts).toEqual({ critical: 1, high: 0, medium: 0, low: 4 });

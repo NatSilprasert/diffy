@@ -10,10 +10,10 @@ export const MAX_AVAILABLE_REPOS_RETURNED = 50;
 export class ListAvailableReposUsecase {
   constructor(private readonly githubService: GithubService) {}
 
-  async execute(input: ListAvailableReposQueryDto): Promise<ListAvailableReposResponseDto> {
+  async execute(accountId: string, input: ListAvailableReposQueryDto): Promise<ListAvailableReposResponseDto> {
     let repos: AccessibleRepo[];
     try {
-      repos = await this.githubService.listRepos();
+      repos = await this.githubService.listRepos(accountId);
     } catch (err) {
       throw toGithubHttpException(err, {
         rejected: 'GitHub rejected the diffy GitHub App. Check its settings on GitHub.',

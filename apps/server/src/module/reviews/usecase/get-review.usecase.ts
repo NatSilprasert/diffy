@@ -7,8 +7,8 @@ import { ReviewsRepository } from '../reviews.repository';
 export class GetReviewUsecase {
   constructor(private readonly reviewsRepository: ReviewsRepository) {}
 
-  async execute(params: GetReviewParamsDto): Promise<GetReviewResponseDto> {
-    const review = await this.reviewsRepository.findDetail(params.id);
+  async execute(accountId: string, params: GetReviewParamsDto): Promise<GetReviewResponseDto> {
+    const review = await this.reviewsRepository.findDetail(params.id, accountId);
     if (!review) throw new NotFoundException('Review not found.');
     return toReviewDetail(review);
   }

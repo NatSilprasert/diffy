@@ -28,19 +28,19 @@ export class GetUsageUsecase {
     private readonly reposService: ReposService,
   ) {}
 
-  async execute(now: Date = new Date()): Promise<GetUsageResponseDto> {
+  async execute(accountId: string, now: Date = new Date()): Promise<GetUsageResponseDto> {
     const monthStart = periodStart('month', now);
     // The first day shown: 364 days before today, so today is the 365th.
     const firstDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (HEATMAP_DAYS - 1));
 
     const [allTime, month, modelsAll, modelsMonth, reposAll, reposMonth, created] = await Promise.all([
-      this.reviewsRepository.usageTotals(),
-      this.reviewsRepository.usageTotals(monthStart),
-      this.reviewsRepository.usageByModel(),
-      this.reviewsRepository.usageByModel(monthStart),
-      this.reviewsRepository.usageByRepo(),
-      this.reviewsRepository.usageByRepo(monthStart),
-      this.reviewsRepository.findCreatedAtSince(firstDay),
+      this.reviewsRepository.usageTotals(accountId),
+      this.reviewsRepository.usageTotals(accountId, monthStart),
+      this.reviewsRepository.usageByModel(accountId),
+      this.reviewsRepository.usageByModel(accountId, monthStart),
+      this.reviewsRepository.usageByRepo(accountId),
+      this.reviewsRepository.usageByRepo(accountId, monthStart),
+      this.reviewsRepository.findCreatedAtSince(accountId, firstDay),
     ]);
     const names = await this.reposService.getFullNames(reposAll.map((row) => row.repositoryId));
 

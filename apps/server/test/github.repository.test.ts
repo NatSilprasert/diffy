@@ -21,10 +21,10 @@ describe('GithubRepository', () => {
   });
 });
 
-describe('GithubRepository.findActiveInstallations', () => {
-  it('asks only for installations that are not uninstalled or suspended, by account', async () => {
+describe('GithubRepository.findActiveInstallationsOfAccount', () => {
+  it('asks only for the installations of the account that are not uninstalled or suspended', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    await new GithubRepository({ githubInstallation: { findMany } } as unknown as PrismaService).findActiveInstallations();
-    expect(findMany).toHaveBeenCalledWith({ where: { removedAt: null, suspendedAt: null }, include: { account: true }, orderBy: { account: { login: 'asc' } } });
+    await new GithubRepository({ githubInstallation: { findMany } } as unknown as PrismaService).findActiveInstallationsOfAccount('acc1');
+    expect(findMany).toHaveBeenCalledWith({ where: { accountId: 'acc1', removedAt: null, suspendedAt: null }, include: { account: true }, orderBy: { createdAt: 'asc' } });
   });
 });

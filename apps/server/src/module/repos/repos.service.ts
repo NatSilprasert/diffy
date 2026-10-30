@@ -25,9 +25,17 @@ const toWatchedRepo = (repo: { id: string; accountId: string; owner: string; nam
 export class ReposService {
   constructor(private readonly reposRepository: ReposRepository) {}
 
-  // A repository the user is watching. Unknown and removed ids are both "not found".
+  // A repository, whoever it belongs to: for the workers, which serve every account. A request from a person goes
+  // through getAccountRepo instead. Unknown and removed ids are both "not found".
   async getActiveRepo(id: string): Promise<WatchedRepo> {
     const repo = await this.reposRepository.findActiveById(id);
+    if (!repo) throw new NotFoundException('Repository not found.');
+    return toWatchedRepo(repo);
+  }
+
+  // A repository the account is watching. Someone else's repository is "not found" too: nothing says it exists.
+  async getAccountRepo(id: string, accountId: string): Promise<WatchedRepo> {
+    const repo = await this.reposRepository.findActiveOfAccount(id, accountId);
     if (!repo) throw new NotFoundException('Repository not found.');
     return toWatchedRepo(repo);
   }

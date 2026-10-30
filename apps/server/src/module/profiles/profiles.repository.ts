@@ -22,8 +22,8 @@ export class ProfilesRepository {
   }
 
   // The status of every profile, without the content (which can be long).
-  listStatuses() {
-    return this.prisma.repoProfile.findMany({ select: { repositoryId: true, status: true, builtAt: true } });
+  listStatuses(accountId: string) {
+    return this.prisma.repoProfile.findMany({ where: { repository: { accountId } }, select: { repositoryId: true, status: true, builtAt: true } });
   }
 
   // Which of these repositories already have a profile row, whatever its status.

@@ -6,8 +6,8 @@ import { ProfilesRepository } from '../profiles.repository';
 export class ListProfilesUsecase {
   constructor(private readonly profilesRepository: ProfilesRepository) {}
 
-  async execute(): Promise<ListProfilesResponseDto> {
-    const rows = await this.profilesRepository.listStatuses();
+  async execute(accountId: string): Promise<ListProfilesResponseDto> {
+    const rows = await this.profilesRepository.listStatuses(accountId);
     return {
       profiles: rows.map((row) => ({ repositoryId: row.repositoryId, status: row.status, builtAt: row.builtAt?.toISOString() ?? null })),
     };

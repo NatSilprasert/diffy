@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Put } from '@nestjs/common';
 import { ApiConflictResponse, ApiNotFoundResponse, ApiOkResponse } from '@nestjs/swagger';
 import { ZodSerializerDto } from 'nestjs-zod';
+import { CurrentAccountId } from '../../infra/decorator/current-account-id.decorator';
 import { GetProfileParamsDto, GetProfileResponseDto } from './dto/get-profile.dto';
 import { ListProfilesResponseDto } from './dto/list-profiles.dto';
 import { RebuildProfileParamsDto, RebuildProfileResponseDto } from './dto/rebuild-profile.dto';
@@ -28,16 +29,16 @@ export class ProfilesController {
   @Get('profiles')
   @ZodSerializerDto(ListProfilesResponseDto)
   @ApiOkResponse({ type: ListProfilesResponseDto })
-  listProfiles() {
-    return this.listProfilesUsecase.execute();
+  listProfiles(@CurrentAccountId() accountId: string) {
+    return this.listProfilesUsecase.execute(accountId);
   }
 
   @Get(':repositoryId/profile')
   @ZodSerializerDto(GetProfileResponseDto)
   @ApiOkResponse({ type: GetProfileResponseDto })
   @ApiNotFoundResponse({ description: 'No such repository, or it has no profile yet' })
-  getProfile(@Param() params: GetProfileParamsDto) {
-    return this.getProfileUsecase.execute(params);
+  getProfile(@CurrentAccountId() accountId: string, @Param() params: GetProfileParamsDto) {
+    return this.getProfileUsecase.execute(accountId, params);
   }
 
   @Put(':repositoryId/profile/notes')
@@ -45,8 +46,8 @@ export class ProfilesController {
   @ApiOkResponse({ type: UpdateProfileNotesResponseDto })
   @ApiNotFoundResponse({ description: 'No such repository' })
   @ApiConflictResponse({ description: 'The repository has no profile yet' })
-  updateProfileNotes(@Param() params: UpdateProfileNotesParamsDto, @Body() body: UpdateProfileNotesRequestDto) {
-    return this.updateProfileNotesUsecase.execute(params, body);
+  updateProfileNotes(@CurrentAccountId() accountId: string, @Param() params: UpdateProfileNotesParamsDto, @Body() body: UpdateProfileNotesRequestDto) {
+    return this.updateProfileNotesUsecase.execute(accountId, params, body);
   }
 
   // Builds the profile again from what the repository looks like now. The notes are kept.
@@ -56,7 +57,7 @@ export class ProfilesController {
   @ApiOkResponse({ type: RebuildProfileResponseDto })
   @ApiNotFoundResponse({ description: 'No such repository' })
   @ApiConflictResponse({ description: 'The profile is already being built' })
-  rebuildProfile(@Param() params: RebuildProfileParamsDto) {
-    return this.rebuildProfileUsecase.execute(params);
+  rebuildProfile(@CurrentAccountId() accountId: string, @Param() params: RebuildProfileParamsDto) {
+    return this.rebuildProfileUsecase.execute(accountId, params);
   }
 }

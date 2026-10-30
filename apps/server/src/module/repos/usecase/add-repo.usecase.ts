@@ -15,7 +15,7 @@ export class AddRepoUsecase {
     private readonly accountsService: AccountsService,
   ) {}
 
-  async execute(input: AddRepoRequestDto): Promise<AddRepoResponseDto> {
+  async execute(accountId: string, input: AddRepoRequestDto): Promise<AddRepoResponseDto> {
     const [owner, name] = input.fullName.split('/') as [string, string];
     const { info, baselineShas } = await this.lookupOnGithub(owner, name);
 
@@ -23,12 +23,15 @@ export class AddRepoUsecase {
       throw new BadRequestException(`${info.fullName} is archived, so GitHub does not allow reviews on it.`);
     }
 
-    // A repository belongs to the account that owns it. The App can only reach it if that account installed it.
-    const account = await this.accountsService.findByLogin(info.owner);
-    if (!account) throw new NotFoundException(`The diffy GitHub App is not installed on ${info.owner}. Install it from Settings first.`);
+    // A repository belongs to the account that owns it, and a person adds it from that account: for an organization's
+    // repository they switch to the organization first.
+    const account = await this.accountsService.findById(accountId);
+    if (!account || account.login.toLowerCase() !== info.owner.toLowerCase()) {
+      throw new NotFoundException(`${info.fullName} does not belong to ${account?.login ?? 'this account'}. Switch to the account that owns it to add it.`);
+    }
 
     // Saved with GitHub's casing, so "Acme/API" and "acme/api" cannot become two entries.
-    const created = await this.reposRepository.add({ accountId: account.id, owner: info.owner, name: info.name, baselineShas });
+    const created = await this.reposRepository.add({ accountId, owner: info.owner, name: info.name, baselineShas });
     if (!created) throw new ConflictException(`${info.fullName} is already being watched.`);
     return toRepoItem(created);
   }

@@ -20,21 +20,28 @@ const row = (over: Record<string, unknown> = {}) => ({
 });
 
 function setup(found: unknown, requeued: unknown) {
-  const findById = vi.fn().mockResolvedValue(found);
+  const findOfAccount = vi.fn().mockResolvedValue(found);
   const requeueIfFinished = vi.fn().mockResolvedValue(requeued);
   const enqueue = vi.fn();
   const usecase = new RetryReviewUsecase(
-    { findById, requeueIfFinished } as unknown as ReviewsRepository,
+    { findOfAccount, requeueIfFinished } as unknown as ReviewsRepository,
     { enqueue } as unknown as ReviewQueueWorker,
   );
-  return { usecase, requeueIfFinished, enqueue };
+  return { usecase, requeueIfFinished, enqueue, findOfAccount };
 }
 
 describe('RetryReviewUsecase', () => {
+  it('looks for the review inside the account of the person, so another account\'s review cannot be run again', async () => {
+    const { usecase, findOfAccount, requeueIfFinished } = setup(null, null);
+    await expect(usecase.execute('acc1', { id: 'theirs' })).rejects.toBeInstanceOf(NotFoundException);
+    expect(findOfAccount).toHaveBeenCalledWith('theirs', 'acc1');
+    expect(requeueIfFinished).not.toHaveBeenCalled();
+  });
+
   it('puts a failed review back in the queue and returns it as queued', async () => {
     const { usecase, enqueue } = setup(row(), row({ status: 'queued', error: null, finishedAt: null }));
 
-    const result = await usecase.execute({ id: 'v1' });
+    const result = await usecase.execute('acc1', { id: 'v1' });
 
     expect(enqueue).toHaveBeenCalledWith('v1');
     expect(result).toMatchObject({ id: 'v1', status: 'queued', error: null, finishedAt: null });
@@ -42,27 +49,27 @@ describe('RetryReviewUsecase', () => {
 
   it('returns 404 for an unknown review and touches nothing', async () => {
     const { usecase, requeueIfFinished, enqueue } = setup(null, null);
-    await expect(usecase.execute({ id: 'nope' })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(usecase.execute('acc1', { id: 'nope' })).rejects.toBeInstanceOf(NotFoundException);
     expect(requeueIfFinished).not.toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
   });
 
   it.each(['posted', 'skipped'])('runs a %s review again too', async (status) => {
     const { usecase, enqueue } = setup(row({ status, error: null }), row({ status: 'queued', error: null, finishedAt: null }));
-    await expect(usecase.execute({ id: 'v1' })).resolves.toMatchObject({ status: 'queued' });
+    await expect(usecase.execute('acc1', { id: 'v1' })).resolves.toMatchObject({ status: 'queued' });
     expect(enqueue).toHaveBeenCalledWith('v1');
   });
 
   it.each(['queued', 'running'])('returns 409 for a %s review, naming its status', async (status) => {
     const { usecase, enqueue } = setup(row({ status }), null);
-    await expect(usecase.execute({ id: 'v1' })).rejects.toBeInstanceOf(ConflictException);
-    await expect(usecase.execute({ id: 'v1' })).rejects.toThrow(`This review is ${status}.`);
+    await expect(usecase.execute('acc1', { id: 'v1' })).rejects.toBeInstanceOf(ConflictException);
+    await expect(usecase.execute('acc1', { id: 'v1' })).rejects.toThrow(`This review is ${status}.`);
     expect(enqueue).not.toHaveBeenCalled();
   });
 
   it('returns 409 when another request won the race (it was finished a moment ago)', async () => {
     const { usecase, enqueue } = setup(row({ status: 'failed' }), null);
-    await expect(usecase.execute({ id: 'v1' })).rejects.toBeInstanceOf(ConflictException);
+    await expect(usecase.execute('acc1', { id: 'v1' })).rejects.toBeInstanceOf(ConflictException);
     expect(enqueue).not.toHaveBeenCalled();
   });
 });

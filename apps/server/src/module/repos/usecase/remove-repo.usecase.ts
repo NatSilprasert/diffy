@@ -6,8 +6,8 @@ import { ReposRepository } from '../repos.repository';
 export class RemoveRepoUsecase {
   constructor(private readonly reposRepository: ReposRepository) {}
 
-  async execute(params: RemoveRepoParamsDto): Promise<void> {
-    const removed = await this.reposRepository.softRemove(params.id);
+  async execute(accountId: string, params: RemoveRepoParamsDto): Promise<void> {
+    const removed = await this.reposRepository.softRemove(params.id, accountId);
     if (!removed) throw new NotFoundException('Repository not found.');
   }
 }

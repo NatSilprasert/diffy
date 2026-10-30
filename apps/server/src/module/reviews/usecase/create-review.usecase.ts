@@ -17,8 +17,8 @@ export class CreateReviewUsecase {
     private readonly reviewQueue: ReviewQueueWorker,
   ) {}
 
-  async execute(input: CreateReviewRequestDto): Promise<CreateReviewResponseDto> {
-    const repo = await this.reposService.getActiveRepo(input.repositoryId);
+  async execute(accountId: string, input: CreateReviewRequestDto): Promise<CreateReviewResponseDto> {
+    const repo = await this.reposService.getAccountRepo(input.repositoryId, accountId);
     const pr = await this.fetchPullRequest(repo.owner, repo.name, input.prNumber);
 
     const { review, created } = await this.reviewsRepository.createQueued({

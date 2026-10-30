@@ -7,6 +7,7 @@ import {
   ApiOkResponse,
 } from '@nestjs/swagger';
 import { ZodSerializerDto } from 'nestjs-zod';
+import { CurrentAccountId } from '../../infra/decorator/current-account-id.decorator';
 import { CreateReviewRequestDto, CreateReviewResponseDto } from './dto/create-review.dto';
 import { GetReviewParamsDto, GetReviewResponseDto } from './dto/get-review.dto';
 import { GetReviewStatsResponseDto } from './dto/get-review-stats.dto';
@@ -42,16 +43,16 @@ export class ReviewsController {
   @ApiCreatedResponse({ type: CreateReviewResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid body, or no usable GitHub token' })
   @ApiNotFoundResponse({ description: 'Unknown repository, or pull request not found' })
-  createReview(@Body() body: CreateReviewRequestDto) {
-    return this.createReviewUsecase.execute(body);
+  createReview(@CurrentAccountId() accountId: string, @Body() body: CreateReviewRequestDto) {
+    return this.createReviewUsecase.execute(accountId, body);
   }
 
   @Get()
   @ZodSerializerDto(ListReviewsResponseDto)
   @ApiOkResponse({ type: ListReviewsResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid filter, cursor or limit' })
-  listReviews(@Query() query: ListReviewsQueryDto) {
-    return this.listReviewsUsecase.execute(query);
+  listReviews(@CurrentAccountId() accountId: string, @Query() query: ListReviewsQueryDto) {
+    return this.listReviewsUsecase.execute(accountId, query);
   }
 
   // Declared before ':id' on purpose, otherwise "stats" and "status" would be read as review ids.
@@ -59,30 +60,30 @@ export class ReviewsController {
   @Get('usage')
   @ZodSerializerDto(GetUsageResponseDto)
   @ApiOkResponse({ type: GetUsageResponseDto })
-  getUsage() {
-    return this.getUsageUsecase.execute();
+  getUsage(@CurrentAccountId() accountId: string) {
+    return this.getUsageUsecase.execute(accountId);
   }
 
   @Get('stats')
   @ZodSerializerDto(GetReviewStatsResponseDto)
   @ApiOkResponse({ type: GetReviewStatsResponseDto })
-  getReviewStats() {
-    return this.getReviewStatsUsecase.execute();
+  getReviewStats(@CurrentAccountId() accountId: string) {
+    return this.getReviewStatsUsecase.execute(accountId);
   }
 
   @Get('status')
   @ZodSerializerDto(GetStatusResponseDto)
   @ApiOkResponse({ type: GetStatusResponseDto })
-  getStatus() {
-    return this.getStatusUsecase.execute();
+  getStatus(@CurrentAccountId() accountId: string) {
+    return this.getStatusUsecase.execute(accountId);
   }
 
   @Get(':id')
   @ZodSerializerDto(GetReviewResponseDto)
   @ApiOkResponse({ type: GetReviewResponseDto })
   @ApiNotFoundResponse({ description: 'No such review' })
-  getReview(@Param() params: GetReviewParamsDto) {
-    return this.getReviewUsecase.execute(params);
+  getReview(@CurrentAccountId() accountId: string, @Param() params: GetReviewParamsDto) {
+    return this.getReviewUsecase.execute(accountId, params);
   }
 
   @Post(':id/retry')
@@ -91,8 +92,8 @@ export class ReviewsController {
   @ApiOkResponse({ type: RetryReviewResponseDto })
   @ApiNotFoundResponse({ description: 'No such review' })
   @ApiConflictResponse({ description: 'The review is queued or running already' })
-  retryReview(@Param() params: RetryReviewParamsDto) {
-    return this.retryReviewUsecase.execute(params);
+  retryReview(@CurrentAccountId() accountId: string, @Param() params: RetryReviewParamsDto) {
+    return this.retryReviewUsecase.execute(accountId, params);
   }
 
   // "Check now": looks for new pull requests in one repository straight away, instead of waiting for the timer.
@@ -102,7 +103,7 @@ export class ReviewsController {
   @ApiOkResponse({ type: PollRepoResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid body' })
   @ApiNotFoundResponse({ description: 'No such repository' })
-  pollRepo(@Body() body: PollRepoRequestDto) {
-    return this.pollRepoUsecase.execute(body);
+  pollRepo(@CurrentAccountId() accountId: string, @Body() body: PollRepoRequestDto) {
+    return this.pollRepoUsecase.execute(accountId, body);
   }
 }

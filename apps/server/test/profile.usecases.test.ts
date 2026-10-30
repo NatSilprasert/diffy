@@ -27,16 +27,36 @@ const row = (over: Record<string, unknown> = {}) => ({
 });
 
 const reposService = (exists = true) => ({
-  getActiveRepo: vi.fn(async () => {
+  getAccountRepo: vi.fn(async (_id: string, _accountId: string) => {
     if (!exists) throw new NotFoundException('Repository not found.');
     return { id: 'r1' };
   }),
 });
 
+describe('profiles belong to the account of their repository', () => {
+  it('looks for the repository inside the account of the person, whichever profile action it is', async () => {
+    const repos = reposService();
+    const repository = {
+      findByRepositoryId: vi.fn().mockResolvedValue(row()),
+      updateNotes: vi.fn().mockResolvedValue(true),
+      createBuilding: vi.fn().mockResolvedValue(false),
+      markBuildingIfIdle: vi.fn().mockResolvedValue(true),
+    };
+    const asRepos = repos as unknown as ReposService;
+    const asRepository = repository as unknown as ProfilesRepository;
+
+    await new GetProfileUsecase(asRepository, asRepos).execute('acc9', { repositoryId: 'r1' });
+    await new UpdateProfileNotesUsecase(asRepository, asRepos).execute('acc9', { repositoryId: 'r1' }, { notes: 'x' });
+    await new RebuildProfileUsecase(asRepository, asRepos, { enqueue: vi.fn() } as unknown as ProfileBuilderWorker).execute('acc9', { repositoryId: 'r1' });
+
+    expect(repos.getAccountRepo.mock.calls).toEqual([['r1', 'acc9'], ['r1', 'acc9'], ['r1', 'acc9']]);
+  });
+});
+
 describe('GetProfileUsecase', () => {
   it('returns the profile as the API shows it, with the time as ISO text', async () => {
     const usecase = new GetProfileUsecase({ findByRepositoryId: vi.fn().mockResolvedValue(row()) } as unknown as ProfilesRepository, reposService() as unknown as ReposService);
-    expect(await usecase.execute({ repositoryId: 'r1' })).toEqual({
+    expect(await usecase.execute('acc1', { repositoryId: 'r1' })).toEqual({
       repositoryId: 'r1',
       status: 'ready',
       content: '## Overview',
@@ -54,11 +74,11 @@ describe('GetProfileUsecase', () => {
 
   it('is a 404 for a repository without a profile yet, and for an unknown repository', async () => {
     const none = new GetProfileUsecase({ findByRepositoryId: vi.fn().mockResolvedValue(null) } as unknown as ProfilesRepository, reposService() as unknown as ReposService);
-    await expect(none.execute({ repositoryId: 'r1' })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(none.execute('acc1', { repositoryId: 'r1' })).rejects.toBeInstanceOf(NotFoundException);
 
     const findByRepositoryId = vi.fn();
     const unknown = new GetProfileUsecase({ findByRepositoryId } as unknown as ProfilesRepository, reposService(false) as unknown as ReposService);
-    await expect(unknown.execute({ repositoryId: 'nope' })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(unknown.execute('acc1', { repositoryId: 'nope' })).rejects.toBeInstanceOf(NotFoundException);
     expect(findByRepositoryId).not.toHaveBeenCalled();
   });
 });
@@ -71,12 +91,12 @@ describe('UpdateProfileNotesUsecase', () => {
 
   it('saves the notes trimmed and returns the profile', async () => {
     const { usecase, repository } = setup(true);
-    expect((await usecase.execute({ repositoryId: 'r1' }, { notes: '  New.\n' })).notes).toBe('New.');
+    expect((await usecase.execute('acc1', { repositoryId: 'r1' }, { notes: '  New.\n' })).notes).toBe('New.');
     expect(repository.updateNotes).toHaveBeenCalledWith('r1', 'New.');
   });
 
   it('is a 409 when there is no profile to keep the notes in', async () => {
-    await expect(setup(false).usecase.execute({ repositoryId: 'r1' }, { notes: 'x' })).rejects.toBeInstanceOf(ConflictException);
+    await expect(setup(false).usecase.execute('acc1', { repositoryId: 'r1' }, { notes: 'x' })).rejects.toBeInstanceOf(ConflictException);
   });
 });
 
@@ -94,26 +114,26 @@ describe('RebuildProfileUsecase', () => {
 
   it('puts an existing profile back to building and queues the build', async () => {
     const { usecase, enqueue } = setup();
-    expect((await usecase.execute({ repositoryId: 'r1' })).status).toBe('building');
+    expect((await usecase.execute('acc1', { repositoryId: 'r1' })).status).toBe('building');
     expect(enqueue).toHaveBeenCalledWith('r1');
   });
 
   it('starts the first build when there is no profile yet, without touching an existing one', async () => {
     const { usecase, repository, enqueue } = setup({ created: true });
-    await usecase.execute({ repositoryId: 'r1' });
+    await usecase.execute('acc1', { repositoryId: 'r1' });
     expect(repository.markBuildingIfIdle).not.toHaveBeenCalled();
     expect(enqueue).toHaveBeenCalledWith('r1');
   });
 
   it('is a 409, and queues nothing, when it is already building', async () => {
     const { usecase, enqueue } = setup({ idle: false });
-    await expect(usecase.execute({ repositoryId: 'r1' })).rejects.toBeInstanceOf(ConflictException);
+    await expect(usecase.execute('acc1', { repositoryId: 'r1' })).rejects.toBeInstanceOf(ConflictException);
     expect(enqueue).not.toHaveBeenCalled();
   });
 
   it('is a 404 for an unknown repository, and touches nothing', async () => {
     const { usecase, repository, enqueue } = setup({ exists: false });
-    await expect(usecase.execute({ repositoryId: 'nope' })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(usecase.execute('acc1', { repositoryId: 'nope' })).rejects.toBeInstanceOf(NotFoundException);
     expect(repository.createBuilding).not.toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
   });

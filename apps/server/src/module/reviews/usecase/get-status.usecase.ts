@@ -14,9 +14,11 @@ export class GetStatusUsecase {
     private readonly reviewsRepository: ReviewsRepository,
   ) {}
 
-  async execute(): Promise<GetStatusResponseDto> {
+  async execute(accountId: string): Promise<GetStatusResponseDto> {
     const { queued, current } = this.reviewQueue.getState();
-    const running = current ? await this.reviewsRepository.findForRun(current) : null;
+    // The queue is shared by every account, but what is being reviewed is only shown to the account it belongs to.
+    const found = current ? await this.reviewsRepository.findForRun(current) : null;
+    const running = found && found.repository.accountId === accountId ? found : null;
     const poller = this.poller.getState();
 
     return {

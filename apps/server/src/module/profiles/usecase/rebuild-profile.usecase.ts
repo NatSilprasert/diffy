@@ -13,9 +13,9 @@ export class RebuildProfileUsecase {
     private readonly builder: ProfileBuilderWorker,
   ) {}
 
-  async execute(params: RebuildProfileParamsDto): Promise<RebuildProfileResponseDto> {
+  async execute(accountId: string, params: RebuildProfileParamsDto): Promise<RebuildProfileResponseDto> {
     const { repositoryId } = params;
-    await this.reposService.getActiveRepo(repositoryId);
+    await this.reposService.getAccountRepo(repositoryId, accountId);
 
     // No profile yet: this is the first build. Otherwise the existing one goes back to building (its content and
     // the notes stay until the new content is ready). A build that is running is not started a second time.

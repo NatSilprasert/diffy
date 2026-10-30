@@ -20,10 +20,18 @@ function setup(delegate: Record<string, unknown> = {}) {
 }
 
 describe('ReposRepository.findAll', () => {
-  it('hides removed repositories', async () => {
+  it('lists only the repositories of the account, and hides removed ones', async () => {
     const { repo, repository } = setup({ findMany: vi.fn().mockResolvedValue([]) });
-    await repo.findAll();
-    expect(repository.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { removedAt: null } }));
+    await repo.findAll('acc1');
+    expect(repository.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { accountId: 'acc1', removedAt: null } }));
+  });
+});
+
+describe('ReposRepository.findActiveOfAccount', () => {
+  it('finds a repository only inside the account, and not a removed one', async () => {
+    const { repo, repository } = setup({ findFirst: vi.fn().mockResolvedValue(null) });
+    await repo.findActiveOfAccount('r1', 'acc1');
+    expect(repository.findFirst).toHaveBeenCalledWith({ where: { id: 'r1', accountId: 'acc1', removedAt: null } });
   });
 });
 
@@ -62,36 +70,36 @@ describe('ReposRepository.add', () => {
 });
 
 describe('ReposRepository.updateEnabled', () => {
-  it('updates only a non-removed row', async () => {
+  it('updates only a non-removed row of the account', async () => {
     const { repo, repository } = setup({ update: vi.fn().mockResolvedValue({ id: 'r1', enabled: false }) });
-    expect(await repo.updateEnabled('r1', false)).toEqual({ id: 'r1', enabled: false });
-    expect(repository.update).toHaveBeenCalledWith({ where: { id: 'r1', removedAt: null }, data: { enabled: false } });
+    expect(await repo.updateEnabled('r1', 'acc1', false)).toEqual({ id: 'r1', enabled: false });
+    expect(repository.update).toHaveBeenCalledWith({ where: { id: 'r1', accountId: 'acc1', removedAt: null }, data: { enabled: false } });
   });
 
   it('returns null when no such row exists (record not found)', async () => {
     const { repo } = setup({ update: vi.fn().mockRejectedValue(knownError('P2025')) });
-    expect(await repo.updateEnabled('missing', true)).toBeNull();
+    expect(await repo.updateEnabled('missing', 'acc1', true)).toBeNull();
   });
 
   it('rethrows other errors', async () => {
     const { repo } = setup({ update: vi.fn().mockRejectedValue(knownError('P2003')) });
-    await expect(repo.updateEnabled('r1', true)).rejects.toMatchObject({ code: 'P2003' });
+    await expect(repo.updateEnabled('r1', 'acc1', true)).rejects.toMatchObject({ code: 'P2003' });
   });
 });
 
 describe('ReposRepository.softRemove', () => {
   it('marks the row removed and paused, never deleting it', async () => {
     const { repo, repository } = setup({ updateMany: vi.fn().mockResolvedValue({ count: 1 }) });
-    expect(await repo.softRemove('r1')).toBe(true);
+    expect(await repo.softRemove('r1', 'acc1')).toBe(true);
     const call = repository.updateMany.mock.calls[0]![0];
-    expect(call.where).toEqual({ id: 'r1', removedAt: null });
+    expect(call.where).toEqual({ id: 'r1', accountId: 'acc1', removedAt: null });
     expect(call.data.enabled).toBe(false);
     expect(call.data.removedAt).toBeInstanceOf(Date);
   });
 
   it('returns false when nothing matched (unknown or already removed)', async () => {
     const { repo } = setup({ updateMany: vi.fn().mockResolvedValue({ count: 0 }) });
-    expect(await repo.softRemove('r1')).toBe(false);
+    expect(await repo.softRemove('r1', 'acc1')).toBe(false);
   });
 });
 

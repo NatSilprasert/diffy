@@ -25,9 +25,14 @@ export class ReposRepository {
     return this.prisma.repository.findMany({ where: { id: { in: ids } }, select: { id: true, owner: true, name: true } });
   }
 
-  findAll() {
+  // A repository of this account, or null when there is none (or it belongs to someone else's account).
+  findActiveOfAccount(id: string, accountId: string) {
+    return this.prisma.repository.findFirst({ where: { id, accountId, removedAt: null } });
+  }
+
+  findAll(accountId: string) {
     return this.prisma.repository.findMany({
-      where: { removedAt: null },
+      where: { accountId, removedAt: null },
       orderBy: [{ owner: 'asc' }, { name: 'asc' }],
     });
   }
@@ -49,9 +54,9 @@ export class ReposRepository {
   }
 
   // Returns null when there is no such (non-removed) repository.
-  async updateEnabled(id: string, enabled: boolean) {
+  async updateEnabled(id: string, accountId: string, enabled: boolean) {
     try {
-      return await this.prisma.repository.update({ where: { id, removedAt: null }, data: { enabled } });
+      return await this.prisma.repository.update({ where: { id, accountId, removedAt: null }, data: { enabled } });
     } catch (err) {
       if (isRecordNotFound(err)) return null;
       throw err;
@@ -59,9 +64,9 @@ export class ReposRepository {
   }
 
   // Soft remove: hides the repo and stops polling, but keeps its reviews. Returns false if it was not there.
-  async softRemove(id: string): Promise<boolean> {
+  async softRemove(id: string, accountId: string): Promise<boolean> {
     const result = await this.prisma.repository.updateMany({
-      where: { id, removedAt: null },
+      where: { id, accountId, removedAt: null },
       data: { removedAt: new Date(), enabled: false },
     });
     return result.count > 0;

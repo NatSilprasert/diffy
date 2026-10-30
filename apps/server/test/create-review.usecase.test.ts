@@ -12,12 +12,12 @@ import type { GithubService } from '../src/module/github/github.service';
 import type { ReviewQueueWorker } from '../src/module/reviews/worker/review-queue.worker';
 
 const createQueued = vi.fn();
-const getActiveRepo = vi.fn();
+const getAccountRepo = vi.fn();
 const getAccess = vi.fn();
 const enqueue = vi.fn();
 const usecase = new CreateReviewUsecase(
   { createQueued } as unknown as ReviewsRepository,
-  { getActiveRepo } as unknown as ReposService,
+  { getAccountRepo } as unknown as ReposService,
   { getAccess } as unknown as GithubService,
   { enqueue } as unknown as ReviewQueueWorker,
 );
@@ -42,16 +42,22 @@ const row = (over: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   createQueued.mockReset();
   enqueue.mockReset();
-  getActiveRepo.mockReset().mockResolvedValue({ id: 'r1', owner: 'acme', name: 'api' });
+  getAccountRepo.mockReset().mockResolvedValue({ id: 'r1', accountId: 'acc1', owner: 'acme', name: 'api' });
   getAccess.mockReset().mockResolvedValue({ octokit: {}, secrets: [] });
   vi.mocked(getPullRequest).mockReset().mockResolvedValue(pr as never);
 });
 
 describe('CreateReviewUsecase', () => {
+  it('looks for the repository inside the account of the person, so another account\'s repository is not found', async () => {
+    createQueued.mockResolvedValue({ review: row(), created: true });
+    await usecase.execute('acc1', { repositoryId: 'r1', prNumber: 7 });
+    expect(getAccountRepo).toHaveBeenCalledWith('r1', 'acc1');
+  });
+
   it('queues a review for the PR\'s current head commit', async () => {
     createQueued.mockResolvedValue({ review: row(), created: true });
 
-    const result = await usecase.execute({ repositoryId: 'r1', prNumber: 7 });
+    const result = await usecase.execute('acc1', { repositoryId: 'r1', prNumber: 7 });
 
     expect(vi.mocked(getPullRequest).mock.calls[0]!.slice(1)).toEqual(['acme', 'api', 7]);
     expect(createQueued).toHaveBeenCalledWith({
@@ -69,7 +75,7 @@ describe('CreateReviewUsecase', () => {
   it('reports skipped: true and returns the existing review when this commit was already reviewed', async () => {
     createQueued.mockResolvedValue({ review: row({ id: 'old', status: 'posted' }), created: false });
 
-    const result = await usecase.execute({ repositoryId: 'r1', prNumber: 7 });
+    const result = await usecase.execute('acc1', { repositoryId: 'r1', prNumber: 7 });
 
     expect(result.skipped).toBe(true);
     expect(result.review).toMatchObject({ id: 'old', status: 'posted' });
@@ -77,8 +83,8 @@ describe('CreateReviewUsecase', () => {
   });
 
   it('returns 404 for an unknown or removed repository, without calling GitHub', async () => {
-    getActiveRepo.mockRejectedValue(new NotFoundException('Repository not found.'));
-    await expect(usecase.execute({ repositoryId: 'nope', prNumber: 7 })).rejects.toBeInstanceOf(NotFoundException);
+    getAccountRepo.mockRejectedValue(new NotFoundException('Repository not found.'));
+    await expect(usecase.execute('acc1', { repositoryId: 'nope', prNumber: 7 })).rejects.toBeInstanceOf(NotFoundException);
     expect(getPullRequest).not.toHaveBeenCalled();
     expect(createQueued).not.toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
@@ -86,21 +92,21 @@ describe('CreateReviewUsecase', () => {
 
   it('returns 404 when GitHub has no such pull request, and queues nothing', async () => {
     vi.mocked(getPullRequest).mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
-    await expect(usecase.execute({ repositoryId: 'r1', prNumber: 999 })).rejects.toThrow(/Pull request #999 was not found/);
+    await expect(usecase.execute('acc1', { repositoryId: 'r1', prNumber: 999 })).rejects.toThrow(/Pull request #999 was not found/);
     expect(createQueued).not.toHaveBeenCalled();
   });
 
   it('maps a rejected token to 400 and a network failure to 502', async () => {
     vi.mocked(getPullRequest).mockRejectedValueOnce(Object.assign(new Error('Bad credentials'), { status: 401 }));
-    await expect(usecase.execute({ repositoryId: 'r1', prNumber: 7 })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(usecase.execute('acc1', { repositoryId: 'r1', prNumber: 7 })).rejects.toBeInstanceOf(BadRequestException);
 
     vi.mocked(getPullRequest).mockRejectedValueOnce(new Error('ENOTFOUND'));
-    await expect(usecase.execute({ repositoryId: 'r1', prNumber: 7 })).rejects.toBeInstanceOf(BadGatewayException);
+    await expect(usecase.execute('acc1', { repositoryId: 'r1', prNumber: 7 })).rejects.toBeInstanceOf(BadGatewayException);
   });
 
   it('does not call GitHub when no token is saved', async () => {
     getAccess.mockRejectedValue(new BadRequestException('Connect your GitHub token in Settings first.'));
-    await expect(usecase.execute({ repositoryId: 'r1', prNumber: 7 })).rejects.toThrow(/Connect your GitHub token/);
+    await expect(usecase.execute('acc1', { repositoryId: 'r1', prNumber: 7 })).rejects.toThrow(/Connect your GitHub token/);
     expect(getPullRequest).not.toHaveBeenCalled();
   });
 });

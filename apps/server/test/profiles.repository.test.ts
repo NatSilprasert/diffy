@@ -75,9 +75,9 @@ describe('ProfilesRepository results', () => {
 });
 
 describe('ProfilesRepository.listStatuses', () => {
-  it('reads the status of every profile and leaves out the content', async () => {
+  it('reads the status of the profiles of one account and leaves out the content', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    await repoWith({ findMany }).listStatuses();
-    expect(findMany).toHaveBeenCalledWith({ select: { repositoryId: true, status: true, builtAt: true } });
+    await repoWith({ findMany }).listStatuses('acc1');
+    expect(findMany).toHaveBeenCalledWith({ where: { repository: { accountId: 'acc1' } }, select: { repositoryId: true, status: true, builtAt: true } });
   });
 });

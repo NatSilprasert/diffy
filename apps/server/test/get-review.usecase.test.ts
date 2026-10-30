@@ -40,12 +40,20 @@ const review = {
   findings: [finding(2), finding(9, { placement: 'summary', suggestion: 'x();' })],
 };
 
-const usecase = (found: unknown) =>
-  new GetReviewUsecase({ findDetail: vi.fn().mockResolvedValue(found) } as unknown as ReviewsRepository);
+const findDetail = vi.fn();
+const usecase = (found: unknown) => {
+  findDetail.mockReset().mockResolvedValue(found);
+  return new GetReviewUsecase({ findDetail } as unknown as ReviewsRepository);
+};
 
 describe('GetReviewUsecase', () => {
+  it('looks for the review inside the account of the person: another account\'s review is not found', async () => {
+    await usecase(review).execute('acc1', { id: 'v1' });
+    expect(findDetail).toHaveBeenCalledWith('v1', 'acc1');
+  });
+
   it('returns the review, its details and its findings', async () => {
-    const result = await usecase(review).execute({ id: 'v1' });
+    const result = await usecase(review).execute('acc1', { id: 'v1' });
 
     expect(result.review).toMatchObject({
       id: 'v1',
@@ -65,18 +73,18 @@ describe('GetReviewUsecase', () => {
   });
 
   it('does not expose the internal reviewId on findings', async () => {
-    const result = await usecase(review).execute({ id: 'v1' });
+    const result = await usecase(review).execute('acc1', { id: 'v1' });
     expect(result.findings[0]).not.toHaveProperty('reviewId');
   });
 
   it('works for a review that has no findings yet (queued or failed)', async () => {
     const queued = { ...review, status: 'queued' as const, summary: null, provider: null, model: null, finishedAt: null, findings: [] };
-    const result = await usecase(queued).execute({ id: 'v1' });
+    const result = await usecase(queued).execute('acc1', { id: 'v1' });
     expect(result.findings).toEqual([]);
     expect(GetReviewResponseSchema.safeParse(result).success).toBe(true);
   });
 
   it('returns 404 for an unknown id', async () => {
-    await expect(usecase(null).execute({ id: 'nope' })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(usecase(null).execute('acc1', { id: 'nope' })).rejects.toBeInstanceOf(NotFoundException);
   });
 });

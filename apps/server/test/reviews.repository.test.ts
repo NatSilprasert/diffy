@@ -40,9 +40,9 @@ describe('ReviewsRepository.createQueued', () => {
 describe('ReviewsRepository.listPage', () => {
   it('asks for one more row than the limit, newest first, with a stable tie-breaker', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    await repoWith({ findMany }).listPage({ status: 'failed' }, 20);
+    await repoWith({ findMany }).listPage({ accountId: 'acc1', status: 'failed' }, 20);
     expect(findMany).toHaveBeenCalledWith({
-      where: { status: 'failed' },
+      where: { repository: { accountId: 'acc1' }, status: 'failed' },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 21,
       include: { repository: true },
@@ -51,13 +51,13 @@ describe('ReviewsRepository.listPage', () => {
 
   it('leaves out conditions that were not asked for', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    await repoWith({ findMany }).listPage({ repositoryId: 'r1', since: new Date('2026-10-01') }, 5);
-    expect(findMany.mock.calls[0]![0].where).toStrictEqual({ repositoryId: 'r1', createdAt: { gte: new Date('2026-10-01') } });
+    await repoWith({ findMany }).listPage({ accountId: 'acc1', repositoryId: 'r1', since: new Date('2026-10-01') }, 5);
+    expect(findMany.mock.calls[0]![0].where).toStrictEqual({ repository: { accountId: 'acc1' }, repositoryId: 'r1', createdAt: { gte: new Date('2026-10-01') } });
   });
 
   it('searches the title, owner and name for plain text', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    await repoWith({ findMany }).listPage({ search: 'cart' }, 5);
+    await repoWith({ findMany }).listPage({ accountId: 'acc1', search: 'cart' }, 5);
     expect(findMany.mock.calls[0]![0].where.OR).toStrictEqual([
       { prTitle: { contains: 'cart', mode: 'insensitive' } },
       { repository: { owner: { contains: 'cart', mode: 'insensitive' } } },
@@ -67,18 +67,18 @@ describe('ReviewsRepository.listPage', () => {
 
   it('also matches the PR number for "#12" and the start of a commit for hex text', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    await repoWith({ findMany }).listPage({ search: '#12' }, 5);
+    await repoWith({ findMany }).listPage({ accountId: 'acc1', search: '#12' }, 5);
     expect(findMany.mock.calls[0]![0].where.OR).toContainEqual({ prNumber: 12 });
     // "12" is also valid hex, so a short number can match a commit too.
     expect(findMany.mock.calls[0]![0].where.OR).not.toContainEqual({ headSha: { startsWith: '12' } });
 
-    await repoWith({ findMany }).listPage({ search: '78515B5' }, 5);
+    await repoWith({ findMany }).listPage({ accountId: 'acc1', search: '78515B5' }, 5);
     expect(findMany.mock.calls[1]![0].where.OR).toContainEqual({ headSha: { startsWith: '78515b5' } });
   });
 
   it('matches "owner/name" on both sides of the slash', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    await repoWith({ findMany }).listPage({ search: 'acme/ap' }, 5);
+    await repoWith({ findMany }).listPage({ accountId: 'acc1', search: 'acme/ap' }, 5);
     expect(findMany.mock.calls[0]![0].where.OR).toContainEqual({
       repository: { owner: { contains: 'acme', mode: 'insensitive' }, name: { contains: 'ap', mode: 'insensitive' } },
     });
@@ -86,13 +86,13 @@ describe('ReviewsRepository.listPage', () => {
 
   it('ignores a search that is only spaces', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    await repoWith({ findMany }).listPage({ search: '   ' }, 5);
-    expect(findMany.mock.calls[0]![0].where).toStrictEqual({});
+    await repoWith({ findMany }).listPage({ accountId: 'acc1', search: '   ' }, 5);
+    expect(findMany.mock.calls[0]![0].where).toStrictEqual({ repository: { accountId: 'acc1' } });
   });
 
   it('continues after the cursor row without repeating it', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    await repoWith({ findMany }).listPage({}, 5, 'v9');
+    await repoWith({ findMany }).listPage({ accountId: 'acc1' }, 5, 'v9');
     expect(findMany.mock.calls[0]![0]).toMatchObject({ cursor: { id: 'v9' }, skip: 1, take: 6 });
   });
 });
@@ -101,10 +101,10 @@ describe('ReviewsRepository.countSince', () => {
   it('counts everything without a start, and only newer rows with one', async () => {
     const count = vi.fn().mockResolvedValue(3);
     const repo = repoWith({ count });
-    await repo.countSince();
-    await repo.countSince(new Date('2026-10-01'));
-    expect(count).toHaveBeenNthCalledWith(1, { where: {} });
-    expect(count).toHaveBeenNthCalledWith(2, { where: { createdAt: { gte: new Date('2026-10-01') } } });
+    await repo.countSince('acc1');
+    await repo.countSince('acc1', new Date('2026-10-01'));
+    expect(count).toHaveBeenNthCalledWith(1, { where: { repository: { accountId: 'acc1' } } });
+    expect(count).toHaveBeenNthCalledWith(2, { where: { repository: { accountId: 'acc1' }, createdAt: { gte: new Date('2026-10-01') } } });
   });
 });
 
@@ -183,26 +183,26 @@ describe('ReviewsRepository usage queries', () => {
 
   it('totals turn missing sums into zero', async () => {
     const aggregate = vi.fn().mockResolvedValue(sums(3, null, null));
-    expect(await repoWith({ aggregate }).usageTotals()).toEqual({ reviews: 3, inputTokens: 0, outputTokens: 0 });
-    expect(aggregate.mock.calls[0]![0].where).toEqual({});
+    expect(await repoWith({ aggregate }).usageTotals('acc1')).toEqual({ reviews: 3, inputTokens: 0, outputTokens: 0 });
+    expect(aggregate.mock.calls[0]![0].where).toEqual({ repository: { accountId: 'acc1' } });
   });
 
   it('limits to a start time when given one', async () => {
     const aggregate = vi.fn().mockResolvedValue(sums(0, null, null));
-    await repoWith({ aggregate }).usageTotals(new Date('2026-10-01'));
-    expect(aggregate.mock.calls[0]![0].where).toEqual({ createdAt: { gte: new Date('2026-10-01') } });
+    await repoWith({ aggregate }).usageTotals('acc1', new Date('2026-10-01'));
+    expect(aggregate.mock.calls[0]![0].where).toEqual({ repository: { accountId: 'acc1' }, createdAt: { gte: new Date('2026-10-01') } });
   });
 
   it('per model skips reviews without a model', async () => {
     const groupBy = vi.fn().mockResolvedValue([{ provider: 'google', model: 'gemini', ...sums(2, 10, 5) }]);
-    const rows = await repoWith({ groupBy }).usageByModel();
-    expect(groupBy.mock.calls[0]![0].where).toEqual({ model: { not: null } });
+    const rows = await repoWith({ groupBy }).usageByModel('acc1');
+    expect(groupBy.mock.calls[0]![0].where).toEqual({ repository: { accountId: 'acc1' }, model: { not: null } });
     expect(rows).toEqual([{ provider: 'google', model: 'gemini', reviews: 2, inputTokens: 10, outputTokens: 5 }]);
   });
 
   it('per repository groups by repository id', async () => {
     const groupBy = vi.fn().mockResolvedValue([{ repositoryId: 'r1', ...sums(1, 1, 1) }]);
-    const rows = await repoWith({ groupBy }).usageByRepo();
+    const rows = await repoWith({ groupBy }).usageByRepo('acc1');
     expect(groupBy.mock.calls[0]![0].by).toEqual(['repositoryId']);
     expect(rows).toEqual([{ repositoryId: 'r1', reviews: 1, inputTokens: 1, outputTokens: 1 }]);
   });

@@ -7,8 +7,8 @@ const totals = (reviews: number, inputTokens: number, outputTokens: number) => (
 
 function setup(overrides: Partial<Record<keyof ReviewsRepository, unknown>> = {}) {
   const repo = {
-    usageTotals: vi.fn(async (since?: Date) => (since ? totals(2, 100, 50) : totals(5, 900, 400))),
-    usageByModel: vi.fn(async (since?: Date) =>
+    usageTotals: vi.fn(async (_accountId: string, since?: Date) => (since ? totals(2, 100, 50) : totals(5, 900, 400))),
+    usageByModel: vi.fn(async (_accountId: string, since?: Date) =>
       since
         ? [{ provider: 'google', model: 'gemini', ...totals(2, 100, 50) }]
         : [
@@ -16,7 +16,7 @@ function setup(overrides: Partial<Record<keyof ReviewsRepository, unknown>> = {}
             { provider: 'google', model: 'gemini', ...totals(4, 850, 390) },
           ],
     ),
-    usageByRepo: vi.fn(async (since?: Date) =>
+    usageByRepo: vi.fn(async (_accountId: string, since?: Date) =>
       since ? [{ repositoryId: 'r1', ...totals(2, 100, 50) }] : [{ repositoryId: 'r2', ...totals(1, 5, 5) }, { repositoryId: 'r1', ...totals(4, 895, 395) }],
     ),
     findCreatedAtSince: vi.fn(async () => [] as Date[]),
@@ -32,15 +32,16 @@ const now = new Date(2026, 9, 21, 15, 30, 0);
 describe('GetUsageUsecase', () => {
   it('returns the all-time and this-month totals', async () => {
     const { usecase, repo } = setup();
-    const result = await usecase.execute(now);
+    const result = await usecase.execute('acc1', now);
     expect(result.allTime).toEqual(totals(5, 900, 400));
     expect(result.month).toEqual(totals(2, 100, 50));
-    expect(repo.usageTotals).toHaveBeenCalledWith(new Date(2026, 9, 1, 0, 0, 0));
+    expect(repo.usageTotals).toHaveBeenCalledWith('acc1', new Date(2026, 9, 1, 0, 0, 0));
+    expect(repo.usageTotals).toHaveBeenCalledWith('acc1');
   });
 
   it('lists each model once with both periods, biggest token user first', async () => {
     const { usecase } = setup();
-    const { byModel } = await usecase.execute(now);
+    const { byModel } = await usecase.execute('acc1', now);
     expect(byModel.map((m) => m.model)).toEqual(['gemini', 'gpt']);
     expect(byModel[0]).toEqual({ provider: 'google', model: 'gemini', allTime: totals(4, 850, 390), month: totals(2, 100, 50) });
     // Used before this month but not in it: zeros, not missing.
@@ -49,10 +50,10 @@ describe('GetUsageUsecase', () => {
 
   it('names repositories and keeps the ones that no longer exist by id', async () => {
     const { usecase } = setup({ usageByRepo: vi.fn(async () => [{ repositoryId: 'gone', ...totals(1, 1, 1) }]) });
-    const { byRepo } = await usecase.execute(now);
+    const { byRepo } = await usecase.execute('acc1', now);
     expect(byRepo[0]!.repoFullName).toBe('gone');
 
-    const named = await setup().usecase.execute(now);
+    const named = await setup().usecase.execute('acc1', now);
     expect(named.byRepo.map((r) => r.repoFullName)).toEqual(['acme/api', 'acme/web']);
   });
 
@@ -60,7 +61,7 @@ describe('GetUsageUsecase', () => {
     const { usecase } = setup({
       findCreatedAtSince: vi.fn(async () => [new Date(2026, 9, 21, 1, 0), new Date(2026, 9, 21, 23, 0), new Date(2026, 9, 20, 12, 0)]),
     });
-    const { days } = await usecase.execute(now);
+    const { days } = await usecase.execute('acc1', now);
     expect(days).toHaveLength(HEATMAP_DAYS);
     expect(days.at(-1)).toEqual({ date: '2026-10-21', count: 2 });
     expect(days.at(-2)).toEqual({ date: '2026-10-20', count: 1 });
@@ -70,7 +71,7 @@ describe('GetUsageUsecase', () => {
 
   it('asks for reviews since the first day shown', async () => {
     const { usecase, repo } = setup();
-    await usecase.execute(now);
-    expect(repo.findCreatedAtSince).toHaveBeenCalledWith(new Date(2025, 9, 22));
+    await usecase.execute('acc1', now);
+    expect(repo.findCreatedAtSince).toHaveBeenCalledWith('acc1', new Date(2025, 9, 22));
   });
 });

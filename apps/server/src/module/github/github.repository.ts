@@ -21,12 +21,12 @@ export class GithubRepository {
     });
   }
 
-  // The installations that are live: not uninstalled, not suspended.
-  findActiveInstallations() {
+  // The live installations of one account: not uninstalled, not suspended.
+  findActiveInstallationsOfAccount(accountId: string) {
     return this.prisma.githubInstallation.findMany({
-      where: { removedAt: null, suspendedAt: null },
+      where: { accountId, removedAt: null, suspendedAt: null },
       include: { account: true },
-      orderBy: { account: { login: 'asc' } },
+      orderBy: { createdAt: 'asc' },
     });
   }
 

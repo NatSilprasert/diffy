@@ -36,6 +36,8 @@ export type ReviewResultData = {
 };
 
 export type ReviewFilter = {
+  // Only the reviews of this account's repositories: nobody sees another account's reviews.
+  accountId: string;
   repositoryId?: string;
   status?: ReviewStatus;
   // Only reviews created at or after this moment.
@@ -45,8 +47,8 @@ export type ReviewFilter = {
 };
 
 // Turns the filter into a Prisma where, leaving out every condition that was not asked for.
-function buildWhere({ repositoryId, status, since, search }: ReviewFilter): Prisma.ReviewWhereInput {
-  const where: Prisma.ReviewWhereInput = {};
+function buildWhere({ accountId, repositoryId, status, since, search }: ReviewFilter): Prisma.ReviewWhereInput {
+  const where: Prisma.ReviewWhereInput = { repository: { accountId } };
   if (repositoryId) where.repositoryId = repositoryId;
   if (status) where.status = status;
   if (since) where.createdAt = { gte: since };
@@ -141,15 +143,15 @@ export class ReviewsRepository {
     });
   }
 
-  // How many reviews exist, optionally only those created at or after `since`.
-  countSince(since?: Date) {
-    return this.prisma.review.count({ where: since ? { createdAt: { gte: since } } : {} });
+  // How many reviews an account has, optionally only those created at or after `since`.
+  countSince(accountId: string, since?: Date) {
+    return this.prisma.review.count({ where: { repository: { accountId }, ...(since ? { createdAt: { gte: since } } : {}) } });
   }
 
   // How many reviews and tokens, over everything or only what was created at or after `since`.
-  async usageTotals(since?: Date): Promise<UsageTotals> {
+  async usageTotals(accountId: string, since?: Date): Promise<UsageTotals> {
     const group = await this.prisma.review.aggregate({
-      where: since ? { createdAt: { gte: since } } : {},
+      where: { repository: { accountId }, ...(since ? { createdAt: { gte: since } } : {}) },
       _count: { _all: true },
       _sum: { inputTokens: true, outputTokens: true },
     });
@@ -157,10 +159,10 @@ export class ReviewsRepository {
   }
 
   // The same, per model. Reviews that never reached a model (queued, failed early) have no model and are left out.
-  async usageByModel(since?: Date) {
+  async usageByModel(accountId: string, since?: Date) {
     const groups = await this.prisma.review.groupBy({
       by: ['provider', 'model'],
-      where: { model: { not: null }, ...(since ? { createdAt: { gte: since } } : {}) },
+      where: { repository: { accountId }, model: { not: null }, ...(since ? { createdAt: { gte: since } } : {}) },
       _count: { _all: true },
       _sum: { inputTokens: true, outputTokens: true },
     });
@@ -168,10 +170,10 @@ export class ReviewsRepository {
   }
 
   // The same, per repository.
-  async usageByRepo(since?: Date) {
+  async usageByRepo(accountId: string, since?: Date) {
     const groups = await this.prisma.review.groupBy({
       by: ['repositoryId'],
-      where: since ? { createdAt: { gte: since } } : {},
+      where: { repository: { accountId }, ...(since ? { createdAt: { gte: since } } : {}) },
       _count: { _all: true },
       _sum: { inputTokens: true, outputTokens: true },
     });
@@ -179,8 +181,8 @@ export class ReviewsRepository {
   }
 
   // When each review since `since` was created, for counting them per day.
-  async findCreatedAtSince(since: Date): Promise<Date[]> {
-    const rows = await this.prisma.review.findMany({ where: { createdAt: { gte: since } }, select: { createdAt: true } });
+  async findCreatedAtSince(accountId: string, since: Date): Promise<Date[]> {
+    const rows = await this.prisma.review.findMany({ where: { repository: { accountId }, createdAt: { gte: since } }, select: { createdAt: true } });
     return rows.map((row) => row.createdAt);
   }
 
@@ -196,9 +198,9 @@ export class ReviewsRepository {
   }
 
   // Findings come back most severe first (the enum is declared critical -> low), then by position.
-  findDetail(id: string) {
-    return this.prisma.review.findUnique({
-      where: { id },
+  findDetail(id: string, accountId: string) {
+    return this.prisma.review.findFirst({
+      where: { id, repository: { accountId } },
       include: {
         repository: true,
         findings: { orderBy: [{ severity: 'asc' }, { path: 'asc' }, { line: 'asc' }] },
@@ -206,8 +208,9 @@ export class ReviewsRepository {
     });
   }
 
-  findById(id: string) {
-    return this.prisma.review.findUnique({ where: { id } });
+  // A review of this account, or null (someone else's review is "not found" too).
+  findOfAccount(id: string, accountId: string) {
+    return this.prisma.review.findFirst({ where: { id, repository: { accountId } } });
   }
 
   // A finished review (failed, posted or skipped) -> queued again, for another run on the same commit.

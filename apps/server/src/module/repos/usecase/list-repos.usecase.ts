@@ -7,8 +7,8 @@ import { ReposRepository } from '../repos.repository';
 export class ListReposUsecase {
   constructor(private readonly reposRepository: ReposRepository) {}
 
-  async execute(): Promise<ListReposResponseDto> {
-    const repos = await this.reposRepository.findAll();
+  async execute(accountId: string): Promise<ListReposResponseDto> {
+    const repos = await this.reposRepository.findAll(accountId);
     return { repos: repos.map(toRepoItem) };
   }
 }

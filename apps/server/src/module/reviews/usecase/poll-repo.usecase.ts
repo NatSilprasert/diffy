@@ -11,8 +11,8 @@ export class PollRepoUsecase {
     private readonly poller: PollerWorker,
   ) {}
 
-  async execute(input: PollRepoRequestDto): Promise<PollRepoResponseDto> {
-    const repo = await this.reposService.getActiveRepo(input.repositoryId);
+  async execute(accountId: string, input: PollRepoRequestDto): Promise<PollRepoResponseDto> {
+    const repo = await this.reposService.getAccountRepo(input.repositoryId, accountId);
     return this.poller.pollRepo(repo);
   }
 }

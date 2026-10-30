@@ -8,6 +8,7 @@ import {
   ApiOkResponse,
 } from '@nestjs/swagger';
 import { ZodSerializerDto } from 'nestjs-zod';
+import { CurrentAccountId } from '../../infra/decorator/current-account-id.decorator';
 import { AddRepoRequestDto, AddRepoResponseDto } from './dto/add-repo.dto';
 import { ListAvailableReposQueryDto, ListAvailableReposResponseDto } from './dto/list-available-repos.dto';
 import { ListReposResponseDto } from './dto/list-repos.dto';
@@ -33,15 +34,15 @@ export class ReposController {
   @ZodSerializerDto(ListAvailableReposResponseDto)
   @ApiOkResponse({ type: ListAvailableReposResponseDto })
   @ApiBadRequestResponse({ description: 'No GitHub token saved, or GitHub rejected it' })
-  listAvailableRepos(@Query() query: ListAvailableReposQueryDto) {
-    return this.listAvailableReposUsecase.execute(query);
+  listAvailableRepos(@CurrentAccountId() accountId: string, @Query() query: ListAvailableReposQueryDto) {
+    return this.listAvailableReposUsecase.execute(accountId, query);
   }
 
   @Get()
   @ZodSerializerDto(ListReposResponseDto)
   @ApiOkResponse({ type: ListReposResponseDto })
-  listRepos() {
-    return this.listReposUsecase.execute();
+  listRepos(@CurrentAccountId() accountId: string) {
+    return this.listReposUsecase.execute(accountId);
   }
 
   @Post()
@@ -50,23 +51,23 @@ export class ReposController {
   @ApiBadRequestResponse({ description: 'Invalid name, repository archived, or no usable GitHub token' })
   @ApiNotFoundResponse({ description: 'Repository not found, or the token cannot access it' })
   @ApiConflictResponse({ description: 'Already being watched' })
-  addRepo(@Body() body: AddRepoRequestDto) {
-    return this.addRepoUsecase.execute(body);
+  addRepo(@CurrentAccountId() accountId: string, @Body() body: AddRepoRequestDto) {
+    return this.addRepoUsecase.execute(accountId, body);
   }
 
   @Patch(':id')
   @ZodSerializerDto(UpdateRepoResponseDto)
   @ApiOkResponse({ type: UpdateRepoResponseDto })
   @ApiNotFoundResponse({ description: 'No such repository' })
-  updateRepo(@Param() params: UpdateRepoParamsDto, @Body() body: UpdateRepoRequestDto) {
-    return this.updateRepoUsecase.execute(params, body);
+  updateRepo(@CurrentAccountId() accountId: string, @Param() params: UpdateRepoParamsDto, @Body() body: UpdateRepoRequestDto) {
+    return this.updateRepoUsecase.execute(accountId, params, body);
   }
 
   @Delete(':id')
   @HttpCode(204)
   @ApiNoContentResponse({ description: 'Removed. Its review history is kept.' })
   @ApiNotFoundResponse({ description: 'No such repository' })
-  removeRepo(@Param() params: RemoveRepoParamsDto) {
-    return this.removeRepoUsecase.execute(params);
+  removeRepo(@CurrentAccountId() accountId: string, @Param() params: RemoveRepoParamsDto) {
+    return this.removeRepoUsecase.execute(accountId, params);
   }
 }

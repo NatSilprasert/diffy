@@ -3,7 +3,6 @@ import {
   getAppIdentity,
   getInstallationClient,
   getRepoInstallationClient,
-  listAppInstallations,
   listInstallationRepos,
   type AccessibleRepo,
 } from '@diffy/core';
@@ -44,12 +43,12 @@ export class GithubService {
     return { octokit: await getRepoInstallationClient(this.getApp(), owner, repo), secrets: [] };
   }
 
-  // The repositories diffy can be pointed at: the ones the App was given, across all its installations.
-  async listRepos(): Promise<AccessibleRepo[]> {
+  // The repositories of one account that diffy can be pointed at: the ones the account gave the App.
+  async listRepos(accountId: string): Promise<AccessibleRepo[]> {
     const app = this.getApp();
     const repos: AccessibleRepo[] = [];
-    for (const installation of await listAppInstallations(app)) {
-      repos.push(...(await listInstallationRepos(await getInstallationClient(app, installation.id))));
+    for (const installation of await this.githubRepository.findActiveInstallationsOfAccount(accountId)) {
+      repos.push(...(await listInstallationRepos(await getInstallationClient(app, installation.installationId))));
     }
     return repos.sort((a, b) => a.fullName.localeCompare(b.fullName));
   }
@@ -63,9 +62,9 @@ export class GithubService {
     return this.info;
   }
 
-  // The accounts the App is installed on now, as the webhooks reported them.
-  async listInstalledAccounts(): Promise<InstalledAccount[]> {
-    const installations = await this.githubRepository.findActiveInstallations();
+  // Where the App is installed for one account now, as the webhooks reported it.
+  async listInstalledAccounts(accountId: string): Promise<InstalledAccount[]> {
+    const installations = await this.githubRepository.findActiveInstallationsOfAccount(accountId);
     return installations.map((installation) => ({
       login: installation.account.login,
       type: installation.account.type,

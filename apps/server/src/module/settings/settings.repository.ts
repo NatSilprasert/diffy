@@ -13,14 +13,6 @@ export class SettingsRepository {
     return this.prisma.settings.findUnique({ where: { id: SETTINGS_ID } });
   }
 
-  upsertGithub(data: { githubTokenEnc: string; githubLogin: string }) {
-    return this.prisma.settings.upsert({
-      where: { id: SETTINGS_ID },
-      create: { id: SETTINGS_ID, ...data },
-      update: data,
-    });
-  }
-
   upsertLlm(data: { llmProvider: LlmProvider; llmModel: string; llmApiKeyEnc: string }) {
     return this.prisma.settings.upsert({
       where: { id: SETTINGS_ID },

@@ -40,8 +40,8 @@ export class AddRepoUsecase {
       return { info, baselineShas: openPulls.map((pr) => pr.headSha) };
     } catch (err) {
       throw toGithubHttpException(err, {
-        notFound: `${owner}/${name} was not found, or the saved token cannot access it.`,
-        rejected: 'GitHub rejected the saved token. Enter a new one in Settings.',
+        notFound: `${owner}/${name} was not found, or the diffy GitHub App is not installed on it. Install the App from Settings and give it this repository.`,
+        rejected: 'GitHub rejected the diffy GitHub App. Check its settings on GitHub.',
         unreachable: 'Could not reach GitHub to check the repository. Try again in a moment.',
       });
     }

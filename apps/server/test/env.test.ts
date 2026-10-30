@@ -3,15 +3,21 @@ import { parseEnv } from '../src/infra/config/env';
 
 const key = Buffer.alloc(32, 7).toString('base64');
 const url = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+const secret = 'a-long-enough-webhook-secret';
+// What diffy needs to start: the database, the encryption key and the GitHub App.
+const base = { ENCRYPTION_KEY: key, DATABASE_URL: url, GITHUB_APP_ID: '5507932', GITHUB_APP_PRIVATE_KEY_PATH: 'app.pem', GITHUB_WEBHOOK_SECRET: secret };
 
 describe('parseEnv', () => {
-  it('applies defaults when only the encryption key is set', () => {
-    expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url })).toEqual({
+  it('applies defaults when only what is required is set', () => {
+    expect(parseEnv(base)).toEqual({
       DATABASE_URL: url,
       ENCRYPTION_KEY: key,
+      GITHUB_APP_ID: 5507932,
+      GITHUB_APP_PRIVATE_KEY_PATH: 'app.pem',
+      GITHUB_WEBHOOK_SECRET: secret,
       PORT: 3000,
       HOST: '127.0.0.1',
-      POLL_INTERVAL_SECONDS: 60,
+      POLL_INTERVAL_SECONDS: 900,
       MAX_DIFF_CHARS: 150_000,
       EXPAND_DIFF_CONTEXT: true,
       VERIFY_FINDINGS: true,
@@ -20,37 +26,36 @@ describe('parseEnv', () => {
   });
 
   it('reads the diff budget and refuses one too small to review anything', () => {
-    expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, MAX_DIFF_CHARS: '300000' }).MAX_DIFF_CHARS).toBe(300_000);
-    expect(() => parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, MAX_DIFF_CHARS: '500' })).toThrow(/MAX_DIFF_CHARS/);
+    expect(parseEnv({ ...base, MAX_DIFF_CHARS: '300000' }).MAX_DIFF_CHARS).toBe(300_000);
+    expect(() => parseEnv({ ...base, MAX_DIFF_CHARS: '500' })).toThrow(/MAX_DIFF_CHARS/);
   });
 
   it('reads EXPAND_DIFF_CONTEXT as true or false', () => {
-    expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, EXPAND_DIFF_CONTEXT: 'false' }).EXPAND_DIFF_CONTEXT).toBe(false);
-    expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, EXPAND_DIFF_CONTEXT: 'true' }).EXPAND_DIFF_CONTEXT).toBe(true);
-    expect(() => parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, EXPAND_DIFF_CONTEXT: 'maybe' })).toThrow(/EXPAND_DIFF_CONTEXT/);
+    expect(parseEnv({ ...base, EXPAND_DIFF_CONTEXT: 'false' }).EXPAND_DIFF_CONTEXT).toBe(false);
+    expect(parseEnv({ ...base, EXPAND_DIFF_CONTEXT: 'true' }).EXPAND_DIFF_CONTEXT).toBe(true);
+    expect(() => parseEnv({ ...base, EXPAND_DIFF_CONTEXT: 'maybe' })).toThrow(/EXPAND_DIFF_CONTEXT/);
   });
 
   it('reads VERIFY_FINDINGS as true or false', () => {
-    expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, VERIFY_FINDINGS: 'false' }).VERIFY_FINDINGS).toBe(false);
-    expect(() => parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, VERIFY_FINDINGS: 'maybe' })).toThrow(/VERIFY_FINDINGS/);
+    expect(parseEnv({ ...base, VERIFY_FINDINGS: 'false' }).VERIFY_FINDINGS).toBe(false);
+    expect(() => parseEnv({ ...base, VERIFY_FINDINGS: 'maybe' })).toThrow(/VERIFY_FINDINGS/);
   });
 
-  it('reads the GitHub App settings, all optional', () => {
-    expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url }).GITHUB_APP_ID).toBeUndefined();
-    const env = parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, GITHUB_APP_ID: '5507932', GITHUB_WEBHOOK_SECRET: 'a-long-enough-webhook-secret' });
-    expect(env).toMatchObject({ GITHUB_APP_ID: 5507932, GITHUB_WEBHOOK_SECRET: 'a-long-enough-webhook-secret' });
-    expect(() => parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, GITHUB_WEBHOOK_SECRET: 'short' })).toThrow(/GITHUB_WEBHOOK_SECRET/);
-    expect(() => parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, GITHUB_APP_ID: 'abc' })).toThrow(/GITHUB_APP_ID/);
+  it('requires the GitHub App: its id, the key file and the webhook secret', () => {
+    const { GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY_PATH, GITHUB_WEBHOOK_SECRET, ...without } = base;
+    expect(() => parseEnv(without)).toThrow(/GITHUB_APP_ID[\s\S]*GITHUB_APP_PRIVATE_KEY_PATH[\s\S]*GITHUB_WEBHOOK_SECRET/);
+    expect(() => parseEnv({ ...base, GITHUB_APP_ID: 'abc' })).toThrow(/GITHUB_APP_ID/);
+    expect(() => parseEnv({ ...base, GITHUB_WEBHOOK_SECRET: 'short' })).toThrow(/GITHUB_WEBHOOK_SECRET/);
   });
 
   it('reads the context budget, where 0 turns the documents off', () => {
-    expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, MAX_CONTEXT_CHARS: '0' }).MAX_CONTEXT_CHARS).toBe(0);
-    expect(parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, MAX_CONTEXT_CHARS: '50000' }).MAX_CONTEXT_CHARS).toBe(50_000);
-    expect(() => parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, MAX_CONTEXT_CHARS: '-1' })).toThrow(/MAX_CONTEXT_CHARS/);
+    expect(parseEnv({ ...base, MAX_CONTEXT_CHARS: '0' }).MAX_CONTEXT_CHARS).toBe(0);
+    expect(parseEnv({ ...base, MAX_CONTEXT_CHARS: '50000' }).MAX_CONTEXT_CHARS).toBe(50_000);
+    expect(() => parseEnv({ ...base, MAX_CONTEXT_CHARS: '-1' })).toThrow(/MAX_CONTEXT_CHARS/);
   });
 
   it('coerces numeric strings from the environment', () => {
-    const env = parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, PORT: '4000', POLL_INTERVAL_SECONDS: '30' });
+    const env = parseEnv({ ...base, PORT: '4000', POLL_INTERVAL_SECONDS: '30' });
     expect(env.PORT).toBe(4000);
     expect(env.POLL_INTERVAL_SECONDS).toBe(30);
   });
@@ -73,6 +78,6 @@ describe('parseEnv', () => {
   });
 
   it('rejects a non-numeric port', () => {
-    expect(() => parseEnv({ ENCRYPTION_KEY: key, DATABASE_URL: url, PORT: 'abc' })).toThrow(/PORT/);
+    expect(() => parseEnv({ ...base, PORT: 'abc' })).toThrow(/PORT/);
   });
 });

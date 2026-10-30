@@ -1,125 +1,76 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2 } from 'lucide-react';
-import { useState } from 'react';
-import { getGetSettingsQueryKey, useGetSettings, useUpdateGithubSettings } from '@/api/generated/diffy';
+import { CheckCircle2, ExternalLink } from 'lucide-react';
+import { useGetSettings } from '@/api/generated/diffy';
 import { SettingsSection } from '@/components/SettingsSection';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
 export function GithubSettings() {
-  const queryClient = useQueryClient();
   const settings = useGetSettings();
-  const [token, setToken] = useState('');
-  const [replacing, setReplacing] = useState(false);
-
-  const update = useUpdateGithubSettings({
-    mutation: {
-      onSuccess: async () => {
-        // The token is cleared from the page as soon as it is saved; it is never shown again.
-        setToken('');
-        setReplacing(false);
-        await queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
-      },
-    },
-  });
-
   const github = settings.data?.github;
-  const showForm = settings.isSuccess && (!github?.configured || replacing);
+
+  const installButton = (label: string, variant: 'default' | 'outline') =>
+    github?.installUrl ? (
+      <Button asChild variant={variant} size="sm">
+        <a href={github.installUrl} target="_blank" rel="noreferrer">
+          {label}
+          <ExternalLink className="size-3.5" aria-hidden />
+        </a>
+      </Button>
+    ) : null;
 
   return (
     <SettingsSection
       title="GitHub"
-      description="A personal access token lets diffy read pull requests and post reviews under your account."
+      description="Install the diffy GitHub App on your account or organization and choose the repositories. Reviews are posted by the app, not by you."
       badge={github?.configured ? <Badge className="bg-success/15 text-success">Connected</Badge> : undefined}
     >
       <div className="space-y-4">
         {settings.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
         {settings.isError && <p className="text-sm text-destructive">{settings.error.message}</p>}
 
-        {github?.configured && !replacing && (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 text-sm">
-              <CheckCircle2 className="size-5 text-success" aria-hidden />
-              <span>
-                Signed in as <strong>@{github.login}</strong>
-              </span>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setReplacing(true)}>
-              Replace token
-            </Button>
-          </div>
-        )}
-
-        {showForm && (
-          <form
-            className="space-y-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              update.mutate({ data: { token } });
-            }}
-          >
-            <div className="space-y-1.5">
-              <Label htmlFor="github-token">Personal access token</Label>
-              <Input
-                id="github-token"
-                type="password"
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="github_pat_…"
-                value={token}
-                onChange={(event) => setToken(event.target.value)}
-              />
-            </div>
-            {update.isError && (
-              <p role="alert" className="text-sm text-destructive">
-                {update.error.message}
-              </p>
-            )}
-            <div className="flex gap-2">
-              <Button type="submit" disabled={!token.trim() || update.isPending}>
-                {update.isPending ? 'Checking with GitHub…' : github?.configured ? 'Replace token' : 'Connect'}
-              </Button>
-              {replacing && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setReplacing(false);
-                    setToken('');
-                    update.reset();
-                  }}
-                >
-                  Cancel
-                </Button>
+        {github?.configured && (
+          <>
+            <ul className="space-y-2.5">
+              {github.accounts.map((account) => (
+                <li key={account.login} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="flex items-center gap-2.5">
+                    <CheckCircle2 className="size-5 text-success" aria-hidden />
+                    <span>
+                      Installed on <strong>{account.login}</strong>
+                      <span className="text-muted-foreground"> ({account.type === 'Organization' ? 'organization' : 'personal'})</span>
+                    </span>
+                  </span>
+                  <Badge variant="secondary">{account.repositorySelection === 'all' ? 'All repositories' : 'Selected repositories'}</Badge>
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap items-center gap-3">
+              {installButton('Add an account or repositories', 'outline')}
+              {github.appName && (
+                <span className="text-sm text-muted-foreground">
+                  Reviews appear as <strong>{github.appName}[bot]</strong>.
+                </span>
               )}
             </div>
-            <details className="text-sm text-muted-foreground">
-              <summary className="cursor-pointer">Which token do I need?</summary>
-              <div className="mt-2 space-y-1">
-                <p>
-                  Create one at{' '}
-                  <a
-                    className="underline"
-                    href="https://github.com/settings/personal-access-tokens/new"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    github.com/settings/personal-access-tokens/new
-                  </a>
-                  .
-                </p>
-                <p>
-                  Fine-grained token: pick the repositories you want reviewed, then give it <em>Pull requests</em>{' '}
-                  (read and write), <em>Contents</em> (read) and <em>Metadata</em> (read).
-                </p>
-                <p>A classic token needs the <code>repo</code> scope. Reviews are posted under the token&apos;s account.</p>
-              </div>
-            </details>
-          </form>
+          </>
+        )}
+
+        {settings.isSuccess && !github?.configured && (
+          <div className="space-y-3 text-sm">
+            {github?.installUrl ? (
+              <>
+                <p className="text-muted-foreground">diffy is not installed on any account yet. After you install it, come back to this page.</p>
+                {installButton('Install the GitHub App', 'default')}
+              </>
+            ) : (
+              <p role="alert" className="text-destructive">
+                diffy could not reach GitHub to find its App. Check <code>GITHUB_APP_ID</code> and <code>GITHUB_APP_PRIVATE_KEY_PATH</code> in the
+                server&apos;s <code>.env</code>.
+              </p>
+            )}
+          </div>
         )}
       </div>
     </SettingsSection>

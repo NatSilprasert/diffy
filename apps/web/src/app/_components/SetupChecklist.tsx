@@ -40,7 +40,7 @@ export function SetupChecklist() {
       </CardHeader>
       <CardContent>
         <ol className="space-y-4">
-          <Step done={github} href="/settings/" title="Connect GitHub" hint="Save a personal access token so diffy can read pull requests and post reviews." />
+          <Step done={github} href="/settings/" title="Install the GitHub App" hint="Install diffy on your account and pick the repositories, so it can read pull requests and post reviews." />
           <Step done={llm} href="/settings/" title="Choose an AI model" hint="Pick a provider and model and save its API key." />
           <Step done={watching} href="/repos/" title="Watch a repository" hint="Add at least one repository. Its open pull requests are skipped; new ones get reviewed." />
         </ol>

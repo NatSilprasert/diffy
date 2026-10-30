@@ -1,37 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@diffy/core', () => ({
-  createGithubClient: vi.fn((token: string) => ({ pat: token })),
   createGithubApp: vi.fn(() => ({ app: true })),
+  getAppIdentity: vi.fn(),
   getRepoInstallationClient: vi.fn(),
   getInstallationClient: vi.fn(),
-  listAccessibleRepos: vi.fn(),
   listAppInstallations: vi.fn(),
   listInstallationRepos: vi.fn(),
 }));
 vi.mock('../src/infra/github/app-private-key', () => ({ readAppPrivateKey: vi.fn(() => 'PRIVATE-KEY') }));
 
-import {
-  createGithubApp,
-  getInstallationClient,
-  getRepoInstallationClient,
-  listAccessibleRepos,
-  listAppInstallations,
-  listInstallationRepos,
-} from '@diffy/core';
+import { createGithubApp, getAppIdentity, getInstallationClient, getRepoInstallationClient, listAppInstallations, listInstallationRepos } from '@diffy/core';
 import { ServiceUnavailableException } from '@nestjs/common';
 import type { Env } from '../src/infra/config/env';
 import { readAppPrivateKey } from '../src/infra/github/app-private-key';
-import { GithubService } from '../src/module/github/github.service';
 import type { GithubRepository } from '../src/module/github/github.repository';
-import type { SettingsService } from '../src/module/settings/settings.service';
+import { GithubService } from '../src/module/github/github.service';
 
-const getGithubToken = vi.fn();
 const upsertInstallation = vi.fn();
 const updateInstallation = vi.fn();
-const appEnv = { GITHUB_APP_ID: 5507932, GITHUB_APP_PRIVATE_KEY_PATH: 'app.pem' } as Env;
-const service = (env: Partial<Env> = appEnv) =>
-  new GithubService(env as Env, { getGithubToken } as unknown as SettingsService, { upsertInstallation, updateInstallation } as unknown as GithubRepository);
+const findActiveInstallations = vi.fn();
+const env = { GITHUB_APP_ID: 5507932, GITHUB_APP_PRIVATE_KEY_PATH: 'app.pem' } as Env;
+const service = () => new GithubService(env, { upsertInstallation, updateInstallation, findActiveInstallations } as unknown as GithubRepository);
 
 const repo = (fullName: string) => {
   const [owner, name] = fullName.split('/') as [string, string];
@@ -39,23 +29,14 @@ const repo = (fullName: string) => {
 };
 
 beforeEach(() => {
-  getGithubToken.mockReset().mockResolvedValue('github_pat_x');
+  for (const fn of [upsertInstallation, updateInstallation, findActiveInstallations]) fn.mockReset();
   vi.mocked(createGithubApp).mockClear();
   vi.mocked(readAppPrivateKey).mockClear();
+  vi.mocked(getAppIdentity).mockReset().mockResolvedValue({ slug: 'diffy-dev', name: 'diffy-dev' });
   vi.mocked(getRepoInstallationClient).mockReset().mockResolvedValue({ installation: true } as never);
   vi.mocked(getInstallationClient).mockReset().mockImplementation(async (_app, id) => ({ id }) as never);
-  vi.mocked(listAccessibleRepos).mockReset();
   vi.mocked(listAppInstallations).mockReset();
   vi.mocked(listInstallationRepos).mockReset();
-});
-
-describe('GithubService.isAppMode', () => {
-  it('needs both the App id and the key path', () => {
-    expect(service().isAppMode()).toBe(true);
-    expect(service({}).isAppMode()).toBe(false);
-    expect(service({ GITHUB_APP_ID: 1 }).isAppMode()).toBe(false);
-    expect(service({ GITHUB_APP_PRIVATE_KEY_PATH: 'app.pem' }).isAppMode()).toBe(false);
-  });
 });
 
 describe('GithubService.getAccess', () => {
@@ -65,7 +46,6 @@ describe('GithubService.getAccess', () => {
     expect(access).toEqual({ octokit: { installation: true }, secrets: [] });
     expect(createGithubApp).toHaveBeenCalledWith({ appId: 5507932, privateKey: 'PRIVATE-KEY' });
     expect(vi.mocked(getRepoInstallationClient).mock.calls[0]!.slice(1)).toEqual(['acme', 'api']);
-    expect(getGithubToken).not.toHaveBeenCalled();
   });
 
   it('makes the App once, however many repositories are asked for', async () => {
@@ -73,11 +53,6 @@ describe('GithubService.getAccess', () => {
     await s.getAccess('acme', 'api');
     await s.getAccess('acme', 'web');
     expect(createGithubApp).toHaveBeenCalledTimes(1);
-  });
-
-  it('uses the saved personal token without the App, and says it is a secret', async () => {
-    expect(await service({}).getAccess('acme', 'api')).toEqual({ octokit: { pat: 'github_pat_x' }, secrets: ['github_pat_x'] });
-    expect(createGithubApp).not.toHaveBeenCalled();
   });
 
   it('answers 503 with the reason when the key cannot be read', async () => {
@@ -101,12 +76,22 @@ describe('GithubService.listRepos', () => {
     vi.mocked(listInstallationRepos).mockImplementation(async (client) => ((client as unknown as { id: number }).id === 1 ? [repo('zed/web')] : [repo('acme/api')]));
 
     expect((await service().listRepos()).map((r) => r.fullName)).toEqual(['acme/api', 'zed/web']);
-    expect(listAccessibleRepos).not.toHaveBeenCalled();
+  });
+});
+
+describe('GithubService.getAppInfo', () => {
+  it('names the App and says where to install it, asking GitHub only once', async () => {
+    const s = service();
+    expect(await s.getAppInfo()).toEqual({ name: 'diffy-dev', slug: 'diffy-dev', installUrl: 'https://github.com/apps/diffy-dev/installations/new' });
+    await s.getAppInfo();
+    expect(getAppIdentity).toHaveBeenCalledTimes(1);
   });
 
-  it('lists what the token can see without the App', async () => {
-    vi.mocked(listAccessibleRepos).mockResolvedValue([repo('acme/api')]);
-    expect(await service({}).listRepos()).toEqual([repo('acme/api')]);
+  it('asks again after a failure', async () => {
+    vi.mocked(getAppIdentity).mockRejectedValueOnce(new Error('GitHub is down'));
+    const s = service();
+    await expect(s.getAppInfo()).rejects.toThrow('GitHub is down');
+    expect((await s.getAppInfo()).name).toBe('diffy-dev');
   });
 });
 
@@ -120,5 +105,12 @@ describe('GithubService installations', () => {
 
     expect(await service().markInstallation(7, { suspendedAt: null })).toBe(true);
     expect(updateInstallation).toHaveBeenCalledWith(7, { suspendedAt: null });
+  });
+
+  it('lists the accounts the App is installed on now', async () => {
+    findActiveInstallations.mockResolvedValue([
+      { installationId: 7, accountLogin: 'acme', accountType: 'Organization', repositorySelection: 'selected', createdAt: new Date() },
+    ]);
+    expect(await service().listInstalledAccounts()).toEqual([{ login: 'acme', type: 'Organization', repositorySelection: 'selected' }]);
   });
 });

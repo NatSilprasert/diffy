@@ -4,30 +4,6 @@ import type { CryptoService } from '../src/infra/crypto/crypto.service';
 import type { SettingsRepository } from '../src/module/settings/settings.repository';
 import { SettingsService } from '../src/module/settings/settings.service';
 
-const service = (row: { githubTokenEnc: string | null } | null, decrypt: (v: string) => string) =>
-  new SettingsService(
-    { findSingleton: vi.fn().mockResolvedValue(row) } as unknown as SettingsRepository,
-    { decrypt } as unknown as CryptoService,
-  );
-
-describe('SettingsService.getGithubToken', () => {
-  it('returns the decrypted token', async () => {
-    expect(await service({ githubTokenEnc: 'v1:x' }, (v) => `plain(${v})`).getGithubToken()).toBe('plain(v1:x)');
-  });
-
-  it.each([['no row', null], ['no token', { githubTokenEnc: null }]])('asks the user to connect GitHub (%s)', async (_n, row) => {
-    await expect(service(row, () => 'x').getGithubToken()).rejects.toThrow('Connect your GitHub token in Settings first.');
-  });
-
-  it('explains an undecryptable token as a 400', async () => {
-    const broken = service({ githubTokenEnc: 'v1:x' }, () => {
-      throw new Error('Cannot decrypt value');
-    });
-    await expect(broken.getGithubToken()).rejects.toBeInstanceOf(BadRequestException);
-    await expect(broken.getGithubToken()).rejects.toThrow(/ENCRYPTION_KEY/);
-  });
-});
-
 describe('SettingsService.getLlmConfig', () => {
   const llmService = (row: Record<string, unknown> | null, decrypt: (v: string) => string = (v) => `plain(${v})`) =>
     new SettingsService(
@@ -57,34 +33,22 @@ describe('SettingsService.getLlmConfig', () => {
   });
 });
 
-describe('SettingsService.isConfigured', () => {
-  const configured = (row: Record<string, unknown> | null) =>
-    new SettingsService(
-      { findSingleton: vi.fn().mockResolvedValue(row) } as unknown as SettingsRepository,
-      { decrypt: vi.fn() } as unknown as CryptoService,
-    ).isConfigured();
-  const full = { githubTokenEnc: 'v1:g', llmProvider: 'google', llmModel: 'gemini-x', llmApiKeyEnc: 'v1:k' };
+describe('SettingsService.isLlmConfigured', () => {
+  const configured = (row: Record<string, unknown> | null, decrypt = vi.fn()) =>
+    new SettingsService({ findSingleton: vi.fn().mockResolvedValue(row) } as unknown as SettingsRepository, { decrypt } as unknown as CryptoService).isLlmConfigured();
+  const full = { llmProvider: 'google', llmModel: 'gemini-x', llmApiKeyEnc: 'v1:k' };
 
-  it('is true only when GitHub and the model are both saved', async () => {
+  it('is true only when the provider, the model and the key are all saved', async () => {
     expect(await configured(full)).toBe(true);
-    expect(await configured({ ...full, githubTokenEnc: null })).toBe(false);
     expect(await configured({ ...full, llmApiKeyEnc: null })).toBe(false);
     expect(await configured({ ...full, llmModel: null })).toBe(false);
+    expect(await configured({ ...full, llmProvider: null })).toBe(false);
     expect(await configured(null)).toBe(false);
-  });
-
-  it('counts GitHub as set up when diffy reaches it through its App, without a saved token', async () => {
-    const service = new SettingsService(
-      { findSingleton: vi.fn().mockResolvedValue({ ...full, githubTokenEnc: null }) } as unknown as SettingsRepository,
-      { decrypt: vi.fn() } as unknown as CryptoService,
-    );
-    expect(await service.isConfigured()).toBe(false);
-    expect(await service.isConfigured({ githubViaApp: true })).toBe(true);
   });
 
   it('does not decrypt anything', async () => {
     const decrypt = vi.fn();
-    await new SettingsService({ findSingleton: vi.fn().mockResolvedValue(full) } as unknown as SettingsRepository, { decrypt } as unknown as CryptoService).isConfigured();
+    await configured(full, decrypt);
     expect(decrypt).not.toHaveBeenCalled();
   });
 });

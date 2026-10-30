@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto';
-import { BadRequestException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../src/infra/config/env';
 import type { GithubService } from '../src/module/github/github.service';
@@ -41,8 +41,7 @@ beforeEach(() => {
 });
 
 describe('ReceiveWebhookUsecase', () => {
-  it('answers 503 when the App is not configured, and 401 for a bad signature, touching nothing', async () => {
-    await expect(usecase({}).execute(delivery('ping', {}))).rejects.toBeInstanceOf(ServiceUnavailableException);
+  it('answers 401 for a bad signature, touching nothing', async () => {
     await expect(usecase().execute(delivery('installation', { action: 'created', installation: installation() }, { signature: 'sha256=00' }))).rejects.toBeInstanceOf(UnauthorizedException);
     expect(recordInstallation).not.toHaveBeenCalled();
   });

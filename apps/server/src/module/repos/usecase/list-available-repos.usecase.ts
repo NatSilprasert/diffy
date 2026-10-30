@@ -16,7 +16,7 @@ export class ListAvailableReposUsecase {
       repos = await this.githubService.listRepos();
     } catch (err) {
       throw toGithubHttpException(err, {
-        rejected: 'GitHub rejected the saved token. Enter a new one in Settings.',
+        rejected: 'GitHub rejected the diffy GitHub App. Check its settings on GitHub.',
         unreachable: 'Could not reach GitHub to list repositories. Try again in a moment.',
       });
     }

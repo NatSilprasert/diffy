@@ -18,15 +18,17 @@ export const EnvSchema = z.object({
   // The port of the single process that serves both the web app and the API. During development the
   // `dev` script moves the API to 4000 so the web dev server can use 3000, as it does in production.
   PORT: z.coerce.number().int().positive().default(3000),
-  // No auth in v1, so listen on localhost only unless the user opts out.
+  // No login yet, so listen on localhost only unless the user opts out.
   HOST: z.string().min(1).default('127.0.0.1'),
-  POLL_INTERVAL_SECONDS: z.coerce.number().int().positive().default(60),
-  // The diffy GitHub App. All optional while the personal-token mode still exists; the webhook answers 503 without them.
-  GITHUB_APP_ID: z.coerce.number().int().positive().optional(),
+  // Webhooks tell diffy about pull requests at once. This slower pass over every watched repository is the safety net
+  // for what a webhook missed (the server was down, GitHub failed to deliver).
+  POLL_INTERVAL_SECONDS: z.coerce.number().int().positive().default(900),
+  // The diffy GitHub App: every call to GitHub is made as the App, and its webhooks tell diffy what happens.
+  GITHUB_APP_ID: z.coerce.number().int().positive(),
   // Path of the App's private key (.pem), relative to the project root or absolute.
-  GITHUB_APP_PRIVATE_KEY_PATH: z.string().min(1).optional(),
+  GITHUB_APP_PRIVATE_KEY_PATH: z.string().min(1),
   // The secret GitHub signs webhooks with.
-  GITHUB_WEBHOOK_SECRET: z.string().min(16).optional(),
+  GITHUB_WEBHOOK_SECRET: z.string().min(16),
   // How much diff (in characters, about 4 per token) one review may send to the model. Bigger pull requests
   // are reviewed in part: code first, then tests, then the rest. Same default as DEFAULT_MAX_DIFF_CHARS in core.
   MAX_DIFF_CHARS: z.coerce.number().int().min(10_000).default(150_000),

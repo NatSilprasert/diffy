@@ -5,7 +5,7 @@ import { LlmSettings } from './_components/LlmSettings';
 export default function SettingsPage() {
   return (
     <>
-      <PageHeader title="Settings" description="Connect GitHub and choose the model that reviews your code." />
+      <PageHeader title="Settings" description="Install the GitHub App and choose the model that reviews your code." />
       <div>
         <GithubSettings />
         <LlmSettings />

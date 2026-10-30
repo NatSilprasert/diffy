@@ -20,3 +20,11 @@ describe('GithubRepository', () => {
     expect(updateMany).toHaveBeenCalledWith({ where: { installationId: 7 }, data: { suspendedAt: null } });
   });
 });
+
+describe('GithubRepository.findActiveInstallations', () => {
+  it('asks only for installations that are not uninstalled or suspended, by account', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    await new GithubRepository({ githubInstallation: { findMany } } as unknown as PrismaService).findActiveInstallations();
+    expect(findMany).toHaveBeenCalledWith({ where: { removedAt: null, suspendedAt: null }, orderBy: { accountLogin: 'asc' } });
+  });
+});

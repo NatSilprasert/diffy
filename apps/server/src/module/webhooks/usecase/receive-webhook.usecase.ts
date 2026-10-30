@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { z } from 'zod';
 import { ENV } from '../../../infra/config/config.module';
 import type { Env } from '../../../infra/config/env';
@@ -56,9 +56,7 @@ export class ReceiveWebhookUsecase {
   ) {}
 
   async execute(input: ReceiveWebhookInput): Promise<ReceiveWebhookResponseDto> {
-    const secret = this.env.GITHUB_WEBHOOK_SECRET;
-    if (!secret) throw new ServiceUnavailableException('The GitHub App is not configured (GITHUB_WEBHOOK_SECRET).');
-    if (!verifyWebhookSignature(input.rawBody, input.signature, secret)) throw new UnauthorizedException('Bad webhook signature.');
+    if (!verifyWebhookSignature(input.rawBody, input.signature, this.env.GITHUB_WEBHOOK_SECRET)) throw new UnauthorizedException('Bad webhook signature.');
 
     const event = input.event ?? '';
     switch (event) {

@@ -2,11 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ProfilesRepository } from '../src/module/profiles/profiles.repository';
 import { ProfilesService } from '../src/module/profiles/profiles.service';
 import type { ProfileBuilderWorker } from '../src/module/profiles/worker/profile-builder.worker';
-import type { GithubService } from '../src/module/github/github.service';
 import type { ProfileFreshnessWorker } from '../src/module/profiles/worker/profile-freshness.worker';
 import type { SettingsService } from '../src/module/settings/settings.service';
 
-function setup(over: { row?: Record<string, unknown> | null; configured?: boolean; have?: string[]; created?: boolean | boolean[]; appMode?: boolean } = {}) {
+function setup(over: { row?: Record<string, unknown> | null; configured?: boolean; have?: string[]; created?: boolean | boolean[] } = {}) {
   const created = [over.created ?? true].flat();
   const repository = {
     findByRepositoryId: vi.fn().mockResolvedValue(over.row ?? null),
@@ -14,16 +13,15 @@ function setup(over: { row?: Record<string, unknown> | null; configured?: boolea
     createBuilding: vi.fn().mockImplementation(async () => created.shift() ?? true),
   };
   const enqueue = vi.fn();
-  const isConfigured = vi.fn().mockResolvedValue(over.configured ?? true);
+  const isLlmConfigured = vi.fn().mockResolvedValue(over.configured ?? true);
   const checkAll = vi.fn().mockResolvedValue(undefined);
   const service = new ProfilesService(
     repository as unknown as ProfilesRepository,
     { enqueue } as unknown as ProfileBuilderWorker,
-    { isConfigured } as unknown as SettingsService,
-    { isAppMode: () => over.appMode ?? false } as unknown as GithubService,
+    { isLlmConfigured } as unknown as SettingsService,
     { checkAll } as unknown as ProfileFreshnessWorker,
   );
-  return { service, repository, enqueue, isConfigured, checkAll };
+  return { service, repository, enqueue, isLlmConfigured, checkAll };
 }
 
 describe('ProfilesService.getReviewContext', () => {
@@ -65,9 +63,9 @@ describe('ProfilesService.startMissing', () => {
   });
 
   it('does nothing for no repositories', async () => {
-    const { service, isConfigured } = setup();
+    const { service, isLlmConfigured } = setup();
     await service.startMissing([]);
-    expect(isConfigured).not.toHaveBeenCalled();
+    expect(isLlmConfigured).not.toHaveBeenCalled();
   });
 });
 
@@ -85,15 +83,5 @@ describe('ProfilesService.refreshStale', () => {
     await none.service.refreshStale([]);
     expect(notReady.checkAll).not.toHaveBeenCalled();
     expect(none.checkAll).not.toHaveBeenCalled();
-  });
-});
-
-describe('ProfilesService with the GitHub App', () => {
-  it('tells the settings that GitHub is reached through the App', async () => {
-    const { service, isConfigured } = setup({ appMode: true });
-    await service.startMissing(['r1']);
-    await service.refreshStale(['r1']);
-    expect(isConfigured).toHaveBeenCalledWith({ githubViaApp: true });
-    expect(isConfigured).toHaveBeenCalledTimes(2);
   });
 });

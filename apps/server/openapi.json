@@ -22,33 +22,6 @@
         ]
       }
     },
-    "/api/github/webhook": {
-      "post": {
-        "operationId": "receiveWebhook",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReceiveWebhookResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "The signature does not match"
-          },
-          "503": {
-            "description": "The GitHub App is not configured"
-          }
-        },
-        "tags": [
-          "Github"
-        ]
-      }
-    },
     "/api/settings": {
       "get": {
         "operationId": "getSettings",
@@ -63,40 +36,6 @@
                 }
               }
             }
-          }
-        },
-        "tags": [
-          "Settings"
-        ]
-      }
-    },
-    "/api/settings/github": {
-      "put": {
-        "operationId": "updateGithubSettings",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateGithubSettingsRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UpdateGithubSettingsResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing token, or GitHub rejected it"
           }
         },
         "tags": [
@@ -759,6 +698,30 @@
           "Reviews"
         ]
       }
+    },
+    "/api/github/webhook": {
+      "post": {
+        "operationId": "receiveWebhook",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiveWebhookResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The signature does not match"
+          }
+        },
+        "tags": [
+          "Webhooks"
+        ]
+      }
     }
   },
   "info": {
@@ -788,21 +751,6 @@
           "database"
         ]
       },
-      "ReceiveWebhookResponseDto": {
-        "type": "object",
-        "properties": {
-          "handled": {
-            "type": "boolean"
-          },
-          "event": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "handled",
-          "event"
-        ]
-      },
       "GetSettingsResponseDto": {
         "type": "object",
         "properties": {
@@ -810,23 +758,67 @@
             "type": "object",
             "properties": {
               "configured": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Whether diffy has an installation of its GitHub App to work with"
               },
-              "login": {
+              "appName": {
                 "anyOf": [
                   {
                     "type": "string",
-                    "description": "The GitHub account the saved token belongs to"
+                    "description": "The name of the diffy GitHub App, the \"[bot]\" that posts reviews"
                   },
                   {
                     "type": "null"
                   }
                 ]
+              },
+              "installUrl": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "Where to install the App on another account or give it more repositories"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "accounts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "login": {
+                      "type": "string",
+                      "description": "The user or organization the App is installed on"
+                    },
+                    "type": {
+                      "type": "string",
+                      "description": "\"User\" or \"Organization\""
+                    },
+                    "repositorySelection": {
+                      "type": "string",
+                      "enum": [
+                        "all",
+                        "selected"
+                      ],
+                      "description": "Every repository of the account, or only chosen ones"
+                    }
+                  },
+                  "required": [
+                    "login",
+                    "type",
+                    "repositorySelection"
+                  ]
+                },
+                "description": "Where the App is installed now"
               }
             },
             "required": [
               "configured",
-              "login"
+              "appName",
+              "installUrl",
+              "accounts"
             ]
           },
           "llm": {
@@ -873,29 +865,6 @@
         "required": [
           "github",
           "llm"
-        ]
-      },
-      "UpdateGithubSettingsRequestDto": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "token"
-        ]
-      },
-      "UpdateGithubSettingsResponseDto": {
-        "type": "object",
-        "properties": {
-          "login": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "login"
         ]
       },
       "UpdateLlmSettingsRequestDto": {
@@ -2687,6 +2656,21 @@
         "required": [
           "queued",
           "error"
+        ]
+      },
+      "ReceiveWebhookResponseDto": {
+        "type": "object",
+        "properties": {
+          "handled": {
+            "type": "boolean"
+          },
+          "event": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "handled",
+          "event"
         ]
       }
     }

@@ -22,6 +22,14 @@ export class GithubRepository {
     });
   }
 
+  // The installations that are live: not uninstalled, not suspended.
+  findActiveInstallations() {
+    return this.prisma.githubInstallation.findMany({
+      where: { removedAt: null, suspendedAt: null },
+      orderBy: { accountLogin: 'asc' },
+    });
+  }
+
   // Only what changed; false when diffy never heard of this installation.
   async updateInstallation(installationId: number, data: { removedAt?: Date | null; suspendedAt?: Date | null; repositorySelection?: string }): Promise<boolean> {
     const result = await this.prisma.githubInstallation.updateMany({ where: { installationId }, data });

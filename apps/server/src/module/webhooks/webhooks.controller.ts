@@ -1,5 +1,5 @@
 import { Body, Controller, Headers, HttpCode, Post, Req, type RawBodyRequest } from '@nestjs/common';
-import { ApiOkResponse, ApiServiceUnavailableResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import { ApiOkResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { ZodSerializerDto } from 'nestjs-zod';
 import { ReceiveWebhookResponseDto } from './dto/receive-webhook.dto';
 import { ReceiveWebhookUsecase } from './usecase/receive-webhook.usecase';
@@ -15,7 +15,6 @@ export class WebhooksController {
   @ZodSerializerDto(ReceiveWebhookResponseDto)
   @ApiOkResponse({ type: ReceiveWebhookResponseDto })
   @ApiUnauthorizedResponse({ description: 'The signature does not match' })
-  @ApiServiceUnavailableResponse({ description: 'The GitHub App is not configured' })
   receiveWebhook(
     @Req() req: RawBodyRequest<object>,
     @Headers('x-github-event') event: string | undefined,

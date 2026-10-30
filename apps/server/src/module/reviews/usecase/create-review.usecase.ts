@@ -40,8 +40,8 @@ export class CreateReviewUsecase {
       return await getPullRequest(octokit, owner, name, number);
     } catch (err) {
       throw toGithubHttpException(err, {
-        notFound: `Pull request #${number} was not found in ${owner}/${name}, or the saved token cannot access it.`,
-        rejected: 'GitHub rejected the saved token. Enter a new one in Settings.',
+        notFound: `Pull request #${number} was not found in ${owner}/${name}, or the diffy GitHub App is not installed on that repository.`,
+        rejected: 'GitHub rejected the diffy GitHub App. Check its settings on GitHub.',
         unreachable: 'Could not reach GitHub to read the pull request. Try again in a moment.',
       });
     }

@@ -4,14 +4,17 @@ import { ReposRepository } from './repos.repository';
 // What other modules get to know about a repository: enough to talk to GitHub and to poll it.
 export type WatchedRepo = {
   id: string;
+  // The account the repository belongs to: its model settings are the ones used to review it.
+  accountId: string;
   owner: string;
   name: string;
   // Head commits that already existed when the repo was added; the poller does not review these.
   baselineShas: string[];
 };
 
-const toWatchedRepo = (repo: { id: string; owner: string; name: string; baselineShas: string[] }): WatchedRepo => ({
+const toWatchedRepo = (repo: { id: string; accountId: string; owner: string; name: string; baselineShas: string[] }): WatchedRepo => ({
   id: repo.id,
+  accountId: repo.accountId,
   owner: repo.owner,
   name: repo.name,
   baselineShas: repo.baselineShas,

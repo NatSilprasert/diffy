@@ -12,15 +12,15 @@ export class SettingsService {
     private readonly crypto: CryptoService,
   ) {}
 
-  // Whether the model is set up, without decrypting anything. For work that should wait until then.
-  async isLlmConfigured(): Promise<boolean> {
-    const settings = await this.settingsRepository.findSingleton();
+  // Whether the account has set up its model, without decrypting anything. For work that should wait until then.
+  async isLlmConfigured(accountId: string): Promise<boolean> {
+    const settings = await this.settingsRepository.findByAccountId(accountId);
     return Boolean(settings?.llmProvider && settings.llmModel && settings.llmApiKeyEnc);
   }
 
-  // The saved LLM choice with its key in plain text, ready to hand to @diffy/core.
-  async getLlmConfig(): Promise<LlmConfig> {
-    const settings = await this.settingsRepository.findSingleton();
+  // The saved LLM choice of an account with its key in plain text, ready to hand to @diffy/core.
+  async getLlmConfig(accountId: string): Promise<LlmConfig> {
+    const settings = await this.settingsRepository.findByAccountId(accountId);
     if (!settings?.llmProvider || !settings.llmModel || !settings.llmApiKeyEnc) {
       throw new BadRequestException('Save an LLM provider, model and API key in Settings first.');
     }

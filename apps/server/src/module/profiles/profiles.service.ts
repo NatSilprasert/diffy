@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { WatchedRepo } from '../repos/repos.service';
 import { SettingsService } from '../settings/settings.service';
 import { ProfilesRepository } from './profiles.repository';
 import { ProfileBuilderWorker } from './worker/profile-builder.worker';
@@ -27,22 +28,33 @@ export class ProfilesService {
     };
   }
 
-  // Starts a profile for every one of these repositories that has none yet. Does nothing until GitHub and the model
-  // are set up, so a repository added first is picked up as soon as Settings are complete. A profile that failed
-  // is not started again here: a failure may cost a model call, so a person decides when to retry (Rebuild).
-  async startMissing(repositoryIds: string[]): Promise<void> {
-    if (repositoryIds.length === 0 || !(await this.settingsService.isLlmConfigured())) return;
-    const have = new Set(await this.profilesRepository.findRepositoryIdsWithProfile(repositoryIds));
-    for (const repositoryId of repositoryIds) {
+  // Starts a profile for every one of these repositories that has none yet. Skips a repository whose account has not
+  // set up its model, so it is picked up as soon as they do. A profile that failed is not started again here: a
+  // failure may cost a model call, so a person decides when to retry (Rebuild).
+  async startMissing(repos: WatchedRepo[]): Promise<void> {
+    const ready = await this.withModel(repos);
+    if (ready.length === 0) return;
+    const ids = ready.map((repo) => repo.id);
+    const have = new Set(await this.profilesRepository.findRepositoryIdsWithProfile(ids));
+    for (const repositoryId of ids) {
       if (have.has(repositoryId)) continue;
       if (await this.profilesRepository.createBuilding(repositoryId)) this.builder.enqueue(repositoryId);
     }
   }
 
   // Builds again the profiles of these repositories whose project changed a lot since (at most one look per
-  // repository per day). Does nothing until GitHub and the model are set up.
-  async refreshStale(repositoryIds: string[]): Promise<void> {
-    if (repositoryIds.length === 0 || !(await this.settingsService.isLlmConfigured())) return;
-    await this.freshness.checkAll(repositoryIds);
+  // repository per day). Skips a repository whose account has not set up its model.
+  async refreshStale(repos: WatchedRepo[]): Promise<void> {
+    const ready = await this.withModel(repos);
+    if (ready.length > 0) await this.freshness.checkAll(ready.map((repo) => repo.id));
+  }
+
+  // The repositories whose account has a model to build a profile with (asked once per account).
+  private async withModel(repos: WatchedRepo[]): Promise<WatchedRepo[]> {
+    const configured = new Map<string, boolean>();
+    for (const accountId of new Set(repos.map((repo) => repo.accountId))) {
+      configured.set(accountId, await this.settingsService.isLlmConfigured(accountId));
+    }
+    return repos.filter((repo) => configured.get(repo.accountId));
   }
 }

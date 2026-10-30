@@ -35,7 +35,7 @@ export class RunReviewWorker {
       const { owner, name } = review.repository;
       const { octokit, secrets: githubSecrets } = await this.githubService.getAccess(owner, name);
       secrets.push(...githubSecrets);
-      const llm = await this.settingsService.getLlmConfig();
+      const llm = await this.settingsService.getLlmConfig(review.repository.accountId);
       secrets.push(llm.apiKey);
 
       const pr = await getPullRequest(octokit, owner, name, review.prNumber);

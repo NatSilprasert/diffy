@@ -14,8 +14,8 @@ export class TestLlmSettingsUsecase {
     private readonly crypto: CryptoService,
   ) {}
 
-  async execute(): Promise<TestLlmSettingsResponseDto> {
-    const settings = await this.settingsRepository.findSingleton();
+  async execute(accountId: string): Promise<TestLlmSettingsResponseDto> {
+    const settings = await this.settingsRepository.findByAccountId(accountId);
     if (!settings?.llmProvider || !settings.llmModel || !settings.llmApiKeyEnc) {
       throw new BadRequestException('Save an LLM provider, model and API key first.');
     }

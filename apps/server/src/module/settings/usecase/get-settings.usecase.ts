@@ -10,8 +10,9 @@ export class GetSettingsUsecase {
     private readonly githubService: GithubService,
   ) {}
 
-  async execute(): Promise<GetSettingsResponseDto> {
-    const settings = await this.settingsRepository.findSingleton();
+  // `accountId` is null for a person who cannot use diffy for any account yet: they still see how to install it.
+  async execute(accountId: string | null): Promise<GetSettingsResponseDto> {
+    const settings = accountId ? await this.settingsRepository.findByAccountId(accountId) : null;
     const accounts = await this.githubService.listInstalledAccounts();
     // The name comes from GitHub. When GitHub cannot be reached the page still loads, only without the name.
     const app = await this.githubService.getAppInfo().catch(() => undefined);

@@ -8,19 +8,17 @@ import type { CryptoService } from '../src/infra/crypto/crypto.service';
 import type { SettingsRepository } from '../src/module/settings/settings.repository';
 import { TestLlmSettingsUsecase } from '../src/module/settings/usecase/test-llm-settings.usecase';
 
-type Row = Awaited<ReturnType<SettingsRepository['findSingleton']>>;
+type Row = Awaited<ReturnType<SettingsRepository['findByAccountId']>>;
 
-const findSingleton = vi.fn();
+const findByAccountId = vi.fn();
 const decrypt = vi.fn();
 const usecase = new TestLlmSettingsUsecase(
-  { findSingleton } as unknown as SettingsRepository,
+  { findByAccountId } as unknown as SettingsRepository,
   { decrypt } as unknown as CryptoService,
 );
 
 const saved = (over: Partial<NonNullable<Row>> = {}): Row => ({
-  id: 1,
-  githubTokenEnc: null,
-  githubLogin: null,
+  accountId: 'acc1',
   llmProvider: 'anthropic',
   llmModel: 'claude-x',
   llmApiKeyEnc: 'v1:enc',
@@ -29,17 +27,17 @@ const saved = (over: Partial<NonNullable<Row>> = {}): Row => ({
 });
 
 beforeEach(() => {
-  findSingleton.mockReset();
+  findByAccountId.mockReset();
   decrypt.mockReset().mockReturnValue('sk-ant-REALSECRET');
   vi.mocked(pingLlm).mockReset();
 });
 
 describe('TestLlmSettingsUsecase', () => {
   it('calls the LLM with the decrypted key and reports success with the latency', async () => {
-    findSingleton.mockResolvedValue(saved());
+    findByAccountId.mockResolvedValue(saved());
     vi.mocked(pingLlm).mockResolvedValue(undefined);
 
-    const result = await usecase.execute();
+    const result = await usecase.execute('acc1');
 
     expect(result).toMatchObject({ ok: true, error: null });
     expect(result.latencyMs).toBeGreaterThanOrEqual(0);
@@ -52,29 +50,29 @@ describe('TestLlmSettingsUsecase', () => {
   });
 
   it('reports a provider failure as ok: false with the message (still a normal result)', async () => {
-    findSingleton.mockResolvedValue(saved());
+    findByAccountId.mockResolvedValue(saved());
     vi.mocked(pingLlm).mockRejectedValue(new Error('LLM call failed (anthropic/claude-x): invalid x-api-key'));
 
-    const result = await usecase.execute();
+    const result = await usecase.execute('acc1');
     expect(result).toMatchObject({ ok: false, error: 'LLM call failed (anthropic/claude-x): invalid x-api-key' });
   });
 
   it('redacts the key if the provider echoes it back in the error', async () => {
-    findSingleton.mockResolvedValue(saved());
+    findByAccountId.mockResolvedValue(saved());
     vi.mocked(pingLlm).mockRejectedValue(new Error('Incorrect API key provided: sk-ant-REALSECRET.'));
 
-    const result = await usecase.execute();
+    const result = await usecase.execute('acc1');
     expect(result.error).toBe('Incorrect API key provided: ***.');
     expect(JSON.stringify(result)).not.toContain('REALSECRET');
   });
 
   it('explains an undecryptable key without calling the LLM', async () => {
-    findSingleton.mockResolvedValue(saved());
+    findByAccountId.mockResolvedValue(saved());
     decrypt.mockImplementation(() => {
       throw new Error('Cannot decrypt value');
     });
 
-    const result = await usecase.execute();
+    const result = await usecase.execute('acc1');
     expect(result).toMatchObject({ ok: false, latencyMs: null });
     expect(result.error).toMatch(/ENCRYPTION_KEY/);
     expect(pingLlm).not.toHaveBeenCalled();
@@ -86,8 +84,8 @@ describe('TestLlmSettingsUsecase', () => {
     ['no model', saved({ llmModel: null })],
     ['no provider', saved({ llmProvider: null })],
   ])('returns 400 when settings are incomplete (%s)', async (_name, row) => {
-    findSingleton.mockResolvedValue(row);
-    await expect(usecase.execute()).rejects.toBeInstanceOf(BadRequestException);
+    findByAccountId.mockResolvedValue(row);
+    await expect(usecase.execute('acc1')).rejects.toBeInstanceOf(BadRequestException);
     expect(pingLlm).not.toHaveBeenCalled();
   });
 });

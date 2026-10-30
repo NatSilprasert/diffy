@@ -5,6 +5,8 @@ import type { ProfileBuilderWorker } from '../src/module/profiles/worker/profile
 import type { ProfileFreshnessWorker } from '../src/module/profiles/worker/profile-freshness.worker';
 import type { SettingsService } from '../src/module/settings/settings.service';
 
+const watched = (id: string, accountId = 'acc1') => ({ id, accountId, owner: 'acme', name: id, baselineShas: [] as string[] });
+
 function setup(over: { row?: Record<string, unknown> | null; configured?: boolean; have?: string[]; created?: boolean | boolean[] } = {}) {
   const created = [over.created ?? true].flat();
   const repository = {
@@ -44,20 +46,20 @@ describe('ProfilesService.getReviewContext', () => {
 describe('ProfilesService.startMissing', () => {
   it('starts a build for each repository without a profile, and only those', async () => {
     const { service, repository, enqueue } = setup({ have: ['r2'] });
-    await service.startMissing(['r1', 'r2', 'r3']);
+    await service.startMissing([watched('r1'), watched('r2'), watched('r3')]);
     expect(repository.createBuilding.mock.calls.map(([id]) => id)).toEqual(['r1', 'r3']);
     expect(enqueue.mock.calls.map(([id]) => id)).toEqual(['r1', 'r3']);
   });
 
   it('does not build one that another caller created a moment earlier', async () => {
     const { service, enqueue } = setup({ created: [false, true] });
-    await service.startMissing(['r1', 'r2']);
+    await service.startMissing([watched('r1'), watched('r2')]);
     expect(enqueue.mock.calls.map(([id]) => id)).toEqual(['r2']);
   });
 
-  it('waits until GitHub and the model are set up, without touching the database', async () => {
+  it('waits until the account has set up its model, without touching the database', async () => {
     const { service, repository, enqueue } = setup({ configured: false });
-    await service.startMissing(['r1']);
+    await service.startMissing([watched('r1')]);
     expect(repository.findRepositoryIdsWithProfile).not.toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
   });
@@ -72,16 +74,35 @@ describe('ProfilesService.startMissing', () => {
 describe('ProfilesService.refreshStale', () => {
   it('hands the repositories to the freshness check', async () => {
     const { service, checkAll } = setup();
-    await service.refreshStale(['r1', 'r2']);
+    await service.refreshStale([watched('r1'), watched('r2')]);
     expect(checkAll).toHaveBeenCalledWith(['r1', 'r2']);
   });
 
-  it('does nothing before GitHub and the model are set up, or without repositories', async () => {
+  it('does nothing before the account has set up its model, or without repositories', async () => {
     const notReady = setup({ configured: false });
-    await notReady.service.refreshStale(['r1']);
+    await notReady.service.refreshStale([watched('r1')]);
     const none = setup();
     await none.service.refreshStale([]);
     expect(notReady.checkAll).not.toHaveBeenCalled();
     expect(none.checkAll).not.toHaveBeenCalled();
+  });
+});
+
+describe('ProfilesService with several accounts', () => {
+  it('asks each account once, and works only for the repositories of an account with a model', async () => {
+    const { service, isLlmConfigured, enqueue } = setup();
+    isLlmConfigured.mockImplementation(async (accountId: string) => accountId === 'ready');
+
+    await service.startMissing([watched('r1', 'ready'), watched('r2', 'waiting'), watched('r3', 'ready')]);
+
+    expect(isLlmConfigured.mock.calls.map(([accountId]) => accountId)).toEqual(['ready', 'waiting']);
+    expect(enqueue.mock.calls.map(([id]) => id)).toEqual(['r1', 'r3']);
+  });
+
+  it('checks freshness only for repositories of an account with a model', async () => {
+    const { service, isLlmConfigured, checkAll } = setup();
+    isLlmConfigured.mockImplementation(async (accountId: string) => accountId === 'ready');
+    await service.refreshStale([watched('r1', 'waiting'), watched('r2', 'ready')]);
+    expect(checkAll).toHaveBeenCalledWith(['r2']);
   });
 });

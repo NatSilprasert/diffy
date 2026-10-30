@@ -29,7 +29,7 @@ const poller = () =>
     { startMissing, refreshStale } as unknown as ProfilesService,
   );
 
-const repo = { id: 'r1', owner: 'acme', name: 'api', baselineShas: [] as string[] };
+const repo = { id: 'r1', accountId: 'acc1', owner: 'acme', name: 'api', baselineShas: [] as string[] };
 const pr = (number: number, over: Record<string, unknown> = {}) => ({
   owner: 'acme',
   repo: 'api',
@@ -300,8 +300,9 @@ describe('PollerWorker.getState', () => {
     it('asks for a profile for every pollable repository before polling them', async () => {
       listPollableRepos.mockResolvedValue([repo, { ...repo, id: 'r2', name: 'web' }]);
       await poller().pollAll();
-      expect(startMissing).toHaveBeenCalledWith(['r1', 'r2']);
-      expect(refreshStale).toHaveBeenCalledWith(['r1', 'r2']);
+      const repos = [repo, { ...repo, id: 'r2', name: 'web' }];
+      expect(startMissing).toHaveBeenCalledWith(repos);
+      expect(refreshStale).toHaveBeenCalledWith(repos);
       expect(recordPoll).toHaveBeenCalledTimes(2);
     });
 

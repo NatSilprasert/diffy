@@ -53,7 +53,7 @@ export class ProfileBuilderWorker implements OnApplicationBootstrap {
       const repo = await this.reposService.getActiveRepo(repositoryId);
       const { octokit, secrets: githubSecrets } = await this.githubService.getAccess(repo.owner, repo.name);
       secrets.push(...githubSecrets);
-      const llm = await this.settingsService.getLlmConfig();
+      const llm = await this.settingsService.getLlmConfig(repo.accountId);
       secrets.push(llm.apiKey);
 
       const built = await buildProjectProfile({ octokit, owner: repo.owner, repo: repo.name, llm });

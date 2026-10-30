@@ -1,10 +1,10 @@
-// Singleton row (id is always 1). Secrets are stored encrypted, never in plain text.
+// How an account's pull requests are reviewed: which model, and the API key the account gave for it. One row per
+// account. The key is stored encrypted, never in plain text.
 model Settings {
-  id             Int          @id @default(1)
-  githubTokenEnc String?
-  githubLogin    String?
-  llmProvider    LlmProvider?
-  llmModel       String?
-  llmApiKeyEnc   String?
-  updatedAt      DateTime     @updatedAt
+  accountId    String       @id
+  account      Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  llmProvider  LlmProvider?
+  llmModel     String?
+  llmApiKeyEnc String?
+  updatedAt    DateTime     @updatedAt
 }

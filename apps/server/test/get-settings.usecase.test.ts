@@ -4,24 +4,25 @@ import { GetSettingsResponseSchema } from '../src/module/settings/dto/get-settin
 import type { SettingsRepository } from '../src/module/settings/settings.repository';
 import { GetSettingsUsecase } from '../src/module/settings/usecase/get-settings.usecase';
 
-type Row = Awaited<ReturnType<SettingsRepository['findSingleton']>>;
+type Row = Awaited<ReturnType<SettingsRepository['findByAccountId']>>;
 
 const app = { name: 'diffy-dev', slug: 'diffy-dev', installUrl: 'https://github.com/apps/diffy-dev/installations/new' };
 
-function run(row: Row, github: { accounts?: unknown[]; app?: unknown; appError?: Error } = {}) {
+const findByAccountId = vi.fn();
+
+function run(row: Row, github: { accounts?: unknown[]; app?: unknown; appError?: Error } = {}, accountId: string | null = 'acc1') {
+  findByAccountId.mockReset().mockResolvedValue(row);
   return new GetSettingsUsecase(
-    { findSingleton: vi.fn().mockResolvedValue(row) } as unknown as SettingsRepository,
+    { findByAccountId } as unknown as SettingsRepository,
     {
       listInstalledAccounts: vi.fn().mockResolvedValue(github.accounts ?? []),
       getAppInfo: github.appError ? vi.fn().mockRejectedValue(github.appError) : vi.fn().mockResolvedValue(github.app ?? app),
     } as unknown as GithubService,
-  ).execute();
+  ).execute(accountId);
 }
 
 const row = (over: Partial<NonNullable<Row>> = {}): Row => ({
-  id: 1,
-  githubTokenEnc: null,
-  githubLogin: null,
+  accountId: 'acc1',
   llmProvider: null,
   llmModel: null,
   llmApiKeyEnc: null,
@@ -34,6 +35,16 @@ describe('GetSettingsUsecase', () => {
     const expected = { github: { configured: false, appName: 'diffy-dev', installUrl: app.installUrl, accounts: [] }, llm: { configured: false, provider: null, model: null } };
     expect(await run(null)).toEqual(expected);
     expect(await run(row())).toEqual(expected);
+  });
+
+  it('reads the settings of the account asked for, and none for a person without an account', async () => {
+    await run(row(), {}, 'acc9');
+    expect(findByAccountId).toHaveBeenCalledWith('acc9');
+
+    const result = await run(row({ llmProvider: 'openai', llmModel: 'm', llmApiKeyEnc: 'v1:k' }), { accounts: [] }, null);
+    expect(findByAccountId).not.toHaveBeenCalled();
+    expect(result.llm).toEqual({ configured: false, provider: null, model: null });
+    expect(result.github.installUrl).toBe(app.installUrl);
   });
 
   it('reports GitHub as configured once the App is installed, with where', async () => {
@@ -66,7 +77,7 @@ describe('GetSettingsUsecase', () => {
   });
 
   it('never returns encrypted values', async () => {
-    const result = await run(row({ githubTokenEnc: 'v1:SECRET-A:x:y', llmProvider: 'openai', llmModel: 'm', llmApiKeyEnc: 'v1:SECRET-B:x:y' }));
+    const result = await run(row({ llmProvider: 'openai', llmModel: 'm', llmApiKeyEnc: 'v1:SECRET-B:x:y' }));
     expect(JSON.stringify(result)).not.toMatch(/SECRET|v1:/);
     expect(GetSettingsResponseSchema.safeParse(result).success).toBe(true);
   });

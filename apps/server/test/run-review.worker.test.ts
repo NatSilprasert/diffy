@@ -29,7 +29,7 @@ const service = new RunReviewWorker(
   { getReviewContext } as unknown as ProfilesService,
 );
 
-const queuedReview = { id: 'v1', prNumber: 7, headSha: 'abc1234', repository: { owner: 'acme', name: 'api' } };
+const queuedReview = { id: 'v1', prNumber: 7, headSha: 'abc1234', repository: { accountId: 'acc1', owner: 'acme', name: 'api' } };
 const llm = { provider: 'anthropic', model: 'claude-x', apiKey: 'sk-ant-REALSECRET' };
 const finding = {
   path: 'a.ts',
@@ -69,6 +69,8 @@ describe('RunReviewWorker.run', () => {
     await service.run('v1');
 
     expect(vi.mocked(getPullRequest).mock.calls[0]!.slice(1)).toEqual(['acme', 'api', 7]);
+    // The model is the one of the account that owns the repository.
+    expect(getLlmConfig).toHaveBeenCalledWith('acc1');
     expect(vi.mocked(reviewPullRequest).mock.calls[0]![0]).toMatchObject({ llm, post: true, maxDiffChars: 123_456, maxContextChars: 7_000, expandContext: false, verify: false });
     expect(saveResult).toHaveBeenCalledWith('v1', {
       status: 'posted',

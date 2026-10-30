@@ -35,7 +35,7 @@ beforeEach(() => {
   findBuildingRepositoryIds.mockResolvedValue([]);
   saveBuilt.mockResolvedValue(undefined);
   markFailed.mockResolvedValue(undefined);
-  getActiveRepo.mockResolvedValue({ id: 'r1', owner: 'acme', name: 'shop', baselineShas: [] });
+  getActiveRepo.mockResolvedValue({ id: 'r1', accountId: 'acc1', owner: 'acme', name: 'shop', baselineShas: [] });
   getAccess.mockResolvedValue({ octokit: { client: true }, secrets: ['github_pat_REALTOKEN'] });
   getLlmConfig.mockResolvedValue(llm);
 });
@@ -46,6 +46,8 @@ describe('ProfileBuilderWorker.run', () => {
 
     const input = vi.mocked(buildProjectProfile).mock.calls[0]![0];
     expect(input).toMatchObject({ owner: 'acme', repo: 'shop', llm });
+    // The model is the one of the account that owns the repository.
+    expect(getLlmConfig).toHaveBeenCalledWith('acc1');
     expect(saveBuilt).toHaveBeenCalledWith('r1', {
       content: '## Overview',
       branch: 'main',

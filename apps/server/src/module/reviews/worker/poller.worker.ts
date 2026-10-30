@@ -3,7 +3,7 @@ import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnModuleD
 import { ENV } from '../../../infra/config/config.module';
 import type { Env } from '../../../infra/config/env';
 import { ProfilesService } from '../../profiles/profiles.service';
-import { ReposService } from '../../repos/repos.service';
+import { ReposService, type WatchedRepo } from '../../repos/repos.service';
 import { GithubService } from '../../github/github.service';
 import { isReviewable } from '../review-eligibility';
 import { ReviewsRepository } from '../reviews.repository';
@@ -11,7 +11,7 @@ import { ReviewQueueWorker } from './review-queue.worker';
 
 const MAX_ERROR_CHARS = 500;
 
-type PolledRepo = { id: string; owner: string; name: string; baselineShas: string[] };
+type PolledRepo = Pick<WatchedRepo, 'id' | 'owner' | 'name' | 'baselineShas'>;
 
 export type PollerState = {
   intervalSeconds: number;
@@ -81,7 +81,7 @@ export class PollerWorker implements OnApplicationBootstrap, OnModuleDestroy {
     this.polling = true;
     try {
       const repos = await this.reposService.listPollableRepos();
-      await this.maintainProfiles(repos.map((repo) => repo.id));
+      await this.maintainProfiles(repos);
       for (const repo of repos) {
         try {
           await this.pollRepo(repo);
@@ -99,10 +99,10 @@ export class PollerWorker implements OnApplicationBootstrap, OnModuleDestroy {
 
   // A watched repository that has no project profile yet gets one built in the background, and one whose project
   // changed a lot is built again. It must never stop the poll.
-  private async maintainProfiles(repositoryIds: string[]): Promise<void> {
+  private async maintainProfiles(repos: WatchedRepo[]): Promise<void> {
     try {
-      await this.profilesService.startMissing(repositoryIds);
-      await this.profilesService.refreshStale(repositoryIds);
+      await this.profilesService.startMissing(repos);
+      await this.profilesService.refreshStale(repos);
     } catch (err) {
       this.logger.error(`Could not maintain the project profiles: ${errorMessage(err)}`);
     }
